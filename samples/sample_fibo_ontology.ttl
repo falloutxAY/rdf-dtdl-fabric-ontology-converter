@@ -1,0 +1,921 @@
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix fibo: <http://example.org/fibo/> .
+
+# =============================================================================
+# Financial Industry Business Ontology (FIBO-inspired)
+# This ontology models core financial concepts including parties, accounts,
+# instruments, and transactions - inspired by the EDM Council's FIBO standard.
+# =============================================================================
+
+fibo:FinancialOntology rdf:type owl:Ontology ;
+    rdfs:label "Financial Industry Ontology" ;
+    rdfs:comment "A FIBO-inspired ontology for financial services covering parties, accounts, instruments, and transactions" .
+
+# =============================================================================
+# PARTIES - Organizations and Individuals
+# =============================================================================
+
+fibo:Party rdf:type owl:Class ;
+    rdfs:label "Party" ;
+    rdfs:comment "A legal entity or individual that can enter into contracts and financial arrangements" .
+
+fibo:Organization rdf:type owl:Class ;
+    rdfs:subClassOf fibo:Party ;
+    rdfs:label "Organization" ;
+    rdfs:comment "A formal group of people with a particular purpose, such as a business or government department" .
+
+fibo:FinancialInstitution rdf:type owl:Class ;
+    rdfs:subClassOf fibo:Organization ;
+    rdfs:label "Financial Institution" ;
+    rdfs:comment "An organization that provides financial services and is regulated by a financial authority" .
+
+fibo:Bank rdf:type owl:Class ;
+    rdfs:subClassOf fibo:FinancialInstitution ;
+    rdfs:label "Bank" ;
+    rdfs:comment "A financial institution licensed to receive deposits and make loans" .
+
+fibo:InsuranceCompany rdf:type owl:Class ;
+    rdfs:subClassOf fibo:FinancialInstitution ;
+    rdfs:label "Insurance Company" ;
+    rdfs:comment "A financial institution that provides risk management through insurance contracts" .
+
+fibo:InvestmentFirm rdf:type owl:Class ;
+    rdfs:subClassOf fibo:FinancialInstitution ;
+    rdfs:label "Investment Firm" ;
+    rdfs:comment "A financial institution that invests pooled capital on behalf of clients" .
+
+fibo:Corporation rdf:type owl:Class ;
+    rdfs:subClassOf fibo:Organization ;
+    rdfs:label "Corporation" ;
+    rdfs:comment "A legal entity that is separate from its owners with limited liability" .
+
+fibo:Individual rdf:type owl:Class ;
+    rdfs:subClassOf fibo:Party ;
+    rdfs:label "Individual" ;
+    rdfs:comment "A natural person who can be a party to financial transactions" .
+
+fibo:Customer rdf:type owl:Class ;
+    rdfs:subClassOf fibo:Party ;
+    rdfs:label "Customer" ;
+    rdfs:comment "A party that has a business relationship with a financial institution" .
+
+# =============================================================================
+# ACCOUNTS - Financial Accounts
+# =============================================================================
+
+fibo:Account rdf:type owl:Class ;
+    rdfs:label "Account" ;
+    rdfs:comment "A record of financial transactions and balances maintained by a financial institution" .
+
+fibo:DepositAccount rdf:type owl:Class ;
+    rdfs:subClassOf fibo:Account ;
+    rdfs:label "Deposit Account" ;
+    rdfs:comment "An account that holds funds deposited by an account holder" .
+
+fibo:CheckingAccount rdf:type owl:Class ;
+    rdfs:subClassOf fibo:DepositAccount ;
+    rdfs:label "Checking Account" ;
+    rdfs:comment "A transactional deposit account for day-to-day banking needs" .
+
+fibo:SavingsAccount rdf:type owl:Class ;
+    rdfs:subClassOf fibo:DepositAccount ;
+    rdfs:label "Savings Account" ;
+    rdfs:comment "A deposit account that earns interest on deposited funds" .
+
+fibo:LoanAccount rdf:type owl:Class ;
+    rdfs:subClassOf fibo:Account ;
+    rdfs:label "Loan Account" ;
+    rdfs:comment "An account that tracks a loan extended to a borrower" .
+
+fibo:MortgageAccount rdf:type owl:Class ;
+    rdfs:subClassOf fibo:LoanAccount ;
+    rdfs:label "Mortgage Account" ;
+    rdfs:comment "A loan account secured by real property" .
+
+fibo:CreditCardAccount rdf:type owl:Class ;
+    rdfs:subClassOf fibo:LoanAccount ;
+    rdfs:label "Credit Card Account" ;
+    rdfs:comment "A revolving credit account accessed via a credit card" .
+
+fibo:InvestmentAccount rdf:type owl:Class ;
+    rdfs:subClassOf fibo:Account ;
+    rdfs:label "Investment Account" ;
+    rdfs:comment "An account used to hold and trade financial instruments" .
+
+fibo:BrokerageAccount rdf:type owl:Class ;
+    rdfs:subClassOf fibo:InvestmentAccount ;
+    rdfs:label "Brokerage Account" ;
+    rdfs:comment "An investment account held at a registered brokerage firm" .
+
+fibo:RetirementAccount rdf:type owl:Class ;
+    rdfs:subClassOf fibo:InvestmentAccount ;
+    rdfs:label "Retirement Account" ;
+    rdfs:comment "A tax-advantaged investment account for retirement savings" .
+
+# =============================================================================
+# FINANCIAL INSTRUMENTS - Securities and Derivatives
+# =============================================================================
+
+fibo:FinancialInstrument rdf:type owl:Class ;
+    rdfs:label "Financial Instrument" ;
+    rdfs:comment "A tradeable asset or a contractual right to receive or deliver assets" .
+
+fibo:Security rdf:type owl:Class ;
+    rdfs:subClassOf fibo:FinancialInstrument ;
+    rdfs:label "Security" ;
+    rdfs:comment "A tradable financial instrument that represents ownership or debt" .
+
+fibo:EquitySecurity rdf:type owl:Class ;
+    rdfs:subClassOf fibo:Security ;
+    rdfs:label "Equity Security" ;
+    rdfs:comment "A security representing ownership interest in an entity" .
+
+fibo:CommonStock rdf:type owl:Class ;
+    rdfs:subClassOf fibo:EquitySecurity ;
+    rdfs:label "Common Stock" ;
+    rdfs:comment "Equity security representing voting shares in a corporation" .
+
+fibo:PreferredStock rdf:type owl:Class ;
+    rdfs:subClassOf fibo:EquitySecurity ;
+    rdfs:label "Preferred Stock" ;
+    rdfs:comment "Equity security with preferential dividend rights but typically no voting rights" .
+
+fibo:DebtSecurity rdf:type owl:Class ;
+    rdfs:subClassOf fibo:Security ;
+    rdfs:label "Debt Security" ;
+    rdfs:comment "A security representing a creditor relationship with an entity" .
+
+fibo:Bond rdf:type owl:Class ;
+    rdfs:subClassOf fibo:DebtSecurity ;
+    rdfs:label "Bond" ;
+    rdfs:comment "A fixed income instrument representing a loan made by an investor to a borrower" .
+
+fibo:GovernmentBond rdf:type owl:Class ;
+    rdfs:subClassOf fibo:Bond ;
+    rdfs:label "Government Bond" ;
+    rdfs:comment "A bond issued by a national government" .
+
+fibo:CorporateBond rdf:type owl:Class ;
+    rdfs:subClassOf fibo:Bond ;
+    rdfs:label "Corporate Bond" ;
+    rdfs:comment "A bond issued by a corporation to fund operations or expansion" .
+
+fibo:MunicipalBond rdf:type owl:Class ;
+    rdfs:subClassOf fibo:Bond ;
+    rdfs:label "Municipal Bond" ;
+    rdfs:comment "A bond issued by a state, city, or county government" .
+
+fibo:Derivative rdf:type owl:Class ;
+    rdfs:subClassOf fibo:FinancialInstrument ;
+    rdfs:label "Derivative" ;
+    rdfs:comment "A financial instrument whose value is derived from an underlying asset" .
+
+fibo:Option rdf:type owl:Class ;
+    rdfs:subClassOf fibo:Derivative ;
+    rdfs:label "Option" ;
+    rdfs:comment "A contract giving the right but not obligation to buy or sell an asset" .
+
+fibo:Future rdf:type owl:Class ;
+    rdfs:subClassOf fibo:Derivative ;
+    rdfs:label "Future" ;
+    rdfs:comment "A standardized contract to buy or sell an asset at a future date" .
+
+fibo:Swap rdf:type owl:Class ;
+    rdfs:subClassOf fibo:Derivative ;
+    rdfs:label "Swap" ;
+    rdfs:comment "A derivative contract to exchange cash flows between two parties" .
+
+fibo:Fund rdf:type owl:Class ;
+    rdfs:subClassOf fibo:FinancialInstrument ;
+    rdfs:label "Fund" ;
+    rdfs:comment "A pooled investment vehicle managed by an investment company" .
+
+fibo:MutualFund rdf:type owl:Class ;
+    rdfs:subClassOf fibo:Fund ;
+    rdfs:label "Mutual Fund" ;
+    rdfs:comment "An open-ended investment fund that pools money from many investors" .
+
+fibo:ETF rdf:type owl:Class ;
+    rdfs:subClassOf fibo:Fund ;
+    rdfs:label "Exchange Traded Fund" ;
+    rdfs:comment "A fund that trades on stock exchanges like individual stocks" .
+
+fibo:HedgeFund rdf:type owl:Class ;
+    rdfs:subClassOf fibo:Fund ;
+    rdfs:label "Hedge Fund" ;
+    rdfs:comment "An alternative investment fund using pooled funds with different strategies" .
+
+# =============================================================================
+# TRANSACTIONS - Financial Operations
+# =============================================================================
+
+fibo:Transaction rdf:type owl:Class ;
+    rdfs:label "Transaction" ;
+    rdfs:comment "A financial operation that changes the state of an account or transfers value" .
+
+fibo:Payment rdf:type owl:Class ;
+    rdfs:subClassOf fibo:Transaction ;
+    rdfs:label "Payment" ;
+    rdfs:comment "A transaction involving the transfer of money from one party to another" .
+
+fibo:Transfer rdf:type owl:Class ;
+    rdfs:subClassOf fibo:Transaction ;
+    rdfs:label "Transfer" ;
+    rdfs:comment "A movement of funds between accounts" .
+
+fibo:Trade rdf:type owl:Class ;
+    rdfs:subClassOf fibo:Transaction ;
+    rdfs:label "Trade" ;
+    rdfs:comment "A transaction involving the exchange of financial instruments" .
+
+fibo:BuyOrder rdf:type owl:Class ;
+    rdfs:subClassOf fibo:Trade ;
+    rdfs:label "Buy Order" ;
+    rdfs:comment "An order to purchase a financial instrument" .
+
+fibo:SellOrder rdf:type owl:Class ;
+    rdfs:subClassOf fibo:Trade ;
+    rdfs:label "Sell Order" ;
+    rdfs:comment "An order to sell a financial instrument" .
+
+fibo:Deposit rdf:type owl:Class ;
+    rdfs:subClassOf fibo:Transaction ;
+    rdfs:label "Deposit" ;
+    rdfs:comment "A transaction adding funds to an account" .
+
+fibo:Withdrawal rdf:type owl:Class ;
+    rdfs:subClassOf fibo:Transaction ;
+    rdfs:label "Withdrawal" ;
+    rdfs:comment "A transaction removing funds from an account" .
+
+fibo:DividendPayment rdf:type owl:Class ;
+    rdfs:subClassOf fibo:Payment ;
+    rdfs:label "Dividend Payment" ;
+    rdfs:comment "A payment of earnings distributed to shareholders" .
+
+fibo:InterestPayment rdf:type owl:Class ;
+    rdfs:subClassOf fibo:Payment ;
+    rdfs:label "Interest Payment" ;
+    rdfs:comment "A payment for the use of borrowed money" .
+
+# =============================================================================
+# CONTRACTS AND AGREEMENTS
+# =============================================================================
+
+fibo:Contract rdf:type owl:Class ;
+    rdfs:label "Contract" ;
+    rdfs:comment "A legally binding agreement between two or more parties" .
+
+fibo:LoanAgreement rdf:type owl:Class ;
+    rdfs:subClassOf fibo:Contract ;
+    rdfs:label "Loan Agreement" ;
+    rdfs:comment "A contract for the lending of money with terms for repayment" .
+
+fibo:InsurancePolicy rdf:type owl:Class ;
+    rdfs:subClassOf fibo:Contract ;
+    rdfs:label "Insurance Policy" ;
+    rdfs:comment "A contract providing financial protection against specified risks" .
+
+fibo:ServiceAgreement rdf:type owl:Class ;
+    rdfs:subClassOf fibo:Contract ;
+    rdfs:label "Service Agreement" ;
+    rdfs:comment "A contract for the provision of financial services" .
+
+# =============================================================================
+# REGULATORY AND COMPLIANCE
+# =============================================================================
+
+fibo:RegulatoryAuthority rdf:type owl:Class ;
+    rdfs:subClassOf fibo:Organization ;
+    rdfs:label "Regulatory Authority" ;
+    rdfs:comment "A government body responsible for regulating financial activities" .
+
+fibo:Jurisdiction rdf:type owl:Class ;
+    rdfs:label "Jurisdiction" ;
+    rdfs:comment "A geographical area with its own set of laws and regulations" .
+
+fibo:ComplianceRequirement rdf:type owl:Class ;
+    rdfs:label "Compliance Requirement" ;
+    rdfs:comment "A regulatory requirement that must be met by financial institutions" .
+
+# =============================================================================
+# RISK MANAGEMENT
+# =============================================================================
+
+fibo:Risk rdf:type owl:Class ;
+    rdfs:label "Risk" ;
+    rdfs:comment "The potential for financial loss or adverse outcome" .
+
+fibo:CreditRisk rdf:type owl:Class ;
+    rdfs:subClassOf fibo:Risk ;
+    rdfs:label "Credit Risk" ;
+    rdfs:comment "Risk of loss due to a borrower's failure to repay a loan" .
+
+fibo:MarketRisk rdf:type owl:Class ;
+    rdfs:subClassOf fibo:Risk ;
+    rdfs:label "Market Risk" ;
+    rdfs:comment "Risk of losses due to changes in market prices" .
+
+fibo:OperationalRisk rdf:type owl:Class ;
+    rdfs:subClassOf fibo:Risk ;
+    rdfs:label "Operational Risk" ;
+    rdfs:comment "Risk of loss from inadequate or failed processes, people, or systems" .
+
+fibo:LiquidityRisk rdf:type owl:Class ;
+    rdfs:subClassOf fibo:Risk ;
+    rdfs:label "Liquidity Risk" ;
+    rdfs:comment "Risk of being unable to meet short-term financial obligations" .
+
+# =============================================================================
+# DATA PROPERTIES - Party Properties
+# =============================================================================
+
+fibo:partyId rdf:type owl:DatatypeProperty ;
+    rdfs:domain fibo:Party ;
+    rdfs:range xsd:string ;
+    rdfs:label "Party ID" ;
+    rdfs:comment "Unique identifier for the party" .
+
+fibo:partyName rdf:type owl:DatatypeProperty ;
+    rdfs:domain fibo:Party ;
+    rdfs:range xsd:string ;
+    rdfs:label "Party Name" ;
+    rdfs:comment "Legal name of the party" .
+
+fibo:legalEntityIdentifier rdf:type owl:DatatypeProperty ;
+    rdfs:domain fibo:Organization ;
+    rdfs:range xsd:string ;
+    rdfs:label "Legal Entity Identifier" ;
+    rdfs:comment "LEI code for the organization" .
+
+fibo:taxIdentificationNumber rdf:type owl:DatatypeProperty ;
+    rdfs:domain fibo:Party ;
+    rdfs:range xsd:string ;
+    rdfs:label "Tax Identification Number" ;
+    rdfs:comment "Tax ID for the party" .
+
+fibo:incorporationDate rdf:type owl:DatatypeProperty ;
+    rdfs:domain fibo:Organization ;
+    rdfs:range xsd:dateTime ;
+    rdfs:label "Incorporation Date" ;
+    rdfs:comment "Date when the organization was legally formed" .
+
+fibo:dateOfBirth rdf:type owl:DatatypeProperty ;
+    rdfs:domain fibo:Individual ;
+    rdfs:range xsd:dateTime ;
+    rdfs:label "Date of Birth" ;
+    rdfs:comment "Birth date of the individual" .
+
+fibo:nationality rdf:type owl:DatatypeProperty ;
+    rdfs:domain fibo:Individual ;
+    rdfs:range xsd:string ;
+    rdfs:label "Nationality" ;
+    rdfs:comment "Country of citizenship" .
+
+fibo:creditScore rdf:type owl:DatatypeProperty ;
+    rdfs:domain fibo:Party ;
+    rdfs:range xsd:integer ;
+    rdfs:label "Credit Score" ;
+    rdfs:comment "Numerical credit rating of the party" .
+
+fibo:riskRating rdf:type owl:DatatypeProperty ;
+    rdfs:domain fibo:Party ;
+    rdfs:range xsd:string ;
+    rdfs:label "Risk Rating" ;
+    rdfs:comment "Risk classification assigned to the party" .
+
+fibo:kycStatus rdf:type owl:DatatypeProperty ;
+    rdfs:domain fibo:Customer ;
+    rdfs:range xsd:string ;
+    rdfs:label "KYC Status" ;
+    rdfs:comment "Know Your Customer verification status" .
+
+fibo:customerSince rdf:type owl:DatatypeProperty ;
+    rdfs:domain fibo:Customer ;
+    rdfs:range xsd:dateTime ;
+    rdfs:label "Customer Since" ;
+    rdfs:comment "Date when the customer relationship began" .
+
+# =============================================================================
+# DATA PROPERTIES - Account Properties
+# =============================================================================
+
+fibo:accountNumber rdf:type owl:DatatypeProperty ;
+    rdfs:domain fibo:Account ;
+    rdfs:range xsd:string ;
+    rdfs:label "Account Number" ;
+    rdfs:comment "Unique identifier for the account" .
+
+fibo:accountName rdf:type owl:DatatypeProperty ;
+    rdfs:domain fibo:Account ;
+    rdfs:range xsd:string ;
+    rdfs:label "Account Name" ;
+    rdfs:comment "Display name for the account" .
+
+fibo:accountStatus rdf:type owl:DatatypeProperty ;
+    rdfs:domain fibo:Account ;
+    rdfs:range xsd:string ;
+    rdfs:label "Account Status" ;
+    rdfs:comment "Current status of the account (Active, Closed, Frozen, etc.)" .
+
+fibo:openDate rdf:type owl:DatatypeProperty ;
+    rdfs:domain fibo:Account ;
+    rdfs:range xsd:dateTime ;
+    rdfs:label "Open Date" ;
+    rdfs:comment "Date when the account was opened" .
+
+fibo:closeDate rdf:type owl:DatatypeProperty ;
+    rdfs:domain fibo:Account ;
+    rdfs:range xsd:dateTime ;
+    rdfs:label "Close Date" ;
+    rdfs:comment "Date when the account was closed" .
+
+fibo:currentBalance rdf:type owl:DatatypeProperty ;
+    rdfs:domain fibo:Account ;
+    rdfs:range xsd:double ;
+    rdfs:label "Current Balance" ;
+    rdfs:comment "Current balance of the account" .
+
+fibo:availableBalance rdf:type owl:DatatypeProperty ;
+    rdfs:domain fibo:Account ;
+    rdfs:range xsd:double ;
+    rdfs:label "Available Balance" ;
+    rdfs:comment "Available balance for transactions" .
+
+fibo:currency rdf:type owl:DatatypeProperty ;
+    rdfs:domain fibo:Account ;
+    rdfs:range xsd:string ;
+    rdfs:label "Currency" ;
+    rdfs:comment "ISO currency code for the account" .
+
+fibo:interestRate rdf:type owl:DatatypeProperty ;
+    rdfs:domain fibo:Account ;
+    rdfs:range xsd:double ;
+    rdfs:label "Interest Rate" ;
+    rdfs:comment "Annual interest rate as a percentage" .
+
+fibo:creditLimit rdf:type owl:DatatypeProperty ;
+    rdfs:domain fibo:CreditCardAccount ;
+    rdfs:range xsd:double ;
+    rdfs:label "Credit Limit" ;
+    rdfs:comment "Maximum credit available on the account" .
+
+fibo:minimumPayment rdf:type owl:DatatypeProperty ;
+    rdfs:domain fibo:LoanAccount ;
+    rdfs:range xsd:double ;
+    rdfs:label "Minimum Payment" ;
+    rdfs:comment "Minimum required periodic payment" .
+
+fibo:principalAmount rdf:type owl:DatatypeProperty ;
+    rdfs:domain fibo:LoanAccount ;
+    rdfs:range xsd:double ;
+    rdfs:label "Principal Amount" ;
+    rdfs:comment "Original loan amount" .
+
+fibo:maturityDate rdf:type owl:DatatypeProperty ;
+    rdfs:domain fibo:LoanAccount ;
+    rdfs:range xsd:dateTime ;
+    rdfs:label "Maturity Date" ;
+    rdfs:comment "Date when the loan is due to be fully repaid" .
+
+# =============================================================================
+# DATA PROPERTIES - Financial Instrument Properties
+# =============================================================================
+
+fibo:instrumentId rdf:type owl:DatatypeProperty ;
+    rdfs:domain fibo:FinancialInstrument ;
+    rdfs:range xsd:string ;
+    rdfs:label "Instrument ID" ;
+    rdfs:comment "Unique identifier for the financial instrument" .
+
+fibo:instrumentName rdf:type owl:DatatypeProperty ;
+    rdfs:domain fibo:FinancialInstrument ;
+    rdfs:range xsd:string ;
+    rdfs:label "Instrument Name" ;
+    rdfs:comment "Name of the financial instrument" .
+
+fibo:isin rdf:type owl:DatatypeProperty ;
+    rdfs:domain fibo:Security ;
+    rdfs:range xsd:string ;
+    rdfs:label "ISIN" ;
+    rdfs:comment "International Securities Identification Number" .
+
+fibo:cusip rdf:type owl:DatatypeProperty ;
+    rdfs:domain fibo:Security ;
+    rdfs:range xsd:string ;
+    rdfs:label "CUSIP" ;
+    rdfs:comment "Committee on Uniform Securities Identification Procedures number" .
+
+fibo:tickerSymbol rdf:type owl:DatatypeProperty ;
+    rdfs:domain fibo:EquitySecurity ;
+    rdfs:range xsd:string ;
+    rdfs:label "Ticker Symbol" ;
+    rdfs:comment "Stock exchange trading symbol" .
+
+fibo:currentPrice rdf:type owl:DatatypeProperty ;
+    rdfs:domain fibo:FinancialInstrument ;
+    rdfs:range xsd:double ;
+    rdfs:label "Current Price" ;
+    rdfs:comment "Current market price of the instrument" .
+
+fibo:faceValue rdf:type owl:DatatypeProperty ;
+    rdfs:domain fibo:Bond ;
+    rdfs:range xsd:double ;
+    rdfs:label "Face Value" ;
+    rdfs:comment "Nominal or par value of the bond" .
+
+fibo:couponRate rdf:type owl:DatatypeProperty ;
+    rdfs:domain fibo:Bond ;
+    rdfs:range xsd:double ;
+    rdfs:label "Coupon Rate" ;
+    rdfs:comment "Annual interest rate paid on the bond" .
+
+fibo:bondMaturityDate rdf:type owl:DatatypeProperty ;
+    rdfs:domain fibo:Bond ;
+    rdfs:range xsd:dateTime ;
+    rdfs:label "Bond Maturity Date" ;
+    rdfs:comment "Date when the bond principal is repaid" .
+
+fibo:strikePrice rdf:type owl:DatatypeProperty ;
+    rdfs:domain fibo:Option ;
+    rdfs:range xsd:double ;
+    rdfs:label "Strike Price" ;
+    rdfs:comment "Price at which the option can be exercised" .
+
+fibo:expirationDate rdf:type owl:DatatypeProperty ;
+    rdfs:domain fibo:Derivative ;
+    rdfs:range xsd:dateTime ;
+    rdfs:label "Expiration Date" ;
+    rdfs:comment "Date when the derivative contract expires" .
+
+fibo:notionalAmount rdf:type owl:DatatypeProperty ;
+    rdfs:domain fibo:Derivative ;
+    rdfs:range xsd:double ;
+    rdfs:label "Notional Amount" ;
+    rdfs:comment "Notional principal amount of the derivative" .
+
+fibo:navPerShare rdf:type owl:DatatypeProperty ;
+    rdfs:domain fibo:Fund ;
+    rdfs:range xsd:double ;
+    rdfs:label "NAV Per Share" ;
+    rdfs:comment "Net Asset Value per share of the fund" .
+
+fibo:assetsUnderManagement rdf:type owl:DatatypeProperty ;
+    rdfs:domain fibo:Fund ;
+    rdfs:range xsd:double ;
+    rdfs:label "Assets Under Management" ;
+    rdfs:comment "Total value of assets managed by the fund" .
+
+fibo:expenseRatio rdf:type owl:DatatypeProperty ;
+    rdfs:domain fibo:Fund ;
+    rdfs:range xsd:double ;
+    rdfs:label "Expense Ratio" ;
+    rdfs:comment "Annual fund operating expenses as a percentage of AUM" .
+
+# =============================================================================
+# DATA PROPERTIES - Transaction Properties
+# =============================================================================
+
+fibo:transactionId rdf:type owl:DatatypeProperty ;
+    rdfs:domain fibo:Transaction ;
+    rdfs:range xsd:string ;
+    rdfs:label "Transaction ID" ;
+    rdfs:comment "Unique identifier for the transaction" .
+
+fibo:transactionDate rdf:type owl:DatatypeProperty ;
+    rdfs:domain fibo:Transaction ;
+    rdfs:range xsd:dateTime ;
+    rdfs:label "Transaction Date" ;
+    rdfs:comment "Date and time when the transaction occurred" .
+
+fibo:settlementDate rdf:type owl:DatatypeProperty ;
+    rdfs:domain fibo:Transaction ;
+    rdfs:range xsd:dateTime ;
+    rdfs:label "Settlement Date" ;
+    rdfs:comment "Date when the transaction is settled" .
+
+fibo:transactionAmount rdf:type owl:DatatypeProperty ;
+    rdfs:domain fibo:Transaction ;
+    rdfs:range xsd:double ;
+    rdfs:label "Transaction Amount" ;
+    rdfs:comment "Monetary value of the transaction" .
+
+fibo:transactionStatus rdf:type owl:DatatypeProperty ;
+    rdfs:domain fibo:Transaction ;
+    rdfs:range xsd:string ;
+    rdfs:label "Transaction Status" ;
+    rdfs:comment "Current status of the transaction (Pending, Completed, Failed, etc.)" .
+
+fibo:transactionCurrency rdf:type owl:DatatypeProperty ;
+    rdfs:domain fibo:Transaction ;
+    rdfs:range xsd:string ;
+    rdfs:label "Transaction Currency" ;
+    rdfs:comment "Currency of the transaction" .
+
+fibo:quantity rdf:type owl:DatatypeProperty ;
+    rdfs:domain fibo:Trade ;
+    rdfs:range xsd:double ;
+    rdfs:label "Quantity" ;
+    rdfs:comment "Number of units traded" .
+
+fibo:executionPrice rdf:type owl:DatatypeProperty ;
+    rdfs:domain fibo:Trade ;
+    rdfs:range xsd:double ;
+    rdfs:label "Execution Price" ;
+    rdfs:comment "Price at which the trade was executed" .
+
+fibo:commission rdf:type owl:DatatypeProperty ;
+    rdfs:domain fibo:Trade ;
+    rdfs:range xsd:double ;
+    rdfs:label "Commission" ;
+    rdfs:comment "Commission charged for the trade" .
+
+# =============================================================================
+# DATA PROPERTIES - Contract Properties
+# =============================================================================
+
+fibo:contractId rdf:type owl:DatatypeProperty ;
+    rdfs:domain fibo:Contract ;
+    rdfs:range xsd:string ;
+    rdfs:label "Contract ID" ;
+    rdfs:comment "Unique identifier for the contract" .
+
+fibo:contractName rdf:type owl:DatatypeProperty ;
+    rdfs:domain fibo:Contract ;
+    rdfs:range xsd:string ;
+    rdfs:label "Contract Name" ;
+    rdfs:comment "Name or title of the contract" .
+
+fibo:effectiveDate rdf:type owl:DatatypeProperty ;
+    rdfs:domain fibo:Contract ;
+    rdfs:range xsd:dateTime ;
+    rdfs:label "Effective Date" ;
+    rdfs:comment "Date when the contract becomes effective" .
+
+fibo:terminationDate rdf:type owl:DatatypeProperty ;
+    rdfs:domain fibo:Contract ;
+    rdfs:range xsd:dateTime ;
+    rdfs:label "Termination Date" ;
+    rdfs:comment "Date when the contract ends" .
+
+fibo:contractValue rdf:type owl:DatatypeProperty ;
+    rdfs:domain fibo:Contract ;
+    rdfs:range xsd:double ;
+    rdfs:label "Contract Value" ;
+    rdfs:comment "Total value of the contract" .
+
+fibo:premium rdf:type owl:DatatypeProperty ;
+    rdfs:domain fibo:InsurancePolicy ;
+    rdfs:range xsd:double ;
+    rdfs:label "Premium" ;
+    rdfs:comment "Insurance premium amount" .
+
+fibo:coverageAmount rdf:type owl:DatatypeProperty ;
+    rdfs:domain fibo:InsurancePolicy ;
+    rdfs:range xsd:double ;
+    rdfs:label "Coverage Amount" ;
+    rdfs:comment "Maximum coverage provided by the policy" .
+
+# =============================================================================
+# DATA PROPERTIES - Risk and Compliance Properties
+# =============================================================================
+
+fibo:riskId rdf:type owl:DatatypeProperty ;
+    rdfs:domain fibo:Risk ;
+    rdfs:range xsd:string ;
+    rdfs:label "Risk ID" ;
+    rdfs:comment "Unique identifier for the risk" .
+
+fibo:riskName rdf:type owl:DatatypeProperty ;
+    rdfs:domain fibo:Risk ;
+    rdfs:range xsd:string ;
+    rdfs:label "Risk Name" ;
+    rdfs:comment "Name or description of the risk" .
+
+fibo:riskLevel rdf:type owl:DatatypeProperty ;
+    rdfs:domain fibo:Risk ;
+    rdfs:range xsd:string ;
+    rdfs:label "Risk Level" ;
+    rdfs:comment "Severity level of the risk (Low, Medium, High, Critical)" .
+
+fibo:probabilityOfDefault rdf:type owl:DatatypeProperty ;
+    rdfs:domain fibo:CreditRisk ;
+    rdfs:range xsd:double ;
+    rdfs:label "Probability of Default" ;
+    rdfs:comment "Likelihood of default expressed as a percentage" .
+
+fibo:exposureAtDefault rdf:type owl:DatatypeProperty ;
+    rdfs:domain fibo:CreditRisk ;
+    rdfs:range xsd:double ;
+    rdfs:label "Exposure at Default" ;
+    rdfs:comment "Expected exposure amount at the time of default" .
+
+fibo:valueAtRisk rdf:type owl:DatatypeProperty ;
+    rdfs:domain fibo:MarketRisk ;
+    rdfs:range xsd:double ;
+    rdfs:label "Value at Risk" ;
+    rdfs:comment "Maximum potential loss within a given confidence interval" .
+
+fibo:jurisdictionCode rdf:type owl:DatatypeProperty ;
+    rdfs:domain fibo:Jurisdiction ;
+    rdfs:range xsd:string ;
+    rdfs:label "Jurisdiction Code" ;
+    rdfs:comment "ISO code for the jurisdiction" .
+
+fibo:jurisdictionName rdf:type owl:DatatypeProperty ;
+    rdfs:domain fibo:Jurisdiction ;
+    rdfs:range xsd:string ;
+    rdfs:label "Jurisdiction Name" ;
+    rdfs:comment "Name of the jurisdiction" .
+
+fibo:requirementId rdf:type owl:DatatypeProperty ;
+    rdfs:domain fibo:ComplianceRequirement ;
+    rdfs:range xsd:string ;
+    rdfs:label "Requirement ID" ;
+    rdfs:comment "Unique identifier for the compliance requirement" .
+
+fibo:requirementDescription rdf:type owl:DatatypeProperty ;
+    rdfs:domain fibo:ComplianceRequirement ;
+    rdfs:range xsd:string ;
+    rdfs:label "Requirement Description" ;
+    rdfs:comment "Description of the compliance requirement" .
+
+fibo:complianceStatus rdf:type owl:DatatypeProperty ;
+    rdfs:domain fibo:ComplianceRequirement ;
+    rdfs:range xsd:boolean ;
+    rdfs:label "Compliance Status" ;
+    rdfs:comment "Whether the requirement is currently met" .
+
+# =============================================================================
+# OBJECT PROPERTIES - Party Relationships
+# =============================================================================
+
+fibo:hasCustomer rdf:type owl:ObjectProperty ;
+    rdfs:domain fibo:FinancialInstitution ;
+    rdfs:range fibo:Customer ;
+    rdfs:label "Has Customer" ;
+    rdfs:comment "Financial institution has a customer relationship" .
+
+fibo:isCustomerOf rdf:type owl:ObjectProperty ;
+    owl:inverseOf fibo:hasCustomer ;
+    rdfs:domain fibo:Customer ;
+    rdfs:range fibo:FinancialInstitution ;
+    rdfs:label "Is Customer Of" ;
+    rdfs:comment "Party is a customer of a financial institution" .
+
+fibo:hasSubsidiary rdf:type owl:ObjectProperty ;
+    rdfs:domain fibo:Organization ;
+    rdfs:range fibo:Organization ;
+    rdfs:label "Has Subsidiary" ;
+    rdfs:comment "Organization owns another organization as a subsidiary" .
+
+fibo:isSubsidiaryOf rdf:type owl:ObjectProperty ;
+    owl:inverseOf fibo:hasSubsidiary ;
+    rdfs:domain fibo:Organization ;
+    rdfs:range fibo:Organization ;
+    rdfs:label "Is Subsidiary Of" ;
+    rdfs:comment "Organization is owned by a parent organization" .
+
+fibo:regulatedBy rdf:type owl:ObjectProperty ;
+    rdfs:domain fibo:FinancialInstitution ;
+    rdfs:range fibo:RegulatoryAuthority ;
+    rdfs:label "Regulated By" ;
+    rdfs:comment "Financial institution is regulated by an authority" .
+
+# =============================================================================
+# OBJECT PROPERTIES - Account Relationships
+# =============================================================================
+
+fibo:hasAccount rdf:type owl:ObjectProperty ;
+    rdfs:domain fibo:Party ;
+    rdfs:range fibo:Account ;
+    rdfs:label "Has Account" ;
+    rdfs:comment "Party holds an account" .
+
+fibo:accountHeldBy rdf:type owl:ObjectProperty ;
+    owl:inverseOf fibo:hasAccount ;
+    rdfs:domain fibo:Account ;
+    rdfs:range fibo:Party ;
+    rdfs:label "Account Held By" ;
+    rdfs:comment "Account is owned by a party" .
+
+fibo:servicedBy rdf:type owl:ObjectProperty ;
+    rdfs:domain fibo:Account ;
+    rdfs:range fibo:FinancialInstitution ;
+    rdfs:label "Serviced By" ;
+    rdfs:comment "Account is serviced by a financial institution" .
+
+fibo:holdsInstrument rdf:type owl:ObjectProperty ;
+    rdfs:domain fibo:InvestmentAccount ;
+    rdfs:range fibo:FinancialInstrument ;
+    rdfs:label "Holds Instrument" ;
+    rdfs:comment "Investment account holds a financial instrument" .
+
+# =============================================================================
+# OBJECT PROPERTIES - Transaction Relationships
+# =============================================================================
+
+fibo:affectsAccount rdf:type owl:ObjectProperty ;
+    rdfs:domain fibo:Transaction ;
+    rdfs:range fibo:Account ;
+    rdfs:label "Affects Account" ;
+    rdfs:comment "Transaction affects an account" .
+
+fibo:initiatedBy rdf:type owl:ObjectProperty ;
+    rdfs:domain fibo:Transaction ;
+    rdfs:range fibo:Party ;
+    rdfs:label "Initiated By" ;
+    rdfs:comment "Transaction was initiated by a party" .
+
+fibo:involvesInstrument rdf:type owl:ObjectProperty ;
+    rdfs:domain fibo:Trade ;
+    rdfs:range fibo:FinancialInstrument ;
+    rdfs:label "Involves Instrument" ;
+    rdfs:comment "Trade involves a financial instrument" .
+
+fibo:counterparty rdf:type owl:ObjectProperty ;
+    rdfs:domain fibo:Transaction ;
+    rdfs:range fibo:Party ;
+    rdfs:label "Counterparty" ;
+    rdfs:comment "The other party in the transaction" .
+
+# =============================================================================
+# OBJECT PROPERTIES - Contract Relationships
+# =============================================================================
+
+fibo:hasContract rdf:type owl:ObjectProperty ;
+    rdfs:domain fibo:Party ;
+    rdfs:range fibo:Contract ;
+    rdfs:label "Has Contract" ;
+    rdfs:comment "Party is bound by a contract" .
+
+fibo:governedBy rdf:type owl:ObjectProperty ;
+    rdfs:domain fibo:Account ;
+    rdfs:range fibo:Contract ;
+    rdfs:label "Governed By" ;
+    rdfs:comment "Account is governed by a contract or agreement" .
+
+fibo:securedBy rdf:type owl:ObjectProperty ;
+    rdfs:domain fibo:LoanAccount ;
+    rdfs:range fibo:FinancialInstrument ;
+    rdfs:label "Secured By" ;
+    rdfs:comment "Loan is secured by collateral" .
+
+# =============================================================================
+# OBJECT PROPERTIES - Instrument Relationships
+# =============================================================================
+
+fibo:issuedBy rdf:type owl:ObjectProperty ;
+    rdfs:domain fibo:Security ;
+    rdfs:range fibo:Organization ;
+    rdfs:label "Issued By" ;
+    rdfs:comment "Security was issued by an organization" .
+
+fibo:derivedFrom rdf:type owl:ObjectProperty ;
+    rdfs:domain fibo:Derivative ;
+    rdfs:range fibo:FinancialInstrument ;
+    rdfs:label "Derived From" ;
+    rdfs:comment "Derivative is based on an underlying instrument" .
+
+fibo:managedBy rdf:type owl:ObjectProperty ;
+    rdfs:domain fibo:Fund ;
+    rdfs:range fibo:InvestmentFirm ;
+    rdfs:label "Managed By" ;
+    rdfs:comment "Fund is managed by an investment firm" .
+
+# =============================================================================
+# OBJECT PROPERTIES - Risk and Compliance Relationships
+# =============================================================================
+
+fibo:hasRisk rdf:type owl:ObjectProperty ;
+    rdfs:domain fibo:Party ;
+    rdfs:range fibo:Risk ;
+    rdfs:label "Has Risk" ;
+    rdfs:comment "Party is associated with a risk" .
+
+fibo:exposedToRisk rdf:type owl:ObjectProperty ;
+    rdfs:domain fibo:Account ;
+    rdfs:range fibo:Risk ;
+    rdfs:label "Exposed To Risk" ;
+    rdfs:comment "Account is exposed to a type of risk" .
+
+fibo:subjectToRequirement rdf:type owl:ObjectProperty ;
+    rdfs:domain fibo:FinancialInstitution ;
+    rdfs:range fibo:ComplianceRequirement ;
+    rdfs:label "Subject To Requirement" ;
+    rdfs:comment "Institution must comply with a requirement" .
+
+fibo:operatesIn rdf:type owl:ObjectProperty ;
+    rdfs:domain fibo:FinancialInstitution ;
+    rdfs:range fibo:Jurisdiction ;
+    rdfs:label "Operates In" ;
+    rdfs:comment "Institution operates in a jurisdiction" .
+
+fibo:appliesIn rdf:type owl:ObjectProperty ;
+    rdfs:domain fibo:ComplianceRequirement ;
+    rdfs:range fibo:Jurisdiction ;
+    rdfs:label "Applies In" ;
+    rdfs:comment "Requirement applies in a jurisdiction" .

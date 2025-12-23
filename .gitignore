@@ -1,0 +1,81 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.pdb
+*.egg-info/
+*.egg
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.manifest
+*.spec
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+.virtualenv/
+
+# IDE/editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.hypothesis/
+test_results.txt
+*.cover
+
+# Logs
+*.log
+logs/
+
+# Secrets and credentials
+config.json
+*.pem
+*.crt
+*.cer
+*.pfx
+*.key
+*.env
+.env*
+secrets/
+credentials/
+
+# Local test outputs
+samples/*.json
+samples/**/output/
+
+# Backup files
+*.bak
+*.backup
+*.old
+
+# OS specific
+Thumbs.db
+Desktop.ini
+
+# Temporary files
+tmp/
+temp/
+*.tmp

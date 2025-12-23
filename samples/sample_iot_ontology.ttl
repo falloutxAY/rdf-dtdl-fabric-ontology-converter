@@ -1,0 +1,80 @@
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix iot: <http://example.org/iot/> .
+
+# IoT Device Management Ontology
+# This is a simpler test ontology for IoT devices
+
+iot:IoTOntology rdf:type owl:Ontology ;
+    rdfs:label "IoT Ontology" ;
+    rdfs:comment "Simple IoT device management ontology" .
+
+# =============================================================================
+# Classes
+# =============================================================================
+
+iot:Device rdf:type owl:Class ;
+    rdfs:label "Device" ;
+    rdfs:comment "An IoT device" .
+
+iot:Location rdf:type owl:Class ;
+    rdfs:label "Location" ;
+    rdfs:comment "A physical location" .
+
+# =============================================================================
+# Data Properties
+# =============================================================================
+
+# Device properties
+iot:deviceId rdf:type owl:DatatypeProperty ;
+    rdfs:domain iot:Device ;
+    rdfs:range xsd:string ;
+    rdfs:label "Device ID" .
+
+iot:deviceName rdf:type owl:DatatypeProperty ;
+    rdfs:domain iot:Device ;
+    rdfs:range xsd:string ;
+    rdfs:label "Device Name" .
+
+iot:status rdf:type owl:DatatypeProperty ;
+    rdfs:domain iot:Device ;
+    rdfs:range xsd:string ;
+    rdfs:label "Status" .
+
+iot:temperature rdf:type owl:DatatypeProperty ;
+    rdfs:domain iot:Device ;
+    rdfs:range xsd:double ;
+    rdfs:label "Temperature" .
+
+iot:lastSeen rdf:type owl:DatatypeProperty ;
+    rdfs:domain iot:Device ;
+    rdfs:range xsd:dateTime ;
+    rdfs:label "Last Seen" .
+
+# Location properties
+iot:locationId rdf:type owl:DatatypeProperty ;
+    rdfs:domain iot:Location ;
+    rdfs:range xsd:string ;
+    rdfs:label "Location ID" .
+
+iot:locationName rdf:type owl:DatatypeProperty ;
+    rdfs:domain iot:Location ;
+    rdfs:range xsd:string ;
+    rdfs:label "Location Name" .
+
+iot:address rdf:type owl:DatatypeProperty ;
+    rdfs:domain iot:Location ;
+    rdfs:range xsd:string ;
+    rdfs:label "Address" .
+
+# =============================================================================
+# Object Properties
+# =============================================================================
+
+iot:locatedAt rdf:type owl:ObjectProperty ;
+    rdfs:domain iot:Device ;
+    rdfs:range iot:Location ;
+    rdfs:label "Located At" ;
+    rdfs:comment "Device is located at a location" .
