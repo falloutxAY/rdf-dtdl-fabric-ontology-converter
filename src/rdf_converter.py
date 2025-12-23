@@ -11,7 +11,7 @@ import hashlib
 import logging
 from typing import Dict, List, Any, Optional, Tuple
 from dataclasses import dataclass, field, asdict
-from rdflib import Graph, Namespace, RDF, RDFS, OWL, XSD, URIRef, Literal
+from rdflib import Graph, Namespace, RDF, RDFS, OWL, XSD, URIRef, Literal, BNode
 from tqdm import tqdm
 
 logger = logging.getLogger(__name__)
@@ -23,12 +23,16 @@ XSD_TO_FABRIC_TYPE = {
     str(XSD.boolean): "Boolean",
     str(XSD.dateTime): "DateTime",
     str(XSD.date): "DateTime",
+    str(XSD.dateTimeStamp): "DateTime",
     str(XSD.integer): "BigInt",
     str(XSD.int): "BigInt",
     str(XSD.long): "BigInt",
     str(XSD.double): "Double",
     str(XSD.float): "Double",
     str(XSD.decimal): "Double",
+    str(XSD.anyURI): "String",
+    # Time-only is not directly supported by Fabric; preserve as String
+    str(XSD.time): "String",
 }
 
 
@@ -123,19 +127,44 @@ class RDFToFabricConverter:
     Converts RDF TTL ontologies to Microsoft Fabric Ontology format.
     """
     
-    def __init__(self, id_prefix: int = 1000000000000):
+    def __init__(self, id_prefix: int = 1000000000000, loose_inference: bool = False):
         """
         Initialize the converter.
         
         Args:
             id_prefix: Base prefix for generating unique IDs
+            loose_inference: When True, apply heuristic inference for missing domain/range
         """
         self.id_prefix = id_prefix
         self.id_counter = 0
+        self.loose_inference = loose_inference
         self.entity_types: Dict[str, EntityType] = {}
         self.relationship_types: Dict[str, RelationshipType] = {}
         self.uri_to_id: Dict[str, str] = {}
         self.property_to_domain: Dict[str, str] = {}
+
+    def _resolve_class_targets(self, graph: Graph, node: Any) -> List[str]:
+        """Resolve domain/range targets to class URIs.
+
+        Supports:
+        - Direct URIRef
+        - Blank node with owl:unionOf pointing to RDF list of class URIs
+        """
+        targets: List[str] = []
+        if isinstance(node, URIRef):
+            targets.append(str(node))
+        elif isinstance(node, BNode):
+            # unionOf list
+            for union in graph.objects(node, OWL.unionOf):
+                # union is an RDF collection (list)
+                # Walk the list via rdf:first / rdf:rest
+                current = union
+                while current and current != RDF.nil:
+                    first = next(graph.objects(current, RDF.first), None)
+                    if isinstance(first, URIRef):
+                        targets.append(str(first))
+                    current = next(graph.objects(current, RDF.rest), None)
+        return targets
         
     def _generate_id(self) -> str:
         """Generate a unique ID for entities and properties."""
@@ -361,11 +390,20 @@ class RDFToFabricConverter:
             name = self._uri_to_name(prop_uri)
             
             # Get domain (which entity type this property belongs to)
-            domains = list(graph.objects(prop_uri, RDFS.domain))
+            raw_domains = list(graph.objects(prop_uri, RDFS.domain))
+            domains: List[str] = []
+            for d in raw_domains:
+                domains.extend(self._resolve_class_targets(graph, d))
             
             # Get range (value type)
             ranges = list(graph.objects(prop_uri, RDFS.range))
-            range_uri = ranges[0] if ranges and isinstance(ranges[0], URIRef) else None
+            range_uri = None
+            if ranges:
+                if isinstance(ranges[0], URIRef):
+                    range_uri = ranges[0]
+                elif isinstance(ranges[0], BNode):
+                    # Datatype unionOf – conservatively default to String
+                    range_uri = XSD.string
             value_type = self._get_xsd_type(range_uri)
             
             prop = EntityTypeProperty(
@@ -375,8 +413,7 @@ class RDFToFabricConverter:
             )
             
             # Add property to all domain classes
-            for domain in domains:
-                domain_uri = str(domain)
+            for domain_uri in domains:
                 if domain_uri in self.entity_types:
                     # Check if this is a timeseries property (DateTime is often used for timestamps)
                     if value_type == "DateTime" and "timestamp" in name.lower():
@@ -438,55 +475,65 @@ class RDFToFabricConverter:
             name = self._uri_to_name(prop_uri)
             
             # Get explicit domain and range
-            domains = list(graph.objects(prop_uri, RDFS.domain))
-            ranges = list(graph.objects(prop_uri, RDFS.range))
-            
-            domain_uri = None
-            range_uri = None
-            
-            # Try explicit declarations first
-            if domains:
-                domain_uri = str(domains[0]) if str(domains[0]) in self.entity_types else None
-            
-            if ranges:
-                range_uri = str(ranges[0]) if str(ranges[0]) in self.entity_types else None
+            raw_domains = list(graph.objects(prop_uri, RDFS.domain))
+            raw_ranges = list(graph.objects(prop_uri, RDFS.range))
+
+            domain_uris: List[str] = []
+            range_uris: List[str] = []
+
+            # Try explicit declarations first, including unionOf class expressions
+            for d in raw_domains:
+                domain_uris.extend(self._resolve_class_targets(graph, d))
+            for r in raw_ranges:
+                range_uris.extend(self._resolve_class_targets(graph, r))
+
+            domain_uris = [u for u in domain_uris if u in self.entity_types]
+            range_uris = [u for u in range_uris if u in self.entity_types]
             
             # Fall back to inference from usage
-            if not domain_uri:
+            if not domain_uris:
                 usage = property_usage.get(str(prop_uri), {})
                 if usage.get('subjects'):
                     # Use most common subject type
-                    domain_uri = next(iter(usage['subjects']))
-                    logger.debug(f"Inferred domain for {name}: {self._uri_to_name(URIRef(domain_uri))}")
+                    domain_uris = [next(iter(usage['subjects']))]
+                    logger.debug(f"Inferred domain for {name}: {self._uri_to_name(URIRef(domain_uris[0]))}")
             
-            if not range_uri:
+            if not range_uris:
                 usage = property_usage.get(str(prop_uri), {})
                 if usage.get('objects'):
                     # Use most common object type
-                    range_uri = next(iter(usage['objects']))
-                    logger.debug(f"Inferred range for {name}: {self._uri_to_name(URIRef(range_uri))}")
+                    range_uris = [next(iter(usage['objects']))]
+                    logger.debug(f"Inferred range for {name}: {self._uri_to_name(URIRef(range_uris[0]))}")
             
-            if not domain_uri or not range_uri:
-                logger.warning(f"Skipping object property {name}: missing domain or range (no inference possible)")
+            if not domain_uris or not range_uris:
+                reason = "missing domain or range (no inference possible)"
+                if self.loose_inference:
+                    logger.warning(f"Loose inference not implemented for complex cases; {name}: {reason}")
+                else:
+                    logger.warning(f"Skipping object property {name}: {reason}")
                 continue
-            
-            if domain_uri not in self.entity_types or range_uri not in self.entity_types:
+
+            # Create relationships for each domain-range pair
+            created_any = False
+            for d_uri in domain_uris:
+                for r_uri in range_uris:
+                    if d_uri not in self.entity_types or r_uri not in self.entity_types:
+                        continue
+                    rel_id = self._generate_id()
+                    relationship = RelationshipType(
+                        id=rel_id,
+                        name=name,
+                        source=RelationshipEnd(entityTypeId=self.entity_types[d_uri].id),
+                        target=RelationshipEnd(entityTypeId=self.entity_types[r_uri].id),
+                    )
+                    # Store using unique key per pair to avoid overwrite
+                    key = f"{str(prop_uri)}::{d_uri}->{r_uri}"
+                    self.relationship_types[key] = relationship
+                    self.uri_to_id[key] = rel_id
+                    created_any = True
+                    logger.debug(f"Created relationship type: {name} ({self._uri_to_name(URIRef(d_uri))} -> {self._uri_to_name(URIRef(r_uri))})")
+            if not created_any:
                 logger.warning(f"Skipping object property {name}: domain or range entity type not found")
-                continue
-            
-            rel_id = self._generate_id()
-            
-            relationship = RelationshipType(
-                id=rel_id,
-                name=name,
-                source=RelationshipEnd(entityTypeId=self.entity_types[domain_uri].id),
-                target=RelationshipEnd(entityTypeId=self.entity_types[range_uri].id),
-            )
-            
-            self.relationship_types[str(prop_uri)] = relationship
-            self.uri_to_id[str(prop_uri)] = rel_id
-            
-            logger.debug(f"Created relationship type: {name}")
     
     def _set_entity_identifiers(self) -> None:
         """Set entity ID parts and display name properties for all entity types."""

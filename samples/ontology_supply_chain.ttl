@@ -1,0 +1,213 @@
+@prefix :      <http://example.com/supply-chain#> .
+@prefix sc:    <http://example.com/supply-chain#> .
+@prefix org:   <http://example.com/org#> .
+@prefix xsd:   <http://www.w3.org/2001/XMLSchema#> .
+@prefix rdf:   <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix owl:   <http://www.w3.org/2002/07/owl#> .
+
+#################################################################
+# Core classes
+#################################################################
+
+sc:Organization a owl:Class ;
+    rdfs:label "Organization" ;
+    rdfs:comment "A legal or natural entity that participates in the supply chain." .
+
+sc:Supplier a owl:Class ;
+    rdfs:subClassOf sc:Organization ;
+    rdfs:label "Supplier" ;
+    rdfs:comment "Organization that provides materials, components, or products." .
+
+sc:Manufacturer a owl:Class ;
+    rdfs:subClassOf sc:Organization ;
+    rdfs:label "Manufacturer" ;
+    rdfs:comment "Organization that transforms inputs into finished goods." .
+
+sc:Customer a owl:Class ;
+    rdfs:subClassOf sc:Organization ;
+    rdfs:label "Customer" ;
+    rdfs:comment "Organization that receives and consumes products or services." .
+
+sc:Facility a owl:Class ;
+    rdfs:label "Facility" ;
+    rdfs:comment "Physical site such as plant, warehouse, or distribution center." .
+
+sc:Warehouse a owl:Class ;
+    rdfs:subClassOf sc:Facility ;
+    rdfs:label "Warehouse" ;
+    rdfs:comment "Facility used to store inventory." .
+
+sc:Product a owl:Class ;
+    rdfs:label "Product" ;
+    rdfs:comment "A material, component, or finished good that flows through the supply chain." .
+
+sc:PurchaseOrder a owl:Class ;
+    rdfs:label "Purchase order" ;
+    rdfs:comment "A commercial document sent from a buyer to a supplier requesting products under agreed terms." .
+
+sc:Shipment a owl:Class ;
+    rdfs:label "Shipment" ;
+    rdfs:comment "A set of products moved together from one party or facility to another." .
+
+sc:InventoryItem a owl:Class ;
+    rdfs:label "Inventory item" ;
+    rdfs:comment "A quantity of a product held in a specific facility at a point in time." .
+
+sc:TransportationEvent a owl:Class ;
+    rdfs:label "Transportation event" ;
+    rdfs:comment "An event representing the movement of goods between facilities." .
+
+#################################################################
+# Object properties
+#################################################################
+
+sc:suppliesProduct a owl:ObjectProperty ;
+    rdfs:label "supplies product" ;
+    rdfs:domain sc:Supplier ;
+    rdfs:range sc:Product ;
+    rdfs:comment "Relates a supplier to a product that it can supply." .
+
+sc:manufacturesProduct a owl:ObjectProperty ;
+    rdfs:label "manufactures product" ;
+    rdfs:domain sc:Manufacturer ;
+    rdfs:range sc:Product ;
+    rdfs:comment "Relates a manufacturer to a product it produces." .
+
+sc:shipsShipment a owl:ObjectProperty ;
+    rdfs:label "ships shipment" ;
+    rdfs:domain sc:Organization ;
+    rdfs:range sc:Shipment ;
+    rdfs:comment "Relates an organization to a shipment it sends." .
+
+sc:receivesShipment a owl:ObjectProperty ;
+    rdfs:label "receives shipment" ;
+    rdfs:domain sc:Organization ;
+    rdfs:range sc:Shipment ;
+    rdfs:comment "Relates an organization to a shipment it receives." .
+
+sc:shipFromFacility a owl:ObjectProperty ;
+    rdfs:label "ship from facility" ;
+    rdfs:domain sc:Shipment ;
+    rdfs:range sc:Facility ;
+    rdfs:comment "Facility from which a shipment departs." .
+
+sc:shipToFacility a owl:ObjectProperty ;
+    rdfs:label "ship to facility" ;
+    rdfs:domain sc:Shipment ;
+    rdfs:range sc:Facility ;
+    rdfs:comment "Facility to which a shipment is delivered." .
+
+sc:orderedProduct a owl:ObjectProperty ;
+    rdfs:label "ordered product" ;
+    rdfs:domain sc:PurchaseOrder ;
+    rdfs:range sc:Product ;
+    rdfs:comment "Product that is requested on a purchase order." .
+
+sc:orderedBy a owl:ObjectProperty ;
+    rdfs:label "ordered by" ;
+    rdfs:domain sc:PurchaseOrder ;
+    rdfs:range sc:Customer ;
+    rdfs:comment "Customer that issues a purchase order." .
+
+sc:orderedFrom a owl:ObjectProperty ;
+    rdfs:label "ordered from" ;
+    rdfs:domain sc:PurchaseOrder ;
+    rdfs:range sc:Supplier ;
+    rdfs:comment "Supplier that receives a purchase order." .
+
+sc:fulfillsOrder a owl:ObjectProperty ;
+    rdfs:label "fulfills order" ;
+    rdfs:domain sc:Shipment ;
+    rdfs:range sc:PurchaseOrder ;
+    rdfs:comment "Shipment that fulfills all or part of a purchase order." .
+
+sc:hasInventoryItem a owl:ObjectProperty ;
+    rdfs:label "has inventory item" ;
+    rdfs:domain sc:Facility ;
+    rdfs:range sc:InventoryItem ;
+    rdfs:comment "Inventory items physically stored at a facility." .
+
+sc:inventoryOfProduct a owl:ObjectProperty ;
+    rdfs:label "inventory of product" ;
+    rdfs:domain sc:InventoryItem ;
+    rdfs:range sc:Product ;
+    rdfs:comment "Product represented by a particular inventory item." .
+
+#################################################################
+# Data properties
+#################################################################
+
+sc:poNumber a owl:DatatypeProperty ;
+    rdfs:label "PO number" ;
+    rdfs:domain sc:PurchaseOrder ;
+    rdfs:range xsd:string .
+
+sc:orderDate a owl:DatatypeProperty ;
+    rdfs:label "order date" ;
+    rdfs:domain sc:PurchaseOrder ;
+    rdfs:range xsd:date .
+
+sc:quantityOrdered a owl:DatatypeProperty ;
+    rdfs:label "quantity ordered" ;
+    rdfs:domain sc:PurchaseOrder ;
+    rdfs:range xsd:decimal .
+
+sc:quantityShipped a owl:DatatypeProperty ;
+    rdfs:label "quantity shipped" ;
+    rdfs:domain sc:Shipment ;
+    rdfs:range xsd:decimal .
+
+sc:inventoryQuantity a owl:DatatypeProperty ;
+    rdfs:label "inventory quantity" ;
+    rdfs:domain sc:InventoryItem ;
+    rdfs:range xsd:decimal .
+
+sc:shipmentDate a owl:DatatypeProperty ;
+    rdfs:label "shipment date" ;
+    rdfs:domain sc:Shipment ;
+    rdfs:range xsd:dateTime .
+
+#################################################################
+# Simple example instances
+#################################################################
+
+:ACME_Supplier a sc:Supplier ;
+    rdfs:label "ACME Components" ;
+    sc:suppliesProduct :Widget_A .
+
+:Factory_Seattle a sc:Manufacturer, sc:Organization ;
+    rdfs:label "Seattle Assembly Plant" ;
+    sc:manufacturesProduct :Widget_A .
+
+:DC_Denver a sc:Warehouse ;
+    rdfs:label "Denver Distribution Center" .
+
+:Retailer_Portland a sc:Customer ;
+    rdfs:label "Portland Retailer" .
+
+:Widget_A a sc:Product ;
+    rdfs:label "Widget A" .
+
+:PO_1001 a sc:PurchaseOrder ;
+    sc:poNumber "PO-1001" ;
+    sc:orderedBy :Retailer_Portland ;
+    sc:orderedFrom :Factory_Seattle ;
+    sc:orderedProduct :Widget_A ;
+    sc:orderDate "2025-12-01"^^xsd:date ;
+    sc:quantityOrdered "1000"^^xsd:decimal .
+
+:Shipment_5001 a sc:Shipment ;
+    sc:shipmentDate "2025-12-05T10:00:00"^^xsd:dateTime ;
+    sc:quantityShipped "800"^^xsd:decimal ;
+    sc:shipsShipment :Factory_Seattle ;
+    sc:receivesShipment :DC_Denver ;
+    sc:shipFromFacility :Factory_Seattle ;
+    sc:shipToFacility :DC_Denver ;
+    sc:fulfillsOrder :PO_1001 .
+
+:InventoryItem_Denver_WidgetA a sc:InventoryItem ;
+    sc:inventoryOfProduct :Widget_A ;
+    sc:inventoryQuantity "800"^^xsd:decimal .
+
+:DC_Denver sc:hasInventoryItem :InventoryItem_Denver_WidgetA .

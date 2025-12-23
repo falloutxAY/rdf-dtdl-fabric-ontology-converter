@@ -23,6 +23,7 @@ from typing import Optional
 
 from rdf_converter import parse_ttl_file, parse_ttl_content
 from fabric_client import FabricConfig, FabricOntologyClient, FabricAPIError
+from fabric_to_ttl import FabricToTTLConverter, compare_ontologies, round_trip_test
 
 
 # Setup logging
@@ -309,12 +310,19 @@ def cmd_test(args):
     else:
         setup_logging()
     
-    # Find sample TTL file in samples folder
+    # Find sample TTL file in samples folder (check multiple locations)
     script_dir = Path(__file__).parent
-    sample_ttl = script_dir / "samples" / "sample_ontology.ttl"
+    candidate_paths = [
+        script_dir.parent / "samples" / "sample_ontology.ttl",  # project root / samples
+        Path.cwd() / "samples" / "sample_ontology.ttl",         # current working dir / samples
+        script_dir / "samples" / "sample_ontology.ttl",         # src/samples (fallback)
+    ]
+    sample_ttl = next((p for p in candidate_paths if p.exists()), None)
     
-    if not sample_ttl.exists():
-        print(f"Error: Sample TTL file not found: {sample_ttl}")
+    if not sample_ttl:
+        print("Error: Sample TTL file not found in expected locations:")
+        for p in candidate_paths:
+            print(f"  - {p}")
         sys.exit(1)
     
     print(f"Testing with sample ontology: {sample_ttl}\n")
@@ -426,19 +434,289 @@ def cmd_convert(args):
     print(f"Definition Parts: {len(definition['parts'])}")
 
 
+def cmd_export(args):
+    """Export an ontology from Fabric to TTL format."""
+    # Setup logging using config if available
+    config_path = args.config or get_default_config_path()
+    if os.path.exists(config_path):
+        config_data = load_config(config_path)
+        log_config = config_data.get('logging', {})
+        setup_logging(level=log_config.get('level', 'INFO'), log_file=log_config.get('file'))
+    else:
+        setup_logging()
+    logger = logging.getLogger(__name__)
+
+    # Load Fabric configuration from file
+    config_file = args.config or get_default_config_path()
+    try:
+        fabric_config = FabricConfig.from_file(config_file)
+    except FileNotFoundError:
+        logger.error(f"Configuration file not found: {config_file}")
+        logger.error("Create config.json with your Azure credentials (see config.sample.json)")
+        sys.exit(1)
+    except ValueError as e:
+        logger.error(f"Invalid configuration: {e}")
+        sys.exit(1)
+    except Exception as e:
+        logger.error(f"Failed to load configuration: {e}")
+        sys.exit(1)
+
+    client = FabricOntologyClient(fabric_config)
+    ontology_id = args.ontology_id
+    
+    print(f"Exporting ontology {ontology_id} to TTL format...")
+    
+    try:
+        # Get ontology with definition
+        ontology_info = client.get_ontology(ontology_id)
+        definition = client.get_ontology_definition(ontology_id)
+        
+        if not definition:
+            print("Error: Failed to get ontology definition")
+            sys.exit(1)
+        
+        # Prepare Fabric definition structure
+        fabric_definition = {
+            "displayName": ontology_info.get("displayName", "exported_ontology"),
+            "description": ontology_info.get("description", ""),
+            "definition": definition
+        }
+        
+        # Convert to TTL
+        converter = FabricToTTLConverter()
+        ttl_content = converter.convert(fabric_definition)
+        
+        # Determine output path
+        if args.output:
+            output_path = args.output
+        else:
+            safe_name = ontology_info.get("displayName", ontology_id).replace(" ", "_")
+            output_path = f"{safe_name}_exported.ttl"
+        
+        # Write TTL file
+        with open(output_path, 'w', encoding='utf-8') as f:
+            f.write(ttl_content)
+        
+        print(f"Successfully exported ontology to: {output_path}")
+        print(f"Ontology Name: {ontology_info.get('displayName', 'Unknown')}")
+        print(f"Parts in definition: {len(definition.get('parts', []))}")
+        
+    except FabricAPIError as e:
+        logger.error(f"API Error: {e}")
+        sys.exit(1)
+    except Exception as e:
+        logger.error(f"Export failed: {e}")
+        sys.exit(1)
+
+
+def cmd_compare(args):
+    """Compare two TTL files for semantic equivalence."""
+    setup_logging()
+    
+    ttl_file1 = args.ttl_file1
+    ttl_file2 = args.ttl_file2
+    
+    # Validate files exist
+    for ttl_file in [ttl_file1, ttl_file2]:
+        if not os.path.isfile(ttl_file):
+            print(f"Error: TTL file not found: {ttl_file}")
+            sys.exit(1)
+    
+    try:
+        with open(ttl_file1, 'r', encoding='utf-8') as f:
+            ttl_content1 = f.read()
+        with open(ttl_file2, 'r', encoding='utf-8') as f:
+            ttl_content2 = f.read()
+    except Exception as e:
+        print(f"Error reading TTL files: {e}")
+        sys.exit(1)
+    
+    print(f"Comparing:")
+    print(f"  File 1: {ttl_file1}")
+    print(f"  File 2: {ttl_file2}")
+    print()
+    
+    comparison = compare_ontologies(ttl_content1, ttl_content2)
+    
+    if comparison["is_equivalent"]:
+        print("✓ Ontologies are semantically EQUIVALENT")
+    else:
+        print("✗ Ontologies are NOT equivalent")
+    
+    print()
+    print(f"Classes: {comparison['classes']['count1']} vs {comparison['classes']['count2']}")
+    if comparison['classes']['only_in_first']:
+        print(f"  Only in file 1: {comparison['classes']['only_in_first']}")
+    if comparison['classes']['only_in_second']:
+        print(f"  Only in file 2: {comparison['classes']['only_in_second']}")
+    
+    print(f"Datatype Properties: {comparison['datatype_properties']['count1']} vs {comparison['datatype_properties']['count2']}")
+    if comparison['datatype_properties']['only_in_first']:
+        print(f"  Only in file 1: {comparison['datatype_properties']['only_in_first']}")
+    if comparison['datatype_properties']['only_in_second']:
+        print(f"  Only in file 2: {comparison['datatype_properties']['only_in_second']}")
+    
+    print(f"Object Properties: {comparison['object_properties']['count1']} vs {comparison['object_properties']['count2']}")
+    if comparison['object_properties']['only_in_first']:
+        print(f"  Only in file 1: {comparison['object_properties']['only_in_first']}")
+    if comparison['object_properties']['only_in_second']:
+        print(f"  Only in file 2: {comparison['object_properties']['only_in_second']}")
+    
+    if args.verbose:
+        print()
+        print("Detailed comparison results:")
+        print(json.dumps(comparison, indent=2))
+    
+    sys.exit(0 if comparison["is_equivalent"] else 1)
+
+
+def cmd_roundtrip(args):
+    """Test round-trip conversion: TTL -> Fabric -> TTL and compare."""
+    # Setup logging using config if available
+    config_path = args.config or get_default_config_path()
+    if os.path.exists(config_path):
+        config_data = load_config(config_path)
+        log_config = config_data.get('logging', {})
+        setup_logging(level=log_config.get('level', 'INFO'), log_file=log_config.get('file'))
+    else:
+        setup_logging()
+    logger = logging.getLogger(__name__)
+    
+    ttl_file = args.ttl_file
+    
+    if not os.path.isfile(ttl_file):
+        print(f"Error: TTL file not found: {ttl_file}")
+        sys.exit(1)
+    
+    config = None
+    config_file = args.config or get_default_config_path()
+    if args.upload:
+        try:
+            config = FabricConfig.from_file(config_file)
+        except FileNotFoundError:
+            # If no config, do offline round-trip (without Fabric upload)
+            config = None
+            print("Note: No config found. Running offline round-trip test (TTL -> JSON -> TTL).")
+        except ValueError as e:
+            logger.error(f"Invalid configuration: {e}")
+            sys.exit(1)
+        except Exception as e:
+            logger.error(f"Failed to load configuration: {e}")
+            sys.exit(1)
+    
+    try:
+        with open(ttl_file, 'r', encoding='utf-8') as f:
+            original_ttl = f.read()
+    except Exception as e:
+        print(f"Error reading TTL file: {e}")
+        sys.exit(1)
+    
+    print(f"Running round-trip test for: {ttl_file}")
+    print()
+    
+    if config and args.upload:
+        # Full round-trip with Fabric
+        client = FabricOntologyClient(config)
+        
+        # Generate unique name
+        import uuid
+        test_name = f"RoundTrip_Test_{uuid.uuid4().hex[:8]}"
+        
+        print(f"1. Uploading to Fabric as '{test_name}'...")
+        
+        try:
+            # Parse and upload
+            definition, ontology_name = parse_ttl_content(original_ttl)
+            ontology_id = client.create_ontology(
+                display_name=test_name,
+                definition={"parts": definition["parts"]},
+                description="Round-trip test ontology"
+            )
+            print(f"   Created ontology ID: {ontology_id}")
+            
+            print("2. Fetching definition from Fabric...")
+            fetched_def = client.get_ontology_definition(ontology_id)
+            
+            print("3. Converting back to TTL...")
+            fabric_definition = {
+                "displayName": test_name,
+                "definition": fetched_def
+            }
+            converter = FabricToTTLConverter()
+            exported_ttl = converter.convert(fabric_definition)
+            
+            print("4. Comparing original and exported TTL...")
+            comparison = compare_ontologies(original_ttl, exported_ttl)
+            
+            if args.cleanup:
+                print("5. Cleaning up - deleting test ontology...")
+                client.delete_ontology(ontology_id)
+                print("   Deleted test ontology")
+            else:
+                print(f"5. Test ontology retained: {ontology_id}")
+            
+        except Exception as e:
+            logger.error(f"Round-trip test failed: {e}")
+            sys.exit(1)
+    else:
+        # Offline round-trip
+        print("1. Parsing original TTL...")
+        definition, ontology_name = parse_ttl_content(original_ttl)
+        print(f"   Found {len(definition['parts'])} parts")
+        
+        print("2. Creating Fabric definition structure...")
+        fabric_definition = {
+            "displayName": ontology_name,
+            "definition": definition
+        }
+        
+        print("3. Converting back to TTL...")
+        converter = FabricToTTLConverter()
+        exported_ttl = converter.convert(fabric_definition)
+        
+        print("4. Comparing original and exported TTL...")
+        comparison = compare_ontologies(original_ttl, exported_ttl)
+    
+    # Save exported TTL if requested
+    if args.save_export:
+        export_path = str(Path(ttl_file).with_suffix('.exported.ttl'))
+        with open(export_path, 'w', encoding='utf-8') as f:
+            f.write(exported_ttl)
+        print(f"   Saved exported TTL to: {export_path}")
+    
+    print()
+    if comparison["is_equivalent"]:
+        print("✓ ROUND-TRIP SUCCESS: Ontologies are semantically equivalent")
+    else:
+        print("✗ ROUND-TRIP FAILED: Ontologies differ")
+        
+        if comparison['classes']['only_in_first'] or comparison['classes']['only_in_second']:
+            print(f"  Classes: Lost {comparison['classes']['only_in_first']}, Gained {comparison['classes']['only_in_second']}")
+        if comparison['datatype_properties']['only_in_first'] or comparison['datatype_properties']['only_in_second']:
+            print(f"  Datatype Props: Lost {comparison['datatype_properties']['only_in_first']}, Gained {comparison['datatype_properties']['only_in_second']}")
+        if comparison['object_properties']['only_in_first'] or comparison['object_properties']['only_in_second']:
+            print(f"  Object Props: Lost {comparison['object_properties']['only_in_first']}, Gained {comparison['object_properties']['only_in_second']}")
+    
+    sys.exit(0 if comparison["is_equivalent"] else 1)
+
+
 def main():
     """Main entry point."""
     parser = argparse.ArgumentParser(
-        description="RDF TTL to Microsoft Fabric Ontology Uploader",
+        description="RDF TTL to Microsoft Fabric Ontology Converter",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
     %(prog)s upload samples\\sample_ontology.ttl
     %(prog)s upload my_ontology.ttl --name MyOntology --update
-  %(prog)s list
+    %(prog)s list
     %(prog)s get 12345678-1234-1234-1234-123456789012
     %(prog)s convert samples\\sample_ontology.ttl --output fabric_definition.json
-  %(prog)s test
+    %(prog)s export 12345678-1234-1234-1234-123456789012 --output exported.ttl
+    %(prog)s compare original.ttl exported.ttl
+    %(prog)s roundtrip samples\\sample_ontology.ttl --save-export
+    %(prog)s roundtrip samples\\sample_ontology.ttl --upload --cleanup
+    %(prog)s test
         """,
     )
     
@@ -487,6 +765,33 @@ Examples:
     convert_parser.add_argument('ttl_file', help='Path to the TTL file to convert')
     convert_parser.add_argument('--output', '-o', help='Output JSON file path')
     convert_parser.set_defaults(func=cmd_convert)
+    
+    # Export command
+    export_parser = subparsers.add_parser('export', help='Export ontology from Fabric to TTL format')
+    export_parser.add_argument('ontology_id', help='Ontology ID to export')
+    export_parser.add_argument('--config', '-c', help='Path to configuration file')
+    export_parser.add_argument('--output', '-o', help='Output TTL file path')
+    export_parser.set_defaults(func=cmd_export)
+    
+    # Compare command
+    compare_parser = subparsers.add_parser('compare', help='Compare two TTL files for semantic equivalence')
+    compare_parser.add_argument('ttl_file1', help='First TTL file')
+    compare_parser.add_argument('ttl_file2', help='Second TTL file')
+    compare_parser.add_argument('--verbose', '-v', action='store_true',
+                                help='Show detailed comparison results')
+    compare_parser.set_defaults(func=cmd_compare)
+    
+    # Round-trip command
+    roundtrip_parser = subparsers.add_parser('roundtrip', help='Test round-trip: TTL -> Fabric -> TTL')
+    roundtrip_parser.add_argument('ttl_file', help='TTL file to test')
+    roundtrip_parser.add_argument('--config', '-c', help='Path to configuration file')
+    roundtrip_parser.add_argument('--upload', '-u', action='store_true',
+                                  help='Actually upload to Fabric (otherwise offline test)')
+    roundtrip_parser.add_argument('--cleanup', action='store_true',
+                                  help='Delete test ontology after round-trip')
+    roundtrip_parser.add_argument('--save-export', '-s', action='store_true',
+                                  help='Save the exported TTL file')
+    roundtrip_parser.set_defaults(func=cmd_roundtrip)
     
     args = parser.parse_args()
     

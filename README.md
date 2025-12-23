@@ -1,19 +1,25 @@
 # RDF to Microsoft Fabric Ontology Converter
 
-[![Python](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
-[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-44%20passing-brightgreen.svg)](tests/)
+Convert RDF TTL (Turtle) ontology files to Microsoft Fabric Ontology format and upload them via the Fabric REST API. Also supports exporting Fabric ontologies back to TTL format with round-trip verification.
 
-Convert RDF TTL (Turtle) ontology files to Microsoft Fabric Ontology format and upload them via the Fabric REST API.
+## Disclaimer
+
+This repository and its tooling were created as part of learning and experimenting with AI‑assisted software development. There may be mistakes or omissions, and the outputs may not be complete or correct for all ontologies.
+
+Please refer to the `LICENSE` file for the full terms governing use, distribution, and limitations.
 
 ## ✨ Features
 
-- 🔄 Parse RDF TTL files and convert to Fabric Ontology format
+- 🔄 **Bidirectional conversion**: TTL → Fabric and Fabric → TTL
 - 📤 Create and update ontologies in Microsoft Fabric
+- 📥 Export ontologies from Fabric back to TTL format
 - 🔍 List, get, and delete ontologies
+- 🔁 Round-trip testing with semantic comparison
 - 🎯 Automatic XSD to Fabric type mapping
 - 🔐 Interactive and service principal authentication
-- ✅ Test suite 
+- 🔄 Retry logic for transient API errors (429, 503)
+- 📊 Progress bars for long-running operations
+- ✅ Comprehensive test suite (65 tests) 
 
 ## 📋 Table of Contents
 
@@ -25,6 +31,8 @@ Convert RDF TTL (Turtle) ontology files to Microsoft Fabric Ontology format and 
 - [Testing](#testing)
 - [Project Structure](#project-structure)
 - [Examples](#examples)
+- [Strict Semantics and FOAF Considerations](#strict-semantics-and-foaf-considerations)
+- [FAQ](#faq)
 - [Documentation](#documentation)
 - [Contributing](#contributing)
 - [License](#license)
@@ -69,50 +77,69 @@ cp config.sample.json src/config.json
 
 ## 🚀 Quick Start
 
-```bash
+```powershell
 # Convert a TTL file to Fabric format
-python src/main.py convert samples/sample_ontology.ttl --config src/config.json
+python src/main.py convert samples\sample_ontology.ttl --config src\config.json
 
 # Upload an ontology to Fabric
-python src/main.py upload samples/sample_ontology.ttl --name "MyOntology" --config src/config.json
+python src/main.py upload samples\sample_ontology.ttl --name "MyOntology" --config src\config.json
 
 # List all ontologies in your workspace
-python src/main.py list --config src/config.json
+python src/main.py list --config src\config.json
 
 # Run tests
-python tests/run_tests.py all
+python -m pytest -q
 ```
 
 ## 📖 Usage
 
 ### Convert TTL to JSON
-```bash
-python src/main.py convert <ttl_file> [--output <output.json>] --config src/config.json
+```powershell
+python src/main.py convert <ttl_file> [--output <output.json>] --config src\config.json
 ```
 
 ### Upload Ontology
-```bash
-python src/main.py upload <ttl_file> [--name <ontology_name>] [--update] --config src/config.json
+```powershell
+python src/main.py upload <ttl_file> [--name <ontology_name>] [--update] --config src\config.json
+```
+
+### Export Ontology to TTL
+```powershell
+python src/main.py export <ontology_id> [--output <output.ttl>] --config src\config.json
+```
+
+### Compare Two TTL Files
+```powershell
+python src/main.py compare <ttl_file1> <ttl_file2> [--verbose]
+```
+
+### Round-Trip Test
+```powershell
+# Offline test (TTL -> JSON -> TTL)
+python src/main.py roundtrip <ttl_file> --save-export
+
+# Full test with Fabric upload
+python src/main.py roundtrip <ttl_file> --upload --cleanup --config src\config.json
 ```
 
 ### List Ontologies
-```bash
-python src/main.py list --config src/config.json
+```powershell
+python src/main.py list --config src\config.json
 ```
 
 ### Get Ontology Details
-```bash
-python src/main.py get <ontology_id> --config src/config.json
+```powershell
+python src/main.py get <ontology_id> --config src\config.json
 ```
 
 ### Delete Ontology
-```bash
-python src/main.py delete <ontology_id> --config src/config.json
+```powershell
+python src/main.py delete <ontology_id> --config src\config.json
 ```
 
 ### Test Connection
-```bash
-python src/main.py test --config src/config.json
+```powershell
+python src/main.py test --config src\config.json
 ```
 
 ## ⚙️ Configuration
@@ -170,12 +197,14 @@ rdf-fabric-ontology-converter/
 ├── src/                          # Source code
 │   ├── __init__.py
 │   ├── main.py                   # CLI entry point
-│   ├── rdf_converter.py          # RDF parsing & conversion
-│   └── fabric_client.py          # Fabric API client
+│   ├── rdf_converter.py          # RDF parsing & TTL→Fabric conversion
+│   ├── fabric_to_ttl.py          # Fabric→TTL export & comparison
+│   └── fabric_client.py          # Fabric API client with retry logic
 ├── tests/                        # Test suite
 │   ├── __init__.py
-│   ├── test_converter.py         # Unit tests 
-│   ├── test_integration.py       # Integration tests 
+│   ├── test_converter.py         # Converter unit tests (29 tests)
+│   ├── test_exporter.py          # Exporter unit tests (21 tests)
+│   ├── test_integration.py       # Integration tests (15 tests)
 │   └── run_tests.py              # Test runner
 ├── samples/                      # Sample ontology files
 │   ├── sample_ontology.ttl       # Manufacturing example
@@ -213,7 +242,67 @@ python main.py upload samples/foaf_ontology.ttl --name "FOAF"
 python main.py convert samples/sample_iot_ontology.ttl --output iot_definition.json
 ```
 
+### Example 4: Export from Fabric
+```bash
+python main.py export abc123-def456 --output my_ontology.ttl
+```
+
+### Example 5: Compare Two Ontologies
+```bash
+python main.py compare original.ttl exported.ttl --verbose
+```
+
+### Example 6: Round-Trip Verification
+```bash
+# Test that TTL -> Fabric -> TTL preserves semantics
+python main.py roundtrip samples/sample_ontology.ttl --save-export
+```
+
 For more examples, see [docs/QUICK_TEST_GUIDE.md](docs/QUICK_TEST_GUIDE.md).
+
+## Strict Semantics and FOAF Considerations
+
+This tool adheres to strict semantics by default, ensuring predictable conversion aligned with RDF/OWL declarations:
+
+- Properties and relationships are generated only when `rdfs:domain` and `rdfs:range` resolve to declared classes in the input TTL.
+- Blank‑node class expressions using `owl:unionOf` are supported: each domain–range pair yields a distinct relationship type in the Fabric definition.
+- Properties without explicit, resolvable `rdfs:domain`/`rdfs:range` are skipped with clear warnings; no heuristic attachment is performed.
+- Expanded XSD mappings are included for common datatypes (e.g., `xsd:anyURI` → String, `xsd:dateTimeStamp` → DateTime, `xsd:time` → String).
+
+FOAF and similar vocabularies sometimes rely on property signatures that are not explicitly declared in a single TTL file or reference external class definitions. Under strict semantics:
+
+- If a property lacks explicit `rdfs:domain`/`rdfs:range` in the TTL (or references classes not declared locally), it will be skipped.
+- To achieve round‑trip equivalence for FOAF:
+  - Include explicit `rdfs:domain` and `rdfs:range` for the properties you want preserved.
+  - Ensure referenced classes are declared within the same TTL (or merge the needed vocabularies).
+  - Avoid complex OWL constructs not currently supported (e.g., certain `owl:Restriction` patterns) or extend support in future iterations.
+
+An optional "loose inference" mode is planned as a future feature to heuristically attach properties when signatures are missing. It is intentionally disabled by default to maintain predictable, standards‑aligned behavior.
+
+For more details, see `docs/ERROR_HANDLING_SUMMARY.md`.
+
+## FAQ
+
+- Properties are skipped in conversion — why?
+  - The tool requires explicit `rdfs:domain` and `rdfs:range` that resolve to classes declared in the same TTL (including members of any `owl:unionOf`). If a property references undeclared classes or lacks resolvable domain/range, it is skipped with a warning. See the CLI output and logs for details.
+
+- How is `owl:unionOf` handled?
+  - For `rdfs:domain`/`rdfs:range`, union members are resolved. The converter emits a distinct relationship type for each domain–range pair implied by the unions. For union-of datatypes, the mapping is conservative (often to `String`) to maintain compatibility.
+
+- Why does FOAF round‑trip differ under strict semantics?
+  - FOAF properties may not include explicit signatures in a single TTL file or may rely on external class definitions. To preserve FOAF properties:
+    - Add explicit `rdfs:domain` and `rdfs:range` for properties you need.
+    - Declare referenced FOAF classes locally or merge required vocabularies.
+    - Avoid unsupported OWL constructs (e.g., certain `owl:Restriction` patterns) unless you extend converter support.
+
+- I see "lost datatype/object properties" warnings in round‑trip — how do I fix this?
+  - Provide explicit property signatures and ensure all referenced classes exist in the TTL. Verify XSD datatype coverage and re-run `compare` with `--verbose` to inspect differences.
+
+- Can I enable heuristic (loose) inference for missing signatures?
+  - A future "loose inference" mode may be introduced, but it is intentionally disabled by default to keep behavior predictable and standards‑aligned.
+
+- How can I quickly debug conversion issues?
+  - Increase logging to `DEBUG` in `src/config.json`, run `roundtrip` with `--save-export`, and use `compare --verbose`. Also see `docs/TROUBLESHOOTING.md` and `docs/ERROR_HANDLING_SUMMARY.md`.
 
 ## 📚 Documentation
 
@@ -222,6 +311,7 @@ For more examples, see [docs/QUICK_TEST_GUIDE.md](docs/QUICK_TEST_GUIDE.md).
 - **[Troubleshooting](docs/TROUBLESHOOTING.md)** - Common issues and solutions
 - **[Quick Test Guide](docs/QUICK_TEST_GUIDE.md)** - Fast test commands
 - **[Error Handling Summary](docs/ERROR_HANDLING_SUMMARY.md)** - Common failures and resolutions
+ - **[Mapping Challenges and Non‑1:1 Scenarios](docs/MAPPING_LIMITATIONS.md)** - Why TTL → Fabric is not perfectly lossless
 
 ## 🤝 Contributing
 
@@ -239,15 +329,18 @@ Please ensure:
 - New features include tests
 - Documentation is updated
 
+
 ## 📄 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
+
+
 ## 🙏 Acknowledgments
 
-- Built for Microsoft Fabric Ontology
-- Uses [rdflib](https://github.com/RDFLib/rdflib) for RDF parsing
-- Sample ontologies from [FOAF](http://xmlns.com/foaf/spec/) and [FIBO](https://spec.edmcouncil.org/fibo/)
+- Microsoft Fabric documentation and ecosystem
+- [RDFLib](https://github.com/RDFLib/rdflib) for RDF parsing support
+- Sample vocabularies: [FOAF](http://xmlns.com/foaf/spec/) and [FIBO](https://spec.edmcouncil.org/fibo/)
 
 ## 📧 Support
 

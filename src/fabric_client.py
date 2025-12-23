@@ -23,10 +23,30 @@ from tenacity import (
     stop_after_attempt,
     wait_exponential,
     retry_if_exception_type,
+    retry_if_exception,
     before_sleep_log,
 )
+from tqdm import tqdm
 
 logger = logging.getLogger(__name__)
+
+
+class TransientAPIError(Exception):
+    """Exception for transient API errors (429, 503) that should be retried."""
+    def __init__(self, status_code: int, retry_after: int = 5, message: str = ""):
+        self.status_code = status_code
+        self.retry_after = retry_after
+        self.message = message
+        super().__init__(f"Transient error (HTTP {status_code}): {message}")
+
+
+def _is_transient_error(exception: Exception) -> bool:
+    """Check if exception is a transient error that should be retried."""
+    if isinstance(exception, TransientAPIError):
+        return True
+    if isinstance(exception, (requests.exceptions.Timeout, requests.exceptions.ConnectionError)):
+        return True
+    return False
 
 
 @dataclass
@@ -248,6 +268,17 @@ class FabricOntologyClient:
                 'retry_after': retry_after,
             }
         
+        # Handle transient errors (429, 503) - raise special exception for retry
+        if response.status_code == 429:
+            retry_after = int(response.headers.get('Retry-After', 30))
+            logger.warning(f"Rate limited (429). Retry after {retry_after}s")
+            raise TransientAPIError(429, retry_after, "Rate limit exceeded")
+        
+        if response.status_code == 503:
+            retry_after = int(response.headers.get('Retry-After', 10))
+            logger.warning(f"Service unavailable (503). Retry after {retry_after}s")
+            raise TransientAPIError(503, retry_after, "Service temporarily unavailable")
+        
         # Error response
         try:
             error_data = response.json()
@@ -264,40 +295,54 @@ class FabricOntologyClient:
         )
     
     def _wait_for_operation(self, operation_url: str, retry_after: int = 30, max_retries: int = 60) -> Dict[str, Any]:
-        """Wait for a long-running operation to complete."""
+        """Wait for a long-running operation to complete with progress reporting."""
         logger.info(f"Waiting for operation to complete... (polling every {retry_after}s)")
         
-        for attempt in range(max_retries):
-            time.sleep(retry_after)
+        # Create progress bar for LRO status
+        with tqdm(total=100, desc="Operation progress", unit="%", 
+                  bar_format="{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}]") as pbar:
+            last_progress = 0
             
-            try:
-                response = requests.get(operation_url, headers=self._get_headers(), timeout=30)
-            except requests.exceptions.RequestException as e:
-                logger.warning(f"Operation polling request failed (attempt {attempt+1}/{max_retries}): {e}")
-                continue
-            
-            if response.status_code == 200:
+            for attempt in range(max_retries):
+                time.sleep(retry_after)
+                
                 try:
-                    result = response.json()
-                except json.JSONDecodeError as e:
-                    logger.warning(f"Failed to parse operation status: {e}")
+                    response = requests.get(operation_url, headers=self._get_headers(), timeout=30)
+                except requests.exceptions.RequestException as e:
+                    logger.warning(f"Operation polling request failed (attempt {attempt+1}/{max_retries}): {e}")
                     continue
                 
-                status = result.get('status', 'Unknown')
-                
-                logger.info(f"Operation status: {status}")
-                
-                if status == 'Succeeded':
-                    return result
-                elif status == 'Failed':
-                    raise FabricAPIError(
-                        status_code=500,
-                        error_code='OperationFailed',
-                        message=f"Operation failed: {result.get('error', {}).get('message', 'Unknown error')}",
-                    )
-                # Still running, continue polling
-            else:
-                logger.warning(f"Failed to check operation status: {response.status_code}")
+                if response.status_code == 200:
+                    try:
+                        result = response.json()
+                    except json.JSONDecodeError as e:
+                        logger.warning(f"Failed to parse operation status: {e}")
+                        continue
+                    
+                    status = result.get('status', 'Unknown')
+                    percent_complete = result.get('percentComplete', 0)
+                    
+                    # Update progress bar
+                    if percent_complete > last_progress:
+                        pbar.update(percent_complete - last_progress)
+                        last_progress = percent_complete
+                    
+                    pbar.set_postfix_str(f"Status: {status}")
+                    logger.info(f"Operation status: {status} ({percent_complete}% complete)")
+                    
+                    if status == 'Succeeded':
+                        pbar.update(100 - last_progress)  # Complete the bar
+                        return result
+                    elif status == 'Failed':
+                        error_msg = result.get('error', {}).get('message', 'Unknown error')
+                        raise FabricAPIError(
+                            status_code=500,
+                            error_code='OperationFailed',
+                            message=f"Operation failed: {error_msg}",
+                        )
+                    # Still running, continue polling
+                else:
+                    logger.warning(f"Failed to check operation status: {response.status_code}")
         
         raise FabricAPIError(
             status_code=504,
@@ -305,6 +350,12 @@ class FabricOntologyClient:
             message='Operation timed out',
         )
     
+    @retry(
+        stop=stop_after_attempt(5),
+        wait=wait_exponential(multiplier=2, min=2, max=60),
+        retry=retry_if_exception(_is_transient_error),
+        before_sleep=before_sleep_log(logger, logging.WARNING)
+    )
     def list_ontologies(self) -> List[Dict[str, Any]]:
         """
         List all ontologies in the workspace.
@@ -347,10 +398,9 @@ class FabricOntologyClient:
         return ontologies
     
     @retry(
-        stop=stop_after_attempt(3),
-        wait=wait_exponential(multiplier=1, min=2, max=10),
-        retry=retry_if_exception_type((requests.exceptions.Timeout, 
-                                       requests.exceptions.ConnectionError)),
+        stop=stop_after_attempt(5),
+        wait=wait_exponential(multiplier=2, min=2, max=60),
+        retry=retry_if_exception(_is_transient_error),
         before_sleep=before_sleep_log(logger, logging.WARNING)
     )
     def get_ontology(self, ontology_id: str) -> Dict[str, Any]:
@@ -378,6 +428,12 @@ class FabricOntologyClient:
         
         return self._handle_response(response)
     
+    @retry(
+        stop=stop_after_attempt(5),
+        wait=wait_exponential(multiplier=2, min=2, max=60),
+        retry=retry_if_exception(_is_transient_error),
+        before_sleep=before_sleep_log(logger, logging.WARNING)
+    )
     def get_ontology_definition(self, ontology_id: str) -> Dict[str, Any]:
         """
         Get the definition of a specific ontology.
@@ -409,10 +465,9 @@ class FabricOntologyClient:
         return result
     
     @retry(
-        stop=stop_after_attempt(3),
-        wait=wait_exponential(multiplier=1, min=2, max=10),
-        retry=retry_if_exception_type((requests.exceptions.Timeout, 
-                                       requests.exceptions.ConnectionError)),
+        stop=stop_after_attempt(5),
+        wait=wait_exponential(multiplier=2, min=2, max=60),
+        retry=retry_if_exception(_is_transient_error),
         before_sleep=before_sleep_log(logger, logging.WARNING)
     )
     def create_ontology(
@@ -472,6 +527,12 @@ class FabricOntologyClient:
         logger.info(f"Ontology created: {result.get('id', 'Unknown ID')}")
         return result
     
+    @retry(
+        stop=stop_after_attempt(5),
+        wait=wait_exponential(multiplier=2, min=2, max=60),
+        retry=retry_if_exception(_is_transient_error),
+        before_sleep=before_sleep_log(logger, logging.WARNING)
+    )
     def update_ontology_definition(
         self,
         ontology_id: str,
@@ -522,10 +583,9 @@ class FabricOntologyClient:
         return result
     
     @retry(
-        stop=stop_after_attempt(3),
-        wait=wait_exponential(multiplier=1, min=2, max=10),
-        retry=retry_if_exception_type((requests.exceptions.Timeout, 
-                                       requests.exceptions.ConnectionError)),
+        stop=stop_after_attempt(5),
+        wait=wait_exponential(multiplier=2, min=2, max=60),
+        retry=retry_if_exception(_is_transient_error),
         before_sleep=before_sleep_log(logger, logging.WARNING)
     )
     def update_ontology(
@@ -568,10 +628,9 @@ class FabricOntologyClient:
         return self._handle_response(response)
     
     @retry(
-        stop=stop_after_attempt(3),
-        wait=wait_exponential(multiplier=1, min=2, max=10),
-        retry=retry_if_exception_type((requests.exceptions.Timeout, 
-                                       requests.exceptions.ConnectionError)),
+        stop=stop_after_attempt(5),
+        wait=wait_exponential(multiplier=2, min=2, max=60),
+        retry=retry_if_exception(_is_transient_error),
         before_sleep=before_sleep_log(logger, logging.WARNING)
     )
     def delete_ontology(self, ontology_id: str) -> None:
