@@ -11,10 +11,9 @@ Convert RDF TTL (Turtle) ontology files to Microsoft Fabric Ontology format and 
 - 🔄 Parse RDF TTL files and convert to Fabric Ontology format
 - 📤 Create and update ontologies in Microsoft Fabric
 - 🔍 List, get, and delete ontologies
-- 🏗️ Support for OWL classes, data properties, and object properties
 - 🎯 Automatic XSD to Fabric type mapping
 - 🔐 Interactive and service principal authentication
-- ✅ Comprehensive test suite (44 tests)
+- ✅ Test suite 
 
 ## 📋 Table of Contents
 
@@ -155,7 +154,7 @@ python run_tests.py samples
 python -m pytest --cov=src --cov-report=html
 ```
 
-**Test Results:** ✅ 44/44 tests passing
+**Test Results:** ✅ 
 
 For more details, see [docs/TESTING.md](docs/TESTING.md).
 
@@ -170,8 +169,8 @@ rdf-fabric-ontology-converter/
 │   └── fabric_client.py          # Fabric API client
 ├── tests/                        # Test suite
 │   ├── __init__.py
-│   ├── test_converter.py         # Unit tests (29)
-│   ├── test_integration.py       # Integration tests (15)
+│   ├── test_converter.py         # Unit tests 
+│   ├── test_integration.py       # Integration tests 
 │   └── run_tests.py              # Test runner
 ├── samples/                      # Sample ontology files
 │   ├── sample_ontology.ttl       # Manufacturing example
@@ -254,8 +253,6 @@ For issues and questions:
 
 - [Microsoft Fabric Documentation](https://learn.microsoft.com/fabric/)
 - [RDFLib](https://github.com/RDFLib/rdflib)
-- [OWL Ontologies](https://www.w3.org/OWL/)
-
 ---
 
 **Made with ❤️ for the Fabric community**
