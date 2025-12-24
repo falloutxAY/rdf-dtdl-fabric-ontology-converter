@@ -11,10 +11,11 @@ Please refer to the `LICENSE` file for the full terms governing use, distributio
 ## ✨ Features
 
 - 🔄 **Bidirectional conversion**: RDF TTL → Fabric and Fabric → RDF TTL
+- ✅ **Pre-flight validation**: Check TTL files for Fabric compatibility before import
 - 🔍 List, get, and delete ontologies
 - 🔁 Round-trip testing with semantic comparison
 - 🎯 Automatic XSD to Fabric type mapping
-- ✅ Comprehensive test suite (65 tests) 
+- ✅ Comprehensive test suite (99 tests) 
 
 ## 📋 Table of Contents
 
@@ -26,8 +27,7 @@ Please refer to the `LICENSE` file for the full terms governing use, distributio
 - [Testing](#testing)
 - [Project Structure](#project-structure)
 - [Examples](#examples)
-- [Strict Semantics and FOAF Considerations](#strict-semantics-and-foaf-considerations)
-- [FAQ](#faq)
+- [Limitations](#Limitations)
 - [Documentation](#documentation)
 - [Contributing](#contributing)
 - [License](#license)
@@ -73,10 +73,13 @@ cp config.sample.json src/config.json
 ## 🚀 Quick Start
 
 ```powershell
+# Validate a TTL file if it can be seamlessly imported into Fabric Ontology
+python src/main.py validate samples\sample_ontology.ttl --verbose
+
 # Convert a TTL file to Fabric format
 python src/main.py convert samples\sample_ontology.ttl --config src\config.json
 
-# Upload an ontology to Fabric
+# Upload an ontology to Fabric (with pre-flight validation)
 python src/main.py upload samples\sample_ontology.ttl --name "MyOntology" --config src\config.json
 
 # List all ontologies in your workspace
@@ -88,6 +91,16 @@ python -m pytest -q
 
 ## 📖 Usage
 
+### Validate TTL File (Pre-flight Check)
+```powershell
+# Check if a TTL file can be imported seamlessly
+python src/main.py validate <ttl_file> [--verbose] [--save-report]
+
+# Save detailed validation report to JSON
+python src/main.py validate <ttl_file> --output validation_report.json
+```
+You can try this for samples/foaf_ontology.ttl
+
 ### Convert TTL to JSON
 ```powershell
 python src/main.py convert <ttl_file> [--output <output.json>] --config src\config.json
@@ -95,7 +108,14 @@ python src/main.py convert <ttl_file> [--output <output.json>] --config src\conf
 
 ### Upload Ontology
 ```powershell
+# Upload with pre-flight validation (default)
 python src/main.py upload <ttl_file> [--name <ontology_name>] [--update] --config src\config.json
+
+# Skip validation and upload directly
+python src/main.py upload <ttl_file> --skip-validation --config src\config.json
+
+# Force upload even if validation issues are found
+python src/main.py upload <ttl_file> --force --config src\config.json
 ```
 
 ### Export Ontology to TTL
@@ -194,12 +214,14 @@ rdf-fabric-ontology-converter/
 │   ├── main.py                   # CLI entry point
 │   ├── rdf_converter.py          # RDF parsing & TTL→Fabric conversion
 │   ├── fabric_to_ttl.py          # Fabric→TTL export & comparison
-│   └── fabric_client.py          # Fabric API client with retry logic
+│   ├── fabric_client.py          # Fabric API client with retry logic
+│   └── preflight_validator.py    # Pre-flight validation for Fabric compatibility
 ├── tests/                        # Test suite
 │   ├── __init__.py
 │   ├── test_converter.py         # Converter unit tests (29 tests)
 │   ├── test_exporter.py          # Exporter unit tests (21 tests)
 │   ├── test_integration.py       # Integration tests (15 tests)
+│   ├── test_preflight_validator.py # Pre-flight validation tests (34 tests)
 │   └── run_tests.py              # Test runner
 ├── samples/                      # Sample ontology files
 │   ├── sample_ontology.ttl       # Manufacturing example
@@ -222,60 +244,72 @@ rdf-fabric-ontology-converter/
 
 ## 💡 Examples
 
-### Example 1: Manufacturing Ontology
+### Example 1: Validate Before Import
 ```bash
-python main.py upload samples/sample_ontology.ttl --name "ManufacturingOntology"
+# Check if a TTL file can be imported seamlessly
+python src/main.py validate samples/foaf_ontology.ttl --verbose
 ```
 
-### Example 2: FOAF Vocabulary
+### Example 2: Manufacturing Ontology
 ```bash
-python main.py upload samples/foaf_ontology.ttl --name "FOAF"
+python src/main.py upload samples/sample_ontology.ttl --name "ManufacturingOntology" --config src/config.json
 ```
 
-### Example 3: Convert Only (No Upload)
+### Example 3: FOAF Vocabulary
 ```bash
-python main.py convert samples/sample_iot_ontology.ttl --output iot_definition.json
+python src/main.py upload samples/foaf_ontology.ttl --name "FOAF" --config src/config.json
 ```
 
-### Example 4: Export from Fabric
+### Example 4: Convert Only (No Upload)
 ```bash
-python main.py export abc123-def456 --output my_ontology.ttl
+python src/main.py convert samples/sample_iot_ontology.ttl --output iot_definition.json
 ```
 
-### Example 5: Compare Two Ontologies
+### Example 5: Export from Fabric
 ```bash
-python main.py compare original.ttl exported.ttl --verbose
+python src/main.py export abc123-def456 --output my_ontology.ttl --config src/config.json
 ```
 
-### Example 6: Round-Trip Verification
+### Example 6: Compare Two Ontologies
+```bash
+python src/main.py compare original.ttl exported.ttl --verbose
+```
+
+### Example 7: Round-Trip Verification
 ```bash
 # Test that TTL -> Fabric -> TTL preserves semantics
-python main.py roundtrip samples/sample_ontology.ttl --save-export
+python src/main.py roundtrip samples/sample_ontology.ttl --save-export
 ```
 
 For more examples, see [docs/QUICK_TEST_GUIDE.md](docs/QUICK_TEST_GUIDE.md).
 
 ## Limitations
-**Conversions are not 1:1**: for more details, see `docs/MAPPING_LIMIRATIONS.md`.
 
-This tool adheres to strict semantics by default, ensuring predictable conversion aligned with RDF/OWL declarations:
+**Conversions are not 1:1**: RDF/OWL is highly expressive with features like complex class expressions, property restrictions, and inference-driven semantics that cannot be fully represented in Microsoft Fabric Ontology's business-friendly model.
 
-- Properties and relationships are generated only when `rdfs:domain` and `rdfs:range` resolve to declared classes in the input TTL.
-- Blank‑node class expressions using `owl:unionOf` are supported: each domain–range pair yields a distinct relationship type in the Fabric definition.
-- Properties without explicit, resolvable `rdfs:domain`/`rdfs:range` are skipped with clear warnings; no heuristic attachment is performed.
-- Expanded XSD mappings are included for common datatypes (e.g., `xsd:anyURI` → String, `xsd:dateTimeStamp` → DateTime, `xsd:time` → String).
+### Pre-flight Validation
 
-FOAF and similar vocabularies sometimes rely on property signatures that are not explicitly declared in a single TTL file or reference external class definitions. Under strict semantics:
+Use the **validate** command to check if your TTL file can be imported seamlessly:
 
-- If a property lacks explicit `rdfs:domain`/`rdfs:range` in the TTL (or references classes not declared locally), it will be skipped.
-- To achieve round‑trip equivalence for FOAF:
-  - Include explicit `rdfs:domain` and `rdfs:range` for the properties you want preserved.
-  - Ensure referenced classes are declared within the same TTL (or merge the needed vocabularies).
-  - Avoid complex OWL constructs not currently supported (e.g., certain `owl:Restriction` patterns) or extend support in future iterations.
+```bash
+python src/main.py validate samples/foaf_ontology.ttl --verbose
+```
 
-An optional "loose inference" mode is planned as a future feature to heuristically attach properties when signatures are missing. It is intentionally disabled by default to maintain predictable, standards‑aligned behavior.
+The tool will report:
+- ✅ **Seamless import** - No issues detected
+- ⚠️ **Issues detected** - Shows warnings about constructs that will be lost or transformed
 
-For more details, see `docs/ERROR_HANDLING_SUMMARY.md`.
+### Strict Semantics
+
+This tool adheres to strict semantics by default:
+- Properties require explicit `rdfs:domain` and `rdfs:range` declarations
+- Referenced classes must be declared locally in the TTL file
+- Complex OWL constructs (restrictions, property characteristics) are flagged but not preserved
+- `owl:unionOf` is supported for domain/range
+
+For complete details, see:
+- **[Mapping Limitations](docs/MAPPING_LIMITATIONS.md)** - Why TTL → Fabric is not perfectly lossless
+- **[Error Handling Summary](docs/ERROR_HANDLING_SUMMARY.md)** - Common failures and resolutions
 
 
 ## 📚 Documentation

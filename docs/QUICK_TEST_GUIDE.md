@@ -14,9 +14,11 @@ python run_tests.py all
 
 | Metric | Count | Status |
 |--------|-------|--------|
-| **Total Tests** | 44 | ✅ ALL PASSING |
-| Unit Tests | 29 | ✅ |
+| **Total Tests** | 99 | ✅ ALL PASSING |
+| Converter Unit Tests | 29 | ✅ |
+| Exporter Unit Tests | 21 | ✅ |
 | Integration Tests | 15 | ✅ |
+| Pre-flight Validation Tests | 34 | ✅ |
 | Sample TTL Files Validated | 4 | ✅ |
 
 ## 🧪 Test Categories
@@ -68,7 +70,9 @@ python -m pytest test_converter.py::TestSampleOntologies::test_all_sample_ttl_fi
 | File | Purpose | Tests |
 |------|---------|-------|
 | `test_converter.py` | Unit tests for converter | 29 |
+| `test_exporter.py` | Unit tests for exporter | 21 |
 | `test_integration.py` | Integration & E2E tests | 15 |
+| `test_preflight_validator.py` | Pre-flight validation tests | 34 |
 | `run_tests.py` | Test runner utility | - |
 
 ## 📚 Documentation
@@ -138,8 +142,20 @@ python -m pytest --cov=rdf_converter --cov-report=html
 
 ## 🎉 Success!
 
-All **44 tests passing** ensures the RDF to Fabric Ontology Converter is:
+All **99 tests passing** ensures the RDF to Fabric Ontology Converter is:
 - ✅ Reliable
 - ✅ Well-tested
 - ✅ Production-ready
 - ✅ Easy to maintain
+
+## 🆕 Pre-flight Validation
+
+The tool now includes pre-flight validation to check TTL files for Fabric compatibility:
+
+```powershell
+# Validate a TTL file
+python src/main.py validate samples/foaf_ontology.ttl --verbose
+
+# Save validation report
+python src/main.py validate samples/foaf_ontology.ttl --output report.json
+```

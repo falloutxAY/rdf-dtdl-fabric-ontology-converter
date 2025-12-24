@@ -2,6 +2,49 @@
 
 Convertors from RDF/OWL (TTL) to Microsoft Fabric Ontology necessarily simplify certain constructs. RDF/OWL is highly expressive and designed for open‑world, inference‑driven knowledge representation, while Fabric Ontology targets business‑friendly models optimized for data products and analytics. This document explains why conversions are not 1:1, what information can be lost or transformed, and how to mitigate.
 
+## Pre-flight Validation (NEW)
+
+Before importing a TTL file, you can now run a **pre-flight validation** to check if the ontology can be imported seamlessly or if there are RDF/OWL constructs that cannot be fully represented in Fabric:
+
+```powershell
+# Quick validation check
+python src/main.py validate samples/foaf_ontology.ttl
+
+# Detailed human-readable report
+python src/main.py validate samples/foaf_ontology.ttl --verbose
+
+# Save detailed JSON report
+python src/main.py validate samples/foaf_ontology.ttl --output validation_report.json
+```
+
+### Validation is integrated into upload
+
+When you run `upload`, a pre-flight validation runs automatically:
+- If issues are detected, you'll be asked whether to proceed
+- If you proceed, an **import log** is created documenting what could not be fully converted
+- Use `--skip-validation` to bypass the check, or `--force` to skip the prompt
+
+```powershell
+# Normal upload (with validation prompt)
+python src/main.py upload my_ontology.ttl --name "MyOntology"
+
+# Skip validation entirely
+python src/main.py upload my_ontology.ttl --skip-validation
+
+# Proceed without prompting even if issues found
+python src/main.py upload my_ontology.ttl --force
+```
+
+### Import Logs
+
+When you import an ontology with validation issues, an import log is automatically generated in the `logs/` directory:
+- `import_log_<ontology_name>_<timestamp>.json`
+
+This log documents:
+- All RDF/OWL constructs that could not be converted
+- Severity of each issue (error, warning, info)
+- Recommendations for improving compatibility
+
 ## What changes between RDF/OWL and Fabric Ontology?
 
 - Semantics vs structure:

@@ -2,17 +2,19 @@
 
 ## Overview
 
-A comprehensive test suite has been created for the RDF to Fabric Ontology Converter with **44 tests** covering unit, integration, and end-to-end scenarios. The test suite ensures that the converter correctly parses RDF TTL files and generates valid Microsoft Fabric Ontology definitions.
+A comprehensive test suite has been created for the RDF to Fabric Ontology Converter with **99 tests** covering unit, integration, pre-flight validation, and end-to-end scenarios. The test suite ensures that the converter correctly parses RDF TTL files and generates valid Microsoft Fabric Ontology definitions.
 
 ### ✅ All Tests Passing
 
 ```
-========================= 44 passed in 2.09s =========================
+========================= 99 passed in 14.03s =========================
 ```
 
 **Test Coverage:**
-- Unit Tests: 29/29 ✅
+- Converter Unit Tests: 29/29 ✅
+- Exporter Unit Tests: 21/21 ✅
 - Integration Tests: 15/15 ✅
+- Pre-flight Validation Tests: 34/34 ✅
 - Sample TTL Files: 4/4 ✅
 
 ## Test Files
@@ -27,13 +29,32 @@ Unit tests for the core RDF conversion functionality:
 - Error handling (6 tests)
 - Dataclass serialization (2 tests)
 
-### 2. **test_integration.py** (15 tests)
+### 2. **test_exporter.py** (21 tests)
+Unit tests for Fabric to TTL export functionality:
+- Fabric to TTL conversion (6 tests)
+- Ontology comparison (4 tests)
+- Round-trip testing (3 tests)
+- Sample file round-trips (3 tests)
+- Edge cases (5 tests)
+
+### 3. **test_integration.py** (15 tests)
 Integration and end-to-end tests:
 - Configuration loading (5 tests)
 - Logging setup (3 tests)
 - Convert command (1 test)
 - End-to-end workflows (3 tests)
 - Robustness testing (3 tests)
+
+### 4. **test_preflight_validator.py** (34 tests)
+Pre-flight validation tests:
+- PreflightValidator functionality (19 tests)
+- Validation report generation (3 tests)
+- File validation (1 test)
+- Import log generation (1 test)
+- Sample file validation (4 tests)
+- ValidationIssue dataclass (1 test)
+- Edge cases (3 tests)
+- Issue severity levels (2 tests)
 
 ## Test Suite Structure
 

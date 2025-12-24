@@ -24,6 +24,10 @@ from typing import Optional
 from rdf_converter import parse_ttl_file, parse_ttl_content
 from fabric_client import FabricConfig, FabricOntologyClient, FabricAPIError
 from fabric_to_ttl import FabricToTTLConverter, compare_ontologies, round_trip_test
+from preflight_validator import (
+    PreflightValidator, ValidationReport, validate_ttl_file, validate_ttl_content,
+    generate_import_log, IssueSeverity
+)
 
 
 # Setup logging
@@ -148,6 +152,54 @@ def cmd_upload(args):
         print(f"Error: TTL file is empty: {ttl_file}")
         sys.exit(1)
     
+    # --- PRE-FLIGHT VALIDATION ---
+    if not args.skip_validation:
+        print("\n" + "=" * 60)
+        print("PRE-FLIGHT VALIDATION")
+        print("=" * 60)
+        
+        validation_report = validate_ttl_content(ttl_content, ttl_file)
+        
+        if validation_report.can_import_seamlessly:
+            print("✓ Ontology can be imported seamlessly.")
+            print(f"  Classes: {validation_report.summary.get('declared_classes', 0)}")
+            print(f"  Properties: {validation_report.summary.get('declared_properties', 0)}")
+        else:
+            print("⚠ Issues detected that may affect conversion quality:\n")
+            print(f"  Errors:   {validation_report.issues_by_severity.get('error', 0)}")
+            print(f"  Warnings: {validation_report.issues_by_severity.get('warning', 0)}")
+            print(f"  Info:     {validation_report.issues_by_severity.get('info', 0)}")
+            print()
+            
+            # Show top issues
+            warning_issues = [i for i in validation_report.issues if i.severity in (IssueSeverity.ERROR, IssueSeverity.WARNING)]
+            if warning_issues:
+                print("Key issues:")
+                for issue in warning_issues[:5]:
+                    icon = "✗" if issue.severity == IssueSeverity.ERROR else "⚠"
+                    print(f"  {icon} {issue.message}")
+                if len(warning_issues) > 5:
+                    print(f"  ... and {len(warning_issues) - 5} more warnings/errors")
+            
+            print()
+            
+            # Ask user if they want to proceed (unless --force is specified)
+            if not args.force:
+                print("Some RDF/OWL constructs cannot be fully represented in Fabric Ontology.")
+                confirm = input("Do you want to proceed with the import anyway? [y/N]: ")
+                if confirm.lower() != 'y':
+                    print("Import cancelled.")
+                    
+                    # Optionally save the validation report
+                    if args.save_validation_report:
+                        report_path = str(Path(ttl_file).with_suffix('.validation.json'))
+                        validation_report.save_to_file(report_path)
+                        print(f"Validation report saved to: {report_path}")
+                    
+                    sys.exit(0)
+        
+        print("=" * 60 + "\n")
+    
     id_prefix = config_data.get('ontology', {}).get('id_prefix', 1000000000000)
     
     try:
@@ -196,12 +248,94 @@ def cmd_upload(args):
         print(f"Ontology ID: {result.get('id', 'Unknown')}")
         print(f"Workspace ID: {result.get('workspaceId', fabric_config.workspace_id)}")
         
+        # Generate import log if there were validation issues
+        if not args.skip_validation and not validation_report.can_import_seamlessly:
+            log_dir = log_config.get('file', 'logs/app.log')
+            log_dir = os.path.dirname(log_dir) or 'logs'
+            log_path = generate_import_log(validation_report, log_dir, ontology_name)
+            print(f"\nImport log saved to: {log_path}")
+            print("This log documents RDF/OWL constructs that could not be fully converted.")
+        
     except FabricAPIError as e:
         logger.error(f"Fabric API error: {e}")
         print(f"Error: {e.message}")
         if e.error_code == "ItemDisplayNameAlreadyInUse":
             print("Hint: Use --update to update an existing ontology, or choose a different name with --name")
         sys.exit(1)
+
+
+def cmd_validate(args):
+    """Validate a TTL file for Fabric Ontology compatibility without uploading."""
+    setup_logging()
+    logger = logging.getLogger(__name__)
+    
+    ttl_file = args.ttl_file
+    if not os.path.exists(ttl_file):
+        print(f"Error: TTL file not found: {ttl_file}")
+        sys.exit(1)
+    
+    print(f"Validating TTL file: {ttl_file}\n")
+    
+    try:
+        with open(ttl_file, 'r', encoding='utf-8') as f:
+            ttl_content = f.read()
+    except UnicodeDecodeError as e:
+        print(f"Error: Failed to read TTL file due to encoding issue: {e}")
+        sys.exit(1)
+    except Exception as e:
+        print(f"Error reading TTL file: {e}")
+        sys.exit(1)
+    
+    # Run validation
+    report = validate_ttl_content(ttl_content, ttl_file)
+    
+    # Display results
+    if args.verbose:
+        print(report.get_human_readable_summary())
+    else:
+        print("=" * 60)
+        print("VALIDATION RESULT")
+        print("=" * 60)
+        
+        if report.can_import_seamlessly:
+            print("✓ This ontology can be imported SEAMLESSLY.")
+            print("  No significant conversion issues detected.")
+        else:
+            print("✗ Issues detected that may affect conversion quality.")
+            print()
+            print(f"Total Issues: {report.total_issues}")
+            print(f"  - Errors:   {report.issues_by_severity.get('error', 0)}")
+            print(f"  - Warnings: {report.issues_by_severity.get('warning', 0)}")
+            print(f"  - Info:     {report.issues_by_severity.get('info', 0)}")
+        
+        print()
+        print("Ontology Statistics:")
+        print(f"  Triples: {report.summary.get('total_triples', 0)}")
+        print(f"  Classes: {report.summary.get('declared_classes', 0)}")
+        print(f"  Properties: {report.summary.get('declared_properties', 0)}")
+        
+        if report.issues and not report.can_import_seamlessly:
+            print()
+            print("Issue Categories:")
+            for category, count in sorted(report.issues_by_category.items(), key=lambda x: -x[1]):
+                print(f"  - {category.replace('_', ' ').title()}: {count}")
+    
+    # Save report to file if requested
+    if args.output:
+        report.save_to_file(args.output)
+        print(f"\nDetailed report saved to: {args.output}")
+    elif args.save_report:
+        output_path = str(Path(ttl_file).with_suffix('.validation.json'))
+        report.save_to_file(output_path)
+        print(f"\nDetailed report saved to: {output_path}")
+    
+    # Exit with appropriate code
+    if report.can_import_seamlessly:
+        sys.exit(0)
+    elif report.issues_by_severity.get('error', 0) > 0:
+        sys.exit(2)  # Errors present
+    else:
+        sys.exit(1)  # Only warnings
 
 
 def cmd_list(args):
@@ -722,6 +856,16 @@ Examples:
     
     subparsers = parser.add_subparsers(dest='command', help='Available commands')
     
+    # Validate command (NEW)
+    validate_parser = subparsers.add_parser('validate', help='Validate a TTL file for Fabric compatibility')
+    validate_parser.add_argument('ttl_file', help='Path to the TTL file to validate')
+    validate_parser.add_argument('--output', '-o', help='Output JSON report file path')
+    validate_parser.add_argument('--save-report', '-s', action='store_true',
+                                 help='Save detailed report to <ttl_file>.validation.json')
+    validate_parser.add_argument('--verbose', '-v', action='store_true',
+                                 help='Show detailed human-readable report')
+    validate_parser.set_defaults(func=cmd_validate)
+    
     # Upload command
     upload_parser = subparsers.add_parser('upload', help='Upload a TTL file to Fabric Ontology')
     upload_parser.add_argument('ttl_file', help='Path to the TTL file to upload')
@@ -730,6 +874,12 @@ Examples:
     upload_parser.add_argument('--description', '-d', help='Ontology description')
     upload_parser.add_argument('--update', '-u', action='store_true', 
                                help='Update if ontology with same name exists')
+    upload_parser.add_argument('--skip-validation', action='store_true',
+                               help='Skip pre-flight validation check')
+    upload_parser.add_argument('--force', '-f', action='store_true',
+                               help='Proceed with import even if validation issues are found')
+    upload_parser.add_argument('--save-validation-report', action='store_true',
+                               help='Save validation report even if import is cancelled')
     upload_parser.set_defaults(func=cmd_upload)
     
     # List command
