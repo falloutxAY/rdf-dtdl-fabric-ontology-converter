@@ -10,26 +10,23 @@ Please refer to the `LICENSE` file for the full terms governing use, distributio
 
 ## ✨ Features
 
-- 🔄 **Bidirectional conversion**: RDF TTL → Fabric and Fabric → RDF TTL
-- ✅ **Pre-flight validation**: Check TTL files for Fabric compatibility before import
+- 🔄 Bidirectional conversion: RDF TTL → Fabric and Fabric → RDF TTL
+- ✅ Pre-flight validation: Check TTL files for Fabric compatibility before import
 - 🔍 List, get, and delete ontologies
 - 🔁 Round-trip testing with semantic comparison
-- 🎯 Automatic XSD to Fabric type mapping
-- ✅ Comprehensive test suite (99 tests) 
 
 ## 📋 Table of Contents
 
 - [Prerequisites](#prerequisites)
 - [Installation](#installation)
+- [Configuration](#configuration)
 - [Quick Start](#quick-start)
 - [Usage](#usage)
-- [Configuration](#configuration)
-- [Testing](#testing)
-- [Project Structure](#project-structure)
 - [Examples](#examples)
 - [Limitations](#Limitations)
 - [Documentation](#documentation)
-- [Contributing](#contributing)
+- [Testing](#testing)
+- [Project Structure](#project-structure)
 - [License](#license)
 
 ## 🔧 Prerequisites
@@ -69,6 +66,32 @@ cp config.sample.json src/config.json
 
 # Edit src/config.json with your Fabric workspace details
 ```
+
+## ⚙️ Configuration
+
+Create `src/config.json` from `config.sample.json` (config.json is git-ignored):
+
+```json
+{
+  "fabric": {
+    "workspace_id": "YOUR_WORKSPACE_ID",
+    "tenant_id": "YOUR_TENANT_ID",
+    "client_id": "",
+    "use_interactive_auth": "true",
+    "api_base_url": "https://api.fabric.microsoft.com/v1"
+  },
+  "ontology": {
+    "default_namespace": "usertypes",
+    "id_prefix": 1000000000000
+  },
+  "logging": {
+    "level": "INFO",
+    "file": "logs/app.log"
+  }
+}
+```
+
+For detailed configuration options, see [docs/CONFIGURATION.md](docs/CONFIGURATION.md).
 
 ## 🚀 Quick Start
 
@@ -157,91 +180,6 @@ python src/main.py delete <ontology_id> --config src\config.json
 python src/main.py test --config src\config.json
 ```
 
-## ⚙️ Configuration
-
-Create `src/config.json` from `config.sample.json` (config.json is git-ignored):
-
-```json
-{
-  "fabric": {
-    "workspace_id": "YOUR_WORKSPACE_ID",
-    "tenant_id": "YOUR_TENANT_ID",
-    "client_id": "04b07795-8ddb-461a-bbee-02f9e1bf7b46",
-    "use_interactive_auth": true,
-    "api_base_url": "https://api.fabric.microsoft.com/v1"
-  },
-  "ontology": {
-    "default_namespace": "usertypes",
-    "id_prefix": 1000000000000
-  },
-  "logging": {
-    "level": "INFO",
-    "file": "logs/app.log"
-  }
-}
-```
-
-For detailed configuration options, see [docs/CONFIGURATION.md](docs/CONFIGURATION.md).
-
-## 🧪 Testing
-
-Run the comprehensive test suite:
-
-```bash
-# Run all tests
-python tests/run_tests.py all
-
-# Run unit tests only
-python tests/run_tests.py core
-
-# Run sample file tests
-python tests/run_tests.py samples
-
-# Run with coverage
-python -m pytest tests/ --cov=src --cov-report=html
-```
-
-**Test Results:** ✅ 
-
-For more details, see [docs/TESTING.md](docs/TESTING.md).
-
-## 📁 Project Structure
-
-```
-rdf-fabric-ontology-converter/
-├── src/                          # Source code
-│   ├── __init__.py
-│   ├── main.py                   # CLI entry point
-│   ├── rdf_converter.py          # RDF parsing & TTL→Fabric conversion
-│   ├── fabric_to_ttl.py          # Fabric→TTL export & comparison
-│   ├── fabric_client.py          # Fabric API client with retry logic
-│   └── preflight_validator.py    # Pre-flight validation for Fabric compatibility
-├── tests/                        # Test suite
-│   ├── __init__.py
-│   ├── test_converter.py         # Converter unit tests (29 tests)
-│   ├── test_exporter.py          # Exporter unit tests (21 tests)
-│   ├── test_integration.py       # Integration tests (15 tests)
-│   ├── test_preflight_validator.py # Pre-flight validation tests (34 tests)
-│   └── run_tests.py              # Test runner
-├── samples/                      # Sample ontology files
-│   ├── sample_ontology.ttl       # Manufacturing example
-│   ├── foaf_ontology.ttl         # FOAF vocabulary
-│   ├── sample_iot_ontology.ttl   # IoT devices
-│   └── sample_fibo_ontology.ttl  # Financial ontology
-├── docs/                         # Documentation
-│   ├── CONFIGURATION.md          # Configuration guide
-│   ├── TESTING.md                # Combined testing guide
-│   ├── TROUBLESHOOTING.md        # Common issues
-│   ├── ERROR_HANDLING_SUMMARY.md # Error handling reference
-│   └── QUICK_TEST_GUIDE.md       # Quick test instructions
-├── config.sample.json            # Sample configuration
-├── src/config.json               # Your local config (git-ignored)
-├── requirements.txt              # Python dependencies
-├── .gitignore                    # Git ignore rules
-├── LICENSE                       # MIT License
-└── README.md                     # This file
-```
-
 ## 💡 Examples
 
 ### Example 1: Validate Before Import
@@ -321,46 +259,77 @@ For complete details, see:
 - **[Error Handling Summary](docs/ERROR_HANDLING_SUMMARY.md)** - Common failures and resolutions
  - **[Mapping Challenges and Non‑1:1 Scenarios](docs/MAPPING_LIMITATIONS.md)** - Why TTL → Fabric is not perfectly lossless
 
-## 🤝 Contributing
+ 
+## 🧪 Testing
 
-Contributions are welcome! Please:
+Run the comprehensive test suite:
 
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+```bash
+# Run all tests
+python tests/run_tests.py all
 
-Please ensure:
-- All tests pass (`python run_tests.py all`)
-- Code follows Python best practices
-- New features include tests
-- Documentation is updated
+# Run unit tests only
+python tests/run_tests.py core
 
+# Run sample file tests
+python tests/run_tests.py samples
+
+# Run with coverage
+python -m pytest tests/ --cov=src --cov-report=html
+```
+
+**Test Results:** ✅ 
+
+For more details, see [docs/TESTING.md](docs/TESTING.md).
+
+## 📁 Project Structure
+
+```
+rdf-fabric-ontology-converter/
+├── src/                          # Source code
+│   ├── __init__.py
+│   ├── main.py                   # CLI entry point
+│   ├── rdf_converter.py          # RDF parsing & TTL→Fabric conversion
+│   ├── fabric_to_ttl.py          # Fabric→TTL export & comparison
+│   ├── fabric_client.py          # Fabric API client with retry logic
+│   └── preflight_validator.py    # Pre-flight validation for Fabric compatibility
+├── tests/                        # Test suite
+│   ├── __init__.py
+│   ├── test_converter.py         # Converter unit tests (29 tests)
+│   ├── test_exporter.py          # Exporter unit tests (21 tests)
+│   ├── test_integration.py       # Integration tests (15 tests)
+│   ├── test_preflight_validator.py # Pre-flight validation tests (34 tests)
+│   └── run_tests.py              # Test runner
+├── samples/                      # Sample ontology files
+│   ├── sample_ontology.ttl       # Manufacturing example
+│   ├── foaf_ontology.ttl         # FOAF vocabulary
+│   ├── sample_iot_ontology.ttl   # IoT devices
+│   └── sample_fibo_ontology.ttl  # Financial ontology
+├── docs/                         # Documentation
+│   ├── CONFIGURATION.md          # Configuration guide
+│   ├── TESTING.md                # Combined testing guide
+│   ├── TROUBLESHOOTING.md        # Common issues
+│   ├── ERROR_HANDLING_SUMMARY.md # Error handling reference
+│   └── QUICK_TEST_GUIDE.md       # Quick test instructions
+├── config.sample.json            # Sample configuration
+├── src/config.json               # Your local config (git-ignored)
+├── requirements.txt              # Python dependencies
+├── .gitignore                    # Git ignore rules
+├── LICENSE                       # MIT License
+└── README.md                     # This file
+```
 
 ## 📄 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 
+## 🔗 Related Links
 
-## 🙏 Acknowledgments
-
-- Microsoft Fabric documentation and ecosystem
+- [Microsoft Fabric Documentation](https://learn.microsoft.com/fabric/)
 - [RDFLib](https://github.com/RDFLib/rdflib) for RDF parsing support
 - Sample vocabularies: [FOAF](http://xmlns.com/foaf/spec/) and [FIBO](https://spec.edmcouncil.org/fibo/)
 
-## 📧 Support
-
-For issues and questions:
-- 🐛 [Report a bug](https://github.com/falloutxAY/rdf-fabric-ontology-converter/issues)
-- 💡 [Request a feature](https://github.com/falloutxAY/rdf-fabric-ontology-converter/issues)
-- 📖 [Read the docs](docs/)
-
-## 🔗 Related Projects
-
-- [Microsoft Fabric Documentation](https://learn.microsoft.com/fabric/)
-- [RDFLib](https://github.com/RDFLib/rdflib)
 ---
 
 **Made with ❤️ for the Fabric community**
