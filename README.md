@@ -8,14 +8,14 @@ This repository was created as part of my personal learning and experimenting wi
 
 Please refer to the `LICENSE` file for the full terms governing use, distribution, and limitations.
 
-## ✨ Features
+## Features
 
-- 🔄 Bidirectional conversion: RDF TTL → Fabric and Fabric → RDF TTL
-- ✅ Pre-flight validation: Check TTL files for Fabric compatibility before import
-- 🔍 List, get, and delete ontologies
-- 🔁 Round-trip testing with semantic comparison
+- Bidirectional conversion: RDF TTL → Fabric and Fabric → RDF TTL
+- Pre-flight validation: Check TTL files for Fabric compatibility before import
+- List, get, and delete ontologies
+- Round-trip testing with semantic comparison
 
-## 📋 Table of Contents
+## Table of Contents
 
 - [Prerequisites](#prerequisites)
 - [Installation](#installation)
@@ -29,13 +29,13 @@ Please refer to the `LICENSE` file for the full terms governing use, distributio
 - [Project Structure](#project-structure)
 - [License](#license)
 
-## 🔧 Prerequisites
+## Prerequisites
 
 - Python 3.9 or higher
 - Microsoft Fabric workspace with Ontology support
 - Contributor role on the Fabric workspace
 
-## 📦 Installation
+## Installation
 
 1. Clone the repository:
 ```bash
@@ -67,7 +67,7 @@ cp config.sample.json src/config.json
 # Edit src/config.json with your Fabric workspace details
 ```
 
-## ⚙️ Configuration
+## Configuration
 
 Create `src/config.json` from `config.sample.json` (config.json is git-ignored):
 
@@ -93,7 +93,7 @@ Create `src/config.json` from `config.sample.json` (config.json is git-ignored):
 
 For detailed configuration options, see [docs/CONFIGURATION.md](docs/CONFIGURATION.md).
 
-## 🚀 Quick Start
+## Quick Start
 
 ```powershell
 # Validate a TTL file if it can be seamlessly imported into Fabric Ontology
@@ -112,7 +112,7 @@ python src/main.py list --config src\config.json
 python -m pytest -q
 ```
 
-## 📖 Usage
+## Usage
 
 ### Validate TTL File (Pre-flight Check)
 ```powershell
@@ -180,7 +180,7 @@ python src/main.py delete <ontology_id> --config src\config.json
 python src/main.py test --config src\config.json
 ```
 
-## 💡 Examples
+## Examples
 
 ### Example 1: Validate Before Import
 ```bash
@@ -250,7 +250,7 @@ For complete details, see:
 - **[Error Handling Summary](docs/ERROR_HANDLING_SUMMARY.md)** - Common failures and resolutions
 
 
-## 📚 Documentation
+## Documentation
 
 - **[Configuration Guide](docs/CONFIGURATION.md)** - Detailed setup instructions
 - **[Testing Guide](docs/TESTING.md)** - How to run and write tests
@@ -260,7 +260,7 @@ For complete details, see:
  - **[Mapping Challenges and Non‑1:1 Scenarios](docs/MAPPING_LIMITATIONS.md)** - Why TTL → Fabric is not perfectly lossless
 
  
-## 🧪 Testing
+## Testing
 
 Run the comprehensive test suite:
 
@@ -319,12 +319,12 @@ rdf-fabric-ontology-converter/
 └── README.md                     # This file
 ```
 
-## 📄 License
+## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 
-## 🔗 Related Links
+## Related Links
 
 - [Microsoft Fabric Documentation](https://learn.microsoft.com/fabric/)
 - [RDFLib](https://github.com/RDFLib/rdflib) for RDF parsing support
