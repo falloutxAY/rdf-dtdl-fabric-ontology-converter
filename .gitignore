@@ -36,6 +36,7 @@ env/
 *.swo
 *~
 .DS_Store
+.agentic/
 
 # Testing
 .pytest_cache/
