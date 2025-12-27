@@ -4,9 +4,11 @@ Convert RDF TTL (Turtle) ontology files to Microsoft Fabric Ontology format and 
 
 ## Disclaimer
 
-This repository was created as part of my personal learning and experimenting with AI‑assisted software development (Actually AI did 99.9% of the work). There may be mistakes or omissions, and the outputs may not be complete or correct for all ontologies.
+This is a **personal project** and is **not an official Microsoft product**. It is not supported, endorsed, or maintained by Microsoft Corporation. The views and implementations here are my own and do not represent Microsoft's positions or recommendations.
 
-Please refer to the `LICENSE` file for the full terms governing use, distribution, and limitations.
+This tool was created as part of my personal learning with AI-assisted development. There may be errors, and outputs may not be complete or correct for all ontologies. **Use at your own risk.**
+
+Please refer to the [LICENSE](LICENSE) file for full terms.
 
 ## Features
 
@@ -331,5 +333,3 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - Sample vocabularies: [FOAF](http://xmlns.com/foaf/spec/) and [FIBO](https://spec.edmcouncil.org/fibo/)
 
 ---
-
-**Made with ❤️ for the Fabric community**
