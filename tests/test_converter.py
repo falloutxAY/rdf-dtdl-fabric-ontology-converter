@@ -1234,6 +1234,195 @@ class TestPathTraversalProtection:
             validator.validate_file_path(['path', 'list'])
 
 
+class TestSymlinkSecurityProtection:
+    """Test suite for symlink security protection (P0 - Path Hardening)"""
+    
+    @pytest.fixture
+    def validator(self):
+        """Get InputValidator class"""
+        from rdf_converter import InputValidator
+        return InputValidator
+    
+    @pytest.mark.skipif(
+        not hasattr(Path, 'is_symlink'),
+        reason="Symlink testing not available on this platform"
+    )
+    def test_symlink_rejection_strict_mode(self, validator, tmp_path):
+        """Test that symlinks are rejected in strict mode (default)"""
+        import os
+        
+        # Create a real file
+        real_file = tmp_path / "real_file.ttl"
+        real_file.write_text("@prefix : <http://example.org/> .")
+        
+        # Create a symlink pointing to the real file
+        symlink = tmp_path / "symlink.ttl"
+        try:
+            symlink.symlink_to(real_file)
+        except OSError:
+            pytest.skip("Cannot create symlinks on this system (may need admin)")
+        
+        # Should reject symlink by default
+        with pytest.raises(ValueError, match="Symlink"):
+            validator.validate_input_ttl_path(str(symlink))
+    
+    @pytest.mark.skipif(
+        not hasattr(Path, 'is_symlink'),
+        reason="Symlink testing not available on this platform"
+    )
+    def test_symlink_warning_non_strict_mode(self, validator, tmp_path, caplog):
+        """Test that symlinks generate warning in non-strict mode"""
+        import logging
+        
+        # Create a real file
+        real_file = tmp_path / "real_file.ttl"
+        real_file.write_text("@prefix : <http://example.org/> .")
+        
+        # Create a symlink pointing to the real file
+        symlink = tmp_path / "symlink.ttl"
+        try:
+            symlink.symlink_to(real_file)
+        except OSError:
+            pytest.skip("Cannot create symlinks on this system (may need admin)")
+        
+        # In non-strict mode, should warn but allow
+        with caplog.at_level(logging.WARNING):
+            result = validator.validate_input_ttl_path(str(symlink), reject_symlinks=False)
+        
+        # Should have logged a warning
+        assert any("Symlink" in record.message for record in caplog.records)
+        # But should return the path
+        assert result.exists()
+    
+    def test_real_file_allowed(self, validator, tmp_path):
+        """Test that real files (non-symlinks) are allowed"""
+        real_file = tmp_path / "ontology.ttl"
+        real_file.write_text("@prefix : <http://example.org/> .")
+        
+        # Should not raise
+        result = validator.validate_input_ttl_path(str(real_file))
+        assert result.exists()
+        assert not result.is_symlink()
+    
+    def test_config_file_validation_rejects_symlinks(self, validator, tmp_path):
+        """Test that config file validation rejects symlinks"""
+        import os
+        
+        # Create a real config file
+        real_config = tmp_path / "real_config.json"
+        real_config.write_text('{"fabric": {}}')
+        
+        # Create a symlink
+        symlink_config = tmp_path / "config.json"
+        try:
+            symlink_config.symlink_to(real_config)
+        except OSError:
+            pytest.skip("Cannot create symlinks on this system")
+        
+        # Config file validation should reject symlinks
+        with pytest.raises(ValueError, match="Symlink"):
+            validator.validate_config_file_path(str(symlink_config))
+
+
+class TestConfigFilePathValidation:
+    """Test suite for configuration file path validation (P0 - Path Hardening)"""
+    
+    @pytest.fixture
+    def validator(self):
+        """Get InputValidator class"""
+        from rdf_converter import InputValidator
+        return InputValidator
+    
+    def test_config_file_requires_json_extension(self, validator, tmp_path, monkeypatch):
+        """Test that config files must have .json extension"""
+        # Change to tmp_path to test cwd restriction
+        monkeypatch.chdir(tmp_path)
+        
+        config_file = tmp_path / "config.txt"
+        config_file.write_text('{"fabric": {}}')
+        
+        with pytest.raises(ValueError, match="Invalid file extension"):
+            validator.validate_config_file_path(str(config_file))
+    
+    def test_valid_config_file_allowed(self, validator, tmp_path, monkeypatch):
+        """Test that valid config files are allowed"""
+        # Change to tmp_path to test cwd restriction
+        monkeypatch.chdir(tmp_path)
+        
+        config_file = tmp_path / "config.json"
+        config_file.write_text('{"fabric": {}}')
+        
+        result = validator.validate_config_file_path(str(config_file))
+        assert result.exists()
+        assert result.suffix == ".json"
+    
+    def test_config_path_traversal_rejected(self, validator):
+        """Test that config file path traversal is rejected"""
+        with pytest.raises(ValueError, match="traversal"):
+            validator.validate_config_file_path("../../../etc/config.json")
+
+
+class TestEnhancedErrorMessages:
+    """Test suite for enhanced security error messages"""
+    
+    @pytest.fixture
+    def validator(self):
+        """Get InputValidator class"""
+        from rdf_converter import InputValidator
+        return InputValidator
+    
+    def test_path_traversal_error_message_is_clear(self, validator):
+        """Test that path traversal error message is helpful"""
+        try:
+            validator.validate_file_path("../secret/file.ttl")
+            pytest.fail("Expected ValueError")
+        except ValueError as e:
+            error_msg = str(e)
+            # Error should explain what happened
+            assert "traversal" in error_msg.lower()
+            # Error should mention security
+            assert "security" in error_msg.lower() or ".." in error_msg
+    
+    def test_symlink_error_message_suggests_alternative(self, validator, tmp_path):
+        """Test that symlink error suggests using real path"""
+        # Create file and symlink
+        real_file = tmp_path / "real.ttl"
+        real_file.write_text("# test")
+        
+        symlink = tmp_path / "link.ttl"
+        try:
+            symlink.symlink_to(real_file)
+        except OSError:
+            pytest.skip("Cannot create symlinks on this system")
+        
+        try:
+            validator.validate_input_ttl_path(str(symlink))
+            pytest.fail("Expected ValueError")
+        except ValueError as e:
+            error_msg = str(e)
+            # Error should mention symlink
+            assert "symlink" in error_msg.lower()
+            # Error should suggest using real path
+            assert "actual" in error_msg.lower() or "real" in error_msg.lower() or "instead" in error_msg.lower()
+    
+    def test_empty_path_error_message(self, validator):
+        """Test empty path error message"""
+        try:
+            validator.validate_file_path("")
+            pytest.fail("Expected ValueError")
+        except ValueError as e:
+            assert "empty" in str(e).lower()
+    
+    def test_wrong_type_error_message(self, validator):
+        """Test wrong type error message"""
+        try:
+            validator.validate_file_path(12345)
+            pytest.fail("Expected TypeError")
+        except TypeError as e:
+            assert "string" in str(e).lower()
+            assert "int" in str(e).lower()
+
+
 class TestConversionResult:
     """Tests for ConversionResult tracking functionality."""
     

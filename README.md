@@ -12,24 +12,25 @@ Please refer to the [LICENSE](LICENSE) file for full terms.
 
 ## Features
 
-- Bidirectional conversion: RDF TTL → Fabric and Fabric → RDF TTL
-- Pre-flight validation: Check TTL files for Fabric compatibility before import
-- List, get, and delete ontologies
-- Path traversal protection and input validation
-- Graceful cancellation support (Ctrl+C during long operations)
+- Convert RDF TTL ↔ Fabric Ontology
+- Pre-flight validation
+- Upload, list, get, update, delete ontologies
+- Graceful cancellation (Ctrl+C)
 
 ## Table of Contents
 
 - [Prerequisites](#prerequisites)
 - [Installation](#installation)
 - [Configuration](#configuration)
+- [Resilience Patterns](#resilience-patterns-built-in)
+- [Security Guidelines](#security-guidelines)
 - [Quick Start](#quick-start)
 - [Usage](#usage)
 - [Examples](#examples)
-- [Limitations](#Limitations)
+- [Limitations](#limitations)
 - [Documentation](#documentation)
 - [Testing](#testing)
-- [Project Structure](#project-structure)
+- [Project Structure](#-project-structure)
 - [License](#license)
 
 ## Prerequisites
@@ -86,6 +87,12 @@ Create `src/config.json` from `config.sample.json` (config.json is git-ignored):
       "enabled": true,
       "requests_per_minute": 10,
       "burst": 15
+    },
+    "circuit_breaker": {
+      "enabled": true,
+      "failure_threshold": 5,
+      "recovery_timeout": 60.0,
+      "success_threshold": 2
     }
   },
   "ontology": {
@@ -104,20 +111,12 @@ For detailed configuration options, see [docs/CONFIGURATION.md](docs/CONFIGURATI
 ## Quick Start
 
 ```powershell
-# Validate a TTL file if it can be seamlessly imported into Fabric Ontology
-python src/main.py validate samples\sample_supply_chain_ontology.ttl --verbose
+# 1) Configure
+copy config.sample.json src\config.json
 
-# Convert a TTL file to Fabric format
-python src/main.py convert samples\sample_supply_chain_ontology.ttl --config src\config.json
-
-# Upload an ontology to Fabric (with pre-flight validation)
-python src/main.py upload samples\sample_supply_chain_ontology.ttl --name "MyOntology" --config src\config.json
-
-# List all ontologies in your workspace
-python src/main.py list --config src\config.json
-
-# Run tests
-python -m pytest -q
+# 2) Validate → Convert → Upload
+python src/main.py validate samples/sample_supply_chain_ontology.ttl
+python src/main.py upload   samples/sample_supply_chain_ontology.ttl --name "MyOntology"
 ```
 
 ## Usage
@@ -127,7 +126,7 @@ python -m pytest -q
 python src\main.py -h
 ```
 
-### Validate TTL File (Pre-flight Check)
+### Validate TTL File (pre-flight)
 ```powershell
 # Check if a TTL file can be imported seamlessly
 python src/main.py validate <ttl_file> [--verbose] [--save-report]
@@ -209,52 +208,6 @@ python src/main.py delete <ontology_id> --config src\config.json
 python src/main.py test --config src\config.json
 ```
 
-## Examples
-
-### Example 1: Validate Before Import
-```bash
-# Check if a TTL file can be imported seamlessly
-python src/main.py validate samples/sample_foaf_ontology.ttl --verbose
-```
-
-### Example 2: Supply Chain Ontology
-```bash
-python src/main.py upload samples/sample_supply_chain_ontology.ttl --name "SupplyChainOntology" --config src/config.json
-```
-
-### Example 3: FOAF Vocabulary
-```bash
-python src/main.py upload samples/sample_foaf_ontology.ttl --name "FOAF" --config src/config.json
-```
-
-### Example 4: Convert Only (No Upload)
-```bash
-python src/main.py convert samples/sample_iot_ontology.ttl --output iot_definition.json
-```
-
-### Example 5: Export from Fabric
-```bash
-python src/main.py export abc123-def456 --output my_ontology.ttl --config src/config.json
-```
-
-### Example 6: Compare Two Ontologies
-```bash
-python src/main.py compare original.ttl exported.ttl --verbose
-```
-
-### Example 7: Round-Trip Verification
-```bash
-# Manual round-trip test: TTL -> Fabric -> TTL -> Compare
-# Step 1: Upload
-python src/main.py upload samples/sample_supply_chain_ontology.ttl --name "RoundTripTest" --config src/config.json
-
-# Step 2: Export (replace <ontology_id> with the ID from step 1)
-python src/main.py export <ontology_id> --output roundtrip_exported.ttl --config src/config.json
-
-# Step 3: Compare
-python src/main.py compare samples/sample_supply_chain_ontology.ttl roundtrip_exported.ttl --verbose
-```
-
 ## Limitations
 
 **Conversions are not 1:1**: RDF/OWL is highly expressive with features like complex class expressions, property restrictions, and inference-driven semantics that cannot be fully represented in Microsoft Fabric Ontology's business-friendly model.
@@ -267,17 +220,6 @@ Use the **validate** command to check if your TTL file can be imported seamlessl
 python src/main.py validate samples/sample_foaf_ontology.ttl --verbose
 ```
 
-### Strict Semantics
-
-This tool adheres to strict semantics by default:
-- Properties require explicit `rdfs:domain` and `rdfs:range` declarations
-- Referenced classes must be declared locally in the TTL file
-- Complex OWL constructs (restrictions, property characteristics) are flagged but not preserved
-- `owl:unionOf`, `owl:intersectionOf`, and `owl:complementOf` are supported for domain/range with:
-  - Recursive resolution of nested blank nodes
-  - Cycle detection to prevent infinite loops
-  - Depth limiting for protection against deeply nested structures
-
 For complete details, see:
 - **[Mapping Limitations](docs/MAPPING_LIMITATIONS.md)** - Why TTL → Fabric is not perfectly lossless
 
@@ -287,31 +229,15 @@ For complete details, see:
 - **[Configuration Guide](docs/CONFIGURATION.md)** - Detailed setup instructions
 - **[Testing Guide](docs/TESTING.md)** - Comprehensive testing documentation
 - **[Troubleshooting](docs/TROUBLESHOOTING.md)** - Common issues and solutions
-- **[Mapping Challenges and Limitations](docs/MAPPING_LIMITATIONS.md)** - Why TTL → Fabric is not perfectly lossless
+- **[Mapping Challenges and Limitations](docs/MAPPING_LIMITATIONS.md)** - Why TTL → Fabric Ontology Limitations
 
  
 ## Testing
 
-Run the comprehensive test suite (286 tests):
-
-```bash
-# Run all tests
-python tests/run_tests.py all
-
-# Run unit tests only
-python tests/run_tests.py core
-
-# Run sample file tests
-python tests/run_tests.py samples
-
-# Run Fabric API integration tests
-python -m pytest tests/test_fabric_client_integration.py -v
-
-# Run with coverage
-python -m pytest tests/ --cov=src --cov-report=html
+```powershell
+python -m pytest tests/ -v
+# Or see docs/TESTING.md for markers and coverage
 ```
-
-For more details, see [docs/TESTING.md](docs/TESTING.md).
 
 ## 📁 Project Structure
 
@@ -325,23 +251,27 @@ rdf-fabric-ontology-converter/
 │   │   ├── commands.py           # Command handlers (Command pattern)
 │   │   ├── parsers.py            # Argument parsing configuration
 │   │   └── helpers.py            # Shared utilities (logging, config)
+│   ├── converters/               # Extracted converter components (SRP)
+│   │   ├── __init__.py           # Package exports
+│   │   ├── type_mapper.py        # XSD to Fabric type mapping
+│   │   ├── uri_utils.py          # URI parsing and name extraction
+│   │   ├── class_resolver.py     # OWL class expression resolution
+│   │   └── fabric_serializer.py  # Fabric API JSON serialization
 │   ├── rdf_converter.py          # RDF parsing & TTL→Fabric conversion
 │   ├── fabric_to_ttl.py          # Fabric→TTL export & comparison
 │   ├── fabric_client.py          # Fabric API client with retry logic
 │   ├── rate_limiter.py           # Token bucket rate limiter for API throttling
+│   ├── circuit_breaker.py        # Circuit breaker for fault tolerance
 │   ├── cancellation.py           # Graceful cancellation support (Ctrl+C)
 │   └── preflight_validator.py    # Pre-flight validation for Fabric compatibility
-├── tests/                        # Test suite (286 tests)
+├── tests/                        # Test suite (~317 tests, 4 consolidated files)
 │   ├── __init__.py
-│   ├── test_converter.py         # Converter unit tests
-│   ├── test_exporter.py          # Exporter unit tests
-│   ├── test_integration.py       # Integration tests
-│   ├── test_fabric_client_integration.py # Fabric API integration tests
-│   ├── test_preflight_validator.py # Pre-flight validation tests
-│   ├── test_rate_limiter.py      # Rate limiter unit tests
-│   ├── test_cancellation.py      # Cancellation support tests
-│   ├── test_streaming_converter.py # Streaming parser tests
-│   └── run_tests.py              # Test runner
+│   ├── conftest.py               # Pytest markers & shared fixtures
+│   ├── test_converter.py         # Core RDF conversion (~90 tests)
+│   ├── test_resilience.py        # Rate limiter, circuit breaker, cancellation (~107 tests)
+│   ├── test_fabric_client.py     # Fabric API client & streaming (~62 tests)
+│   ├── test_validation.py        # Pre-flight validation, exporter, E2E (~74 tests)
+│   └── run_tests.py              # Test runner utility
 ├── samples/                      # Sample ontology files
 │   ├── sample_supply_chain_ontology.ttl  # Supply chain example
 │   ├── sample_foaf_ontology.ttl          # FOAF vocabulary

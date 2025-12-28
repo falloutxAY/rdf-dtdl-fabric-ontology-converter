@@ -30,8 +30,25 @@ from tenacity import (
 )
 from tqdm import tqdm
 
-from rate_limiter import TokenBucketRateLimiter, NoOpRateLimiter
-from cancellation import CancellationToken, OperationCancelledException
+# Try relative imports first, then absolute for direct execution
+try:
+    from .rate_limiter import TokenBucketRateLimiter, NoOpRateLimiter
+    from .cancellation import CancellationToken, OperationCancelledException
+    from .circuit_breaker import (
+        CircuitBreaker,
+        CircuitBreakerConfig,
+        CircuitBreakerOpenError,
+        CircuitState,
+    )
+except ImportError:
+    from rate_limiter import TokenBucketRateLimiter, NoOpRateLimiter
+    from cancellation import CancellationToken, OperationCancelledException
+    from circuit_breaker import (
+        CircuitBreaker,
+        CircuitBreakerConfig,
+        CircuitBreakerOpenError,
+        CircuitState,
+    )
 
 logger = logging.getLogger(__name__)
 
@@ -123,6 +140,40 @@ class RateLimitConfig:
 
 
 @dataclass
+class CircuitBreakerSettings:
+    """Configuration for circuit breaker pattern.
+    
+    The circuit breaker prevents cascading failures by failing fast when
+    the Fabric API is experiencing issues. After a series of failures,
+    the circuit opens and requests are rejected immediately until the
+    API has time to recover.
+    
+    States:
+    - CLOSED: Normal operation, requests pass through
+    - OPEN: Failures exceeded threshold, requests fail immediately
+    - HALF_OPEN: Testing if API has recovered
+    
+    See: https://martinfowler.com/bliki/CircuitBreaker.html
+    """
+    enabled: bool = True
+    failure_threshold: int = 5  # Number of failures before opening circuit
+    recovery_timeout: float = 60.0  # Seconds before attempting recovery
+    success_threshold: int = 2  # Successful calls needed to close circuit
+    
+    @classmethod
+    def from_dict(cls, config_dict: Optional[Dict[str, Any]]) -> 'CircuitBreakerSettings':
+        """Create CircuitBreakerSettings from a dictionary."""
+        if config_dict is None:
+            return cls()
+        return cls(
+            enabled=config_dict.get('enabled', True),
+            failure_threshold=config_dict.get('failure_threshold', 5),
+            recovery_timeout=config_dict.get('recovery_timeout', 60.0),
+            success_threshold=config_dict.get('success_threshold', 2),
+        )
+
+
+@dataclass
 class FabricConfig:
     """Configuration for Fabric API access."""
     workspace_id: str
@@ -132,6 +183,7 @@ class FabricConfig:
     client_secret: Optional[str] = None
     use_interactive_auth: bool = True
     rate_limit: RateLimitConfig = field(default_factory=RateLimitConfig)
+    circuit_breaker: CircuitBreakerSettings = field(default_factory=CircuitBreakerSettings)
     
     @classmethod
     def from_dict(cls, config_dict: Dict[str, Any]) -> 'FabricConfig':
@@ -139,6 +191,9 @@ class FabricConfig:
         fabric_config = config_dict.get('fabric', config_dict)
         rate_limit_config = RateLimitConfig.from_dict(
             fabric_config.get('rate_limit')
+        )
+        circuit_breaker_config = CircuitBreakerSettings.from_dict(
+            fabric_config.get('circuit_breaker')
         )
         return cls(
             workspace_id=fabric_config.get('workspace_id', ''),
@@ -148,6 +203,7 @@ class FabricConfig:
             client_secret=fabric_config.get('client_secret'),
             use_interactive_auth=fabric_config.get('use_interactive_auth', True),
             rate_limit=rate_limit_config,
+            circuit_breaker=circuit_breaker_config,
         )
     
     @classmethod
@@ -262,6 +318,23 @@ class FabricOntologyClient:
         else:
             self.rate_limiter = NoOpRateLimiter()
             logger.info("Rate limiting disabled")
+        
+        # Initialize circuit breaker
+        if config.circuit_breaker.enabled:
+            self.circuit_breaker: Optional[CircuitBreaker] = CircuitBreaker(
+                failure_threshold=config.circuit_breaker.failure_threshold,
+                recovery_timeout=config.circuit_breaker.recovery_timeout,
+                success_threshold=config.circuit_breaker.success_threshold,
+                monitored_exceptions={FabricAPIError, TransientAPIError, requests.exceptions.RequestException},
+                name="fabric_api"
+            )
+            logger.info(
+                f"Circuit breaker enabled: failure_threshold={config.circuit_breaker.failure_threshold}, "
+                f"recovery_timeout={config.circuit_breaker.recovery_timeout}s"
+            )
+        else:
+            self.circuit_breaker = None
+            logger.info("Circuit breaker disabled")
     
     def _get_credential(self) -> TokenCredential:
         """Get the appropriate credential based on configuration.
@@ -368,9 +441,10 @@ class FabricOntologyClient:
         **kwargs: Any
     ) -> requests.Response:
         """
-        Make HTTP request with consistent error handling and rate limiting.
+        Make HTTP request with consistent error handling, rate limiting, and circuit breaker.
         
         Centralizes request logic to ensure all API calls have uniform:
+        - Circuit breaker (fail fast on repeated failures)
         - Rate limiting (token bucket algorithm)
         - Timeout handling
         - Connection error handling
@@ -389,6 +463,56 @@ class FabricOntologyClient:
             
         Raises:
             FabricAPIError: On any request failure with consistent error codes
+            CircuitBreakerOpenError: If circuit breaker is open (fail fast)
+        """
+        # Check circuit breaker first - fail fast if circuit is open
+        if self.circuit_breaker:
+            try:
+                return self.circuit_breaker.call(
+                    self._execute_request,
+                    method, url, operation_name, timeout, **kwargs
+                )
+            except CircuitBreakerOpenError:
+                remaining = self.circuit_breaker.get_remaining_timeout()
+                logger.warning(
+                    f"{operation_name}: Circuit breaker is OPEN. "
+                    f"Failing fast to prevent cascading failures. "
+                    f"Circuit will attempt recovery in {remaining:.1f}s"
+                )
+                raise FabricAPIError(
+                    status_code=503,
+                    error_code='CircuitBreakerOpen',
+                    message=(
+                        f'{operation_name} rejected: Circuit breaker is open due to repeated failures. '
+                        f'The Fabric API appears to be experiencing issues. '
+                        f'Automatic recovery will be attempted in {remaining:.1f} seconds.'
+                    )
+                )
+        else:
+            return self._execute_request(method, url, operation_name, timeout, **kwargs)
+    
+    def _execute_request(
+        self,
+        method: HttpMethod,
+        url: str,
+        operation_name: str,
+        timeout: int,
+        **kwargs: Any
+    ) -> requests.Response:
+        """
+        Execute the actual HTTP request with rate limiting.
+        
+        This method is wrapped by the circuit breaker in _make_request.
+        
+        Args:
+            method: HTTP method
+            url: URL to request
+            operation_name: Description of operation
+            timeout: Request timeout in seconds
+            **kwargs: Additional arguments for requests
+            
+        Returns:
+            Response object
         """
         # Acquire rate limit token before making request
         wait_time = self.rate_limiter.get_wait_time()
@@ -435,6 +559,58 @@ class FabricOntologyClient:
             cleaned = 'O_' + cleaned
         # Fabric error message mentions < 90 chars
         return cleaned[:90]
+    
+    def get_circuit_breaker_status(self) -> Dict[str, Any]:
+        """Get the current circuit breaker status and metrics.
+        
+        Returns:
+            Dictionary with circuit breaker state and metrics, or empty dict if disabled.
+            
+        Example return value:
+            {
+                'enabled': True,
+                'state': 'CLOSED',
+                'failure_count': 2,
+                'success_count': 0,
+                'total_calls': 150,
+                'total_failures': 3,
+                'time_until_recovery': None,  # Only set when OPEN
+                'last_failure_time': 1699876543.21,
+            }
+        """
+        if not self.circuit_breaker:
+            return {'enabled': False}
+        
+        metrics = self.circuit_breaker.metrics
+        time_until_recovery = self.circuit_breaker.get_remaining_timeout()
+        
+        return {
+            'enabled': True,
+            'state': self.circuit_breaker.state.name,
+            'failure_count': self.circuit_breaker._failure_count,
+            'success_count': self.circuit_breaker._success_count,
+            'total_calls': metrics.total_calls,
+            'total_failures': metrics.failed_calls,
+            'total_successes': metrics.successful_calls,
+            'time_until_recovery': time_until_recovery if time_until_recovery > 0 else None,
+            'last_failure_time': metrics.last_failure_time,
+        }
+    
+    def reset_circuit_breaker(self) -> bool:
+        """Manually reset the circuit breaker to CLOSED state.
+        
+        This can be useful after fixing an issue to immediately resume operations
+        instead of waiting for the recovery timeout.
+        
+        Returns:
+            True if reset was performed, False if circuit breaker is disabled.
+        """
+        if not self.circuit_breaker:
+            return False
+        
+        self.circuit_breaker.reset()
+        logger.info("Circuit breaker manually reset to CLOSED state")
+        return True
     
     def _handle_response(self, response: requests.Response) -> Dict[str, Any]:
         """Handle API response and raise appropriate errors.

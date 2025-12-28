@@ -133,12 +133,19 @@ def setup_logging(
     return actual_log_file
 
 
-def load_config(config_path: str) -> Dict[str, Any]:
+def load_config(config_path: str, strict_security: bool = False) -> Dict[str, Any]:
     """
-    Load configuration from a JSON file with path validation.
+    Load configuration from a JSON file with security validation.
+    
+    Security features:
+    - Validates file path to prevent traversal attacks
+    - Rejects symlinks
+    - Optionally restricts to current working directory (when strict_security=True)
+    - Validates JSON structure
     
     Args:
         config_path: Path to the configuration file.
+        strict_security: If True, enforce config file is within cwd (default: False).
         
     Returns:
         Dictionary containing the configuration.
@@ -146,7 +153,7 @@ def load_config(config_path: str) -> Dict[str, Any]:
     Raises:
         ValueError: If config_path is empty or file contains invalid JSON.
         FileNotFoundError: If the configuration file doesn't exist.
-        PermissionError: If the file cannot be read.
+        PermissionError: If the file cannot be read or is a symlink.
         IOError: If there's an error reading the file.
     """
     # Import InputValidator here to avoid circular imports
@@ -155,22 +162,40 @@ def load_config(config_path: str) -> Dict[str, Any]:
     if not config_path:
         raise ValueError("config_path cannot be empty")
     
-    # Validate config path (allow .json extension)
+    # Validate config path - use strict_security to control cwd restriction
     try:
-        validated_path = InputValidator.validate_file_path(
-            config_path,
-            allowed_extensions=['.json'],
-            check_exists=True,
-            check_readable=True
-        )
-    except (ValueError, FileNotFoundError, PermissionError) as e:
-        # Re-raise with more context for config files
-        if isinstance(e, FileNotFoundError):
-            raise FileNotFoundError(
-                f"Configuration file not found: {config_path}\n"
-                f"Please create a config.json file or specify one with --config"
+        if strict_security:
+            validated_path = InputValidator.validate_config_file_path(config_path)
+        else:
+            # Less strict validation: allow config files from any location
+            # but still validate traversal, extension, existence
+            validated_path = InputValidator.validate_file_path(
+                config_path,
+                allowed_extensions=['.json'],
+                check_exists=True,
+                check_readable=True,
+                restrict_to_cwd=False,
+                reject_symlinks=True
+            )
+    except ValueError as e:
+        if "outside" in str(e).lower():
+            raise ValueError(
+                f"Configuration file must be in current working directory: {config_path}\n"
+                f"Please move config.json to the working directory or adjust the path."
             )
         raise
+    except FileNotFoundError:
+        raise FileNotFoundError(
+            f"Configuration file not found: {config_path}\n"
+            f"Please create a config.json file or specify one with --config"
+        )
+    except PermissionError as e:
+        if "symlink" in str(e).lower():
+            raise PermissionError(
+                f"Symlinks are not allowed for configuration files: {config_path}\n"
+                f"Please use the actual file path instead."
+            )
+        raise PermissionError(f"Cannot read configuration file: {e}")
     
     try:
         with open(validated_path, 'r', encoding='utf-8') as f:
@@ -186,6 +211,15 @@ def load_config(config_path: str) -> Dict[str, Any]:
     
     if not isinstance(config, dict):
         raise ValueError(f"Configuration file must contain a JSON object, got {type(config)}")
+    
+    # Warn if credentials are in plaintext
+    fabric_config = config.get('fabric', {})
+    if fabric_config.get('client_secret'):
+        print("\n⚠️  WARNING: client_secret found in configuration file!")
+        print("   For production, use:")
+        print("   - Azure Key Vault")
+        print("   - Environment variables (set FABRIC_CLIENT_SECRET)")
+        print("   - Managed Identity (recommended)\n")
     
     return config
 

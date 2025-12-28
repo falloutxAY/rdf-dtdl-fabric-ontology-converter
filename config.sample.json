@@ -11,6 +11,12 @@
             "enabled": true,
             "requests_per_minute": 10,
             "burst": 15
+        },
+        "circuit_breaker": {
+            "enabled": true,
+            "failure_threshold": 5,
+            "recovery_timeout": 60.0,
+            "success_threshold": 2
         }
     },
     "ontology": {

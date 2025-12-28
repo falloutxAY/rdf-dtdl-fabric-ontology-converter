@@ -3,6 +3,16 @@ RDF TTL to Fabric Ontology Converter
 
 This module provides functionality to parse RDF TTL files and convert them
 to Microsoft Fabric Ontology API format.
+
+Architecture:
+    This module has been refactored to use composition with extracted components:
+    - converters.type_mapper: XSD to Fabric type mapping
+    - converters.uri_utils: URI parsing and name extraction
+    - converters.class_resolver: OWL class expression resolution
+    - converters.fabric_serializer: Fabric API JSON serialization
+    
+    The main classes (RDFToFabricConverter, StreamingRDFConverter) now delegate
+    to these focused components while maintaining backward compatibility.
 """
 
 import json
@@ -20,6 +30,18 @@ from dataclasses import dataclass, field, asdict
 from rdflib import Graph, Namespace, RDF, RDFS, OWL, XSD, URIRef, Literal as RDFLiteral, BNode
 from rdflib.term import Node, Identifier
 from tqdm import tqdm
+
+# Import refactored components - try relative first, then absolute for direct execution
+try:
+    from .converters.type_mapper import TypeMapper, XSD_TO_FABRIC_TYPE
+    from .converters.uri_utils import URIUtils
+    from .converters.class_resolver import ClassResolver
+    from .converters.fabric_serializer import FabricSerializer
+except ImportError:
+    from converters.type_mapper import TypeMapper, XSD_TO_FABRIC_TYPE
+    from converters.uri_utils import URIUtils
+    from converters.class_resolver import ClassResolver
+    from converters.fabric_serializer import FabricSerializer
 
 # Type aliases for clarity
 RDFNode = Union[URIRef, BNode, RDFLiteral]
@@ -616,6 +638,13 @@ class FabricDefinitionValidator:
 class RDFToFabricConverter:
     """
     Converts RDF TTL ontologies to Microsoft Fabric Ontology format.
+    
+    This class has been refactored to use composition with extracted components:
+    - TypeMapper: XSD to Fabric type mapping
+    - URIUtils: URI parsing and name extraction
+    - ClassResolver: OWL class expression resolution
+    
+    The public API remains unchanged for backward compatibility.
     """
     
     def __init__(self, id_prefix: int = 1000000000000, loose_inference: bool = False):
@@ -636,6 +665,10 @@ class RDFToFabricConverter:
         # Error recovery tracking
         self.skipped_items: List[SkippedItem] = []
         self.conversion_warnings: List[str] = []
+        
+        # Composed components (used via delegation)
+        self._type_mapper = TypeMapper()
+        self._uri_utils = URIUtils()
 
     def _reset_state(self) -> None:
         """Reset converter state for a fresh conversion."""
@@ -677,6 +710,8 @@ class RDFToFabricConverter:
     ) -> List[str]:
         """Resolve domain/range targets to class URIs with cycle detection.
 
+        Delegates to ClassResolver for the actual resolution logic.
+        
         Supports:
         - Direct URIRef
         - Blank node with owl:unionOf pointing to RDF list of class URIs
@@ -693,104 +728,7 @@ class RDFToFabricConverter:
         Returns:
             List of resolved class URI strings
         """
-        # Initialize visited set on first call
-        if visited is None:
-            visited = set()
-        
-        targets: List[str] = []
-        
-        # Cycle detection - skip if we've seen this node
-        if node in visited:
-            logger.debug(f"Cycle detected in class resolution, skipping node: {node}")
-            return targets
-        
-        # Depth limit check
-        if max_depth <= 0:
-            logger.warning(f"Maximum recursion depth reached in class resolution for node: {node}")
-            return targets
-        
-        # Track this node as visited (only for BNodes which can cause cycles)
-        if isinstance(node, BNode):
-            visited = visited | {node}  # Create new set to avoid mutation
-        
-        if isinstance(node, URIRef):
-            targets.append(str(node))
-            
-        elif isinstance(node, BNode):
-            unresolved_count = 0
-            
-            # Handle owl:unionOf
-            for union in graph.objects(node, OWL.unionOf):
-                union_targets, unresolved = self._resolve_rdf_list(
-                    graph, union, visited, max_depth - 1
-                )
-                targets.extend(union_targets)
-                unresolved_count += unresolved
-            
-            # Handle owl:intersectionOf (extract classes from intersection)
-            for intersection in graph.objects(node, OWL.intersectionOf):
-                intersection_targets, unresolved = self._resolve_rdf_list(
-                    graph, intersection, visited, max_depth - 1
-                )
-                targets.extend(intersection_targets)
-                unresolved_count += unresolved
-            
-            # Handle owl:complementOf
-            for complement in graph.objects(node, OWL.complementOf):
-                complement_targets = self._resolve_class_targets(
-                    graph, complement, visited, max_depth - 1
-                )
-                targets.extend(complement_targets)
-                if not complement_targets and complement is not None:
-                    unresolved_count += 1
-            
-            # Handle owl:oneOf (enumeration of individuals - extract class references)
-            for oneof in graph.objects(node, OWL.oneOf):
-                oneof_targets, unresolved = self._resolve_rdf_list(
-                    graph, oneof, visited, max_depth - 1
-                )
-                targets.extend(oneof_targets)
-                unresolved_count += unresolved
-            
-            # If no OWL constructs matched, check if it's a typed class
-            if not targets:
-                # Check if the blank node represents a class restriction or typed element
-                for rdf_type in graph.objects(node, RDF.type):
-                    if isinstance(rdf_type, URIRef):
-                        type_str = str(rdf_type)
-                        # Check for OWL restriction (common pattern)
-                        if type_str in (str(OWL.Restriction), str(OWL.Class)):
-                            # Try to get onProperty or other class indicators
-                            for on_class in graph.objects(node, OWL.onClass):
-                                on_class_targets = self._resolve_class_targets(
-                                    graph, on_class, visited, max_depth - 1
-                                )
-                                targets.extend(on_class_targets)
-                            # Also check someValuesFrom
-                            for svf in graph.objects(node, OWL.someValuesFrom):
-                                svf_targets = self._resolve_class_targets(
-                                    graph, svf, visited, max_depth - 1
-                                )
-                                targets.extend(svf_targets)
-            
-            # Log if we had unresolved items and no valid targets
-            if unresolved_count > 0:
-                if targets:
-                    logger.debug(
-                        f"Resolved {len(targets)} class targets, "
-                        f"skipped {unresolved_count} unsupported constructs"
-                    )
-                else:
-                    logger.warning(
-                        f"Blank node class expression contains {unresolved_count} "
-                        f"unresolved items and no valid URI targets"
-                    )
-        
-        elif node is not None:
-            # Handle unexpected node types
-            logger.debug(f"Unexpected node type in class resolution: {type(node).__name__}")
-        
-        return targets
+        return ClassResolver.resolve_class_targets(graph, node, visited, max_depth)
     
     def _resolve_rdf_list(
         self, 
@@ -801,6 +739,8 @@ class RDFToFabricConverter:
     ) -> Tuple[List[str], int]:
         """Resolve an RDF list (rdf:first/rdf:rest) to class URIs.
         
+        Delegates to ClassResolver for the actual resolution logic.
+        
         Args:
             graph: The RDF graph to query
             list_node: The head of the RDF list
@@ -810,61 +750,7 @@ class RDFToFabricConverter:
         Returns:
             Tuple of (resolved_targets, unresolved_count)
         """
-        targets: List[str] = []
-        unresolved_count: int = 0
-        
-        # Cast list_node to expected type - Node is the base rdflib type
-        if list_node is None:
-            current: Optional[Union[URIRef, BNode]] = None
-        elif isinstance(list_node, (URIRef, BNode)):
-            current = list_node
-        else:
-            current = None  # Unexpected type
-            
-        list_visited: Set[Union[URIRef, BNode]] = set()  # Track visited list nodes to detect malformed lists
-        
-        while current and current != RDF.nil:
-            # Detect cycles in the list itself
-            if current in list_visited:
-                logger.warning(f"Cycle detected in RDF list at node: {current}")
-                break
-            list_visited.add(current)
-            
-            first = next(graph.objects(current, RDF.first), None)
-            
-            if first is not None:
-                if isinstance(first, URIRef):
-                    targets.append(str(first))
-                elif isinstance(first, BNode):
-                    # Recursively resolve nested blank nodes
-                    nested_targets = self._resolve_class_targets(
-                        graph, first, visited, max_depth
-                    )
-                    if nested_targets:
-                        targets.extend(nested_targets)
-                    else:
-                        # Could not resolve the nested blank node
-                        unresolved_count += 1
-                        logger.debug(
-                            f"Unresolved nested blank node in list: {first}"
-                        )
-                else:
-                    # Unexpected type (Literal, etc.)
-                    logger.debug(
-                        f"Non-URI, non-BNode in list: {first} (type: {type(first).__name__})"
-                    )
-                    unresolved_count += 1
-            
-            rest_node = next(graph.objects(current, RDF.rest), None)
-            # Cast to the expected type - graph.objects returns Node but we expect URIRef/BNode
-            if rest_node is None or rest_node == RDF.nil:
-                current = None
-            elif isinstance(rest_node, (URIRef, BNode)):
-                current = rest_node
-            else:
-                current = None  # Unexpected type, end iteration
-        
-        return targets, unresolved_count
+        return ClassResolver.resolve_rdf_list(graph, list_node, visited, max_depth)
         
     def _generate_id(self) -> str:
         """Generate a unique ID for entities and properties."""
@@ -872,46 +758,16 @@ class RDFToFabricConverter:
         return str(self.id_prefix + self.id_counter)
     
     def _uri_to_name(self, uri: URIRef) -> str:
-        """Extract a clean name from a URI."""
-        if uri is None:
-            logger.warning("Received None URI, using default name")
-            return f'Unknown_{self.id_counter}'
+        """Extract a clean name from a URI.
         
-        uri_str = str(uri).strip()
-        
-        if not uri_str:
-            logger.warning("Empty URI string, using default name")
-            return f'Unknown_{self.id_counter}'
-        
-        # Try to get the fragment
-        if '#' in uri_str:
-            name = uri_str.split('#')[-1]
-        elif '/' in uri_str:
-            name = uri_str.split('/')[-1]
-        else:
-            name = uri_str
-        
-        # Handle empty extraction
-        if not name:
-            logger.warning(f"Could not extract name from URI: {uri_str}")
-            return f'Entity_{self.id_counter}'
-        
-        # Clean up the name to match Fabric requirements
-        # Fabric requires identifiers to start with a letter and contain only letters, numbers, and underscores
-        # Must match: ^[a-zA-Z][a-zA-Z0-9_]{0,127}$
-        cleaned = ''.join(c if c.isalnum() or c == '_' else '_' for c in name)
-        
-        if not cleaned:
-            logger.warning(f"URI produced empty cleaned name: {uri_str}")
-            return f'Entity_{self.id_counter}'
-        
-        if not cleaned[0].isalpha():
-            cleaned = 'E_' + cleaned
-        
-        return cleaned[:128]
+        Delegates to URIUtils for the actual implementation.
+        """
+        return URIUtils.uri_to_name(uri, self.id_counter)
     
     def _get_xsd_type(self, range_uri: Optional[URIRef]) -> FabricType:
         """Map XSD type to Fabric value type.
+        
+        Delegates to TypeMapper for the actual implementation.
         
         Args:
             range_uri: The XSD type URI, or None
@@ -919,10 +775,7 @@ class RDFToFabricConverter:
         Returns:
             The corresponding Fabric type string
         """
-        if range_uri is None:
-            return "String"
-        range_str = str(range_uri)
-        return cast(FabricType, XSD_TO_FABRIC_TYPE.get(range_str, "String"))
+        return TypeMapper.get_fabric_type(str(range_uri) if range_uri else None)
     
     def _resolve_datatype_union(
         self, 
@@ -932,11 +785,7 @@ class RDFToFabricConverter:
         """
         Resolve datatype union to most restrictive compatible Fabric type.
         
-        Analyzes a blank node representing a datatype union and selects
-        the most restrictive type that can safely represent all union members.
-        
-        Type preference order (most to least restrictive):
-        Boolean > BigInt > Double > DateTime > String
+        Delegates to TypeMapper for the actual implementation.
         
         Args:
             graph: The RDF graph to query
@@ -947,53 +796,11 @@ class RDFToFabricConverter:
                 - fabric_type: The resolved Fabric type ("String", "BigInt", etc.)
                 - notes: Description of the resolution for logging
         """
-        types_found: Set[str] = set()
-        
-        # Traverse union to find all XSD types
-        for union in graph.objects(union_node, OWL.unionOf):
-            # Use existing RDF list resolution
-            targets, _ = self._resolve_rdf_list(graph, union, set(), max_depth=10)
-            for target in targets:
-                if target in XSD_TO_FABRIC_TYPE:
-                    types_found.add(target)
-                elif str(target).startswith(str(XSD)):
-                    # Handle other XSD types not in our mapping
-                    types_found.add(target)
-        
-        # Also check for direct type references (non-union case)
-        if not types_found:
-            for rdf_type in graph.objects(union_node, RDF.type):
-                type_str = str(rdf_type)
-                if type_str in XSD_TO_FABRIC_TYPE:
-                    types_found.add(type_str)
-        
-        if not types_found:
-            logger.warning(f"Could not resolve any XSD types in datatype union: {union_node}")
-            return "String", "union: no types found, defaulted to String"
-        
-        # Determine most restrictive type using hierarchy
-        # Order: Boolean (most specific) -> Integer types -> Float types -> DateTime -> String (most general)
-        type_hierarchy = [
-            ([str(XSD.boolean)], "Boolean"),
-            ([str(XSD.integer), str(XSD.int), str(XSD.long), str(XSD.short), str(XSD.byte), 
-              str(XSD.nonNegativeInteger), str(XSD.positiveInteger), str(XSD.unsignedInt),
-              str(XSD.unsignedLong), str(XSD.unsignedShort), str(XSD.unsignedByte)], "BigInt"),
-            ([str(XSD.double), str(XSD.float), str(XSD.decimal)], "Double"),
-            ([str(XSD.dateTime), str(XSD.date), str(XSD.dateTimeStamp)], "DateTime"),
-            ([str(XSD.string), str(XSD.anyURI), str(XSD.normalizedString), str(XSD.token),
-              str(XSD.language), str(XSD.Name), str(XSD.NCName), str(XSD.NMTOKEN)], "String"),
-        ]
-        
-        # Find the most restrictive type that covers all union members
-        for xsd_types, fabric_type in type_hierarchy:
-            if any(t in types_found for t in xsd_types):
-                type_str = str(types_found) if len(types_found) > 1 else next(iter(types_found))
-                logger.info(f"Resolved datatype union to {fabric_type} from types: {type_str}")
-                return fabric_type, f"union: selected {fabric_type} from {type_str}"
-        
-        # Fallback to String for unknown XSD types
-        logger.warning(f"Datatype union contains unsupported XSD types: {types_found}, defaulting to String")
-        return "String", f"union: unsupported types {types_found}, defaulted to String"
+        return TypeMapper.resolve_datatype_union(
+            graph, 
+            union_node, 
+            ClassResolver.resolve_rdf_list
+        )
     
     def parse_ttl(
         self, 
@@ -2045,50 +1852,8 @@ def convert_to_fabric_definition(
         else:
             logger.debug("Definition validation passed with no issues")
     
-    parts = []
-    
-    # Add .platform file
-    platform_content = {
-        "metadata": {
-            "type": "Ontology",
-            "displayName": ontology_name
-        }
-    }
-    parts.append({
-        "path": ".platform",
-        "payload": base64.b64encode(json.dumps(platform_content, indent=2).encode()).decode(),
-        "payloadType": "InlineBase64"
-    })
-    
-    # Add definition.json (empty for Fabric)
-    parts.append({
-        "path": "definition.json",
-        "payload": base64.b64encode(b"{}").decode(),
-        "payloadType": "InlineBase64"
-    })
-    
-    # Sort entity types so parents come before children (required by Fabric)
-    sorted_entity_types = _topological_sort_entities(entity_types)
-    
-    # Add entity type definitions
-    for entity_type in sorted_entity_types:
-        entity_content = entity_type.to_dict()
-        parts.append({
-            "path": f"EntityTypes/{entity_type.id}/definition.json",
-            "payload": base64.b64encode(json.dumps(entity_content, indent=2).encode()).decode(),
-            "payloadType": "InlineBase64"
-        })
-    
-    # Add relationship type definitions
-    for rel_type in relationship_types:
-        rel_content = rel_type.to_dict()
-        parts.append({
-            "path": f"RelationshipTypes/{rel_type.id}/definition.json",
-            "payload": base64.b64encode(json.dumps(rel_content, indent=2).encode()).decode(),
-            "payloadType": "InlineBase64"
-        })
-    
-    return {"parts": parts}
+    # Delegate serialization to FabricSerializer
+    return FabricSerializer.create_definition(entity_types, relationship_types, ontology_name)
 
 
 class InputValidator:
@@ -2175,21 +1940,33 @@ class InputValidator:
             pass  # If Path parsing fails, let later validation catch it
     
     @staticmethod
-    def _check_symlink(path_obj: Path) -> None:
+    def _check_symlink(path_obj: Path, strict: bool = False) -> None:
         """
-        Check if path is a symlink and log warning.
+        Check if path is a symlink.
         
         Args:
             path_obj: Path object to check
+            strict: If True, raise exception on symlink; if False, log warning
+            
+        Raises:
+            ValueError: If symlink detected and strict mode enabled
         """
         try:
             if path_obj.is_symlink():
-                logger.warning(
-                    f"Symlink detected: {path_obj}. "
-                    f"For security, ensure the symlink target is trusted."
+                msg = (
+                    f"Security error: Symlink detected: {path_obj}. "
+                    f"Symlinks are not allowed for security reasons. "
+                    f"Please use the actual file path instead."
                 )
-        except Exception:
-            pass  # Ignore errors in symlink detection
+                if strict:
+                    raise ValueError(msg)
+                else:
+                    logger.warning(msg)
+        except OSError:
+            # Some systems may raise OSError when checking symlinks
+            if strict:
+                raise ValueError(f"Cannot verify symlink status for: {path_obj}")
+            pass  # Ignore errors in symlink detection in non-strict mode
     
     @staticmethod
     def _check_directory_boundary(path_obj: Path, warn_only: bool = True) -> None:
@@ -2217,14 +1994,15 @@ class InputValidator:
         allowed_extensions: Optional[List[str]] = None,
         check_exists: bool = True,
         check_readable: bool = True,
-        restrict_to_cwd: bool = False
+        restrict_to_cwd: bool = False,
+        reject_symlinks: bool = True
     ) -> Path:
         """
         Validate file path for security and correctness.
         
         Security checks performed:
         - Path traversal detection (../)
-        - Symlink detection (warning)
+        - Symlink detection (configurable: warning or hard reject)
         - Directory boundary check (optional enforcement)
         - Extension validation (optional)
         
@@ -2234,13 +2012,14 @@ class InputValidator:
             check_exists: Whether to verify file exists
             check_readable: Whether to verify file is readable
             restrict_to_cwd: If True, reject paths outside current directory
+            reject_symlinks: If True, raise exception on symlinks; if False, warn only
             
         Returns:
             Validated Path object (resolved to absolute path)
             
         Raises:
             TypeError: If path is not a string
-            ValueError: If path is empty, has invalid extension, or traversal detected
+            ValueError: If path is empty, has invalid extension, traversal detected, or symlink found (if reject_symlinks=True)
             FileNotFoundError: If file doesn't exist (when check_exists=True)
             PermissionError: If file is not readable (when check_readable=True)
         """
@@ -2260,8 +2039,8 @@ class InputValidator:
         # Resolve to absolute path
         path_obj = Path(path).resolve()
         
-        # Security: Check symlinks
-        cls._check_symlink(path_obj)
+        # Security: Check symlinks (strict by default for input files)
+        cls._check_symlink(path_obj, strict=reject_symlinks)
         
         # Security: Check directory boundary
         cls._check_directory_boundary(path_obj, warn_only=not restrict_to_cwd)
@@ -2296,15 +2075,17 @@ class InputValidator:
         return path_obj
     
     @classmethod
-    def validate_input_ttl_path(cls, path: Any, restrict_to_cwd: bool = False) -> Path:
+    def validate_input_ttl_path(cls, path: Any, restrict_to_cwd: bool = False, reject_symlinks: bool = True) -> Path:
         """
         Validate input TTL/RDF file path.
         
         Convenience method with TTL-specific extension validation.
+        Symlinks are hard-rejected by default for security.
         
         Args:
             path: Path to TTL file
             restrict_to_cwd: If True, reject paths outside current directory
+            reject_symlinks: If True, raise exception on symlinks (default: True for security)
             
         Returns:
             Validated Path object
@@ -2314,19 +2095,22 @@ class InputValidator:
             allowed_extensions=cls.TTL_EXTENSIONS,
             check_exists=True,
             check_readable=True,
-            restrict_to_cwd=restrict_to_cwd
+            restrict_to_cwd=restrict_to_cwd,
+            reject_symlinks=reject_symlinks
         )
     
     @classmethod
-    def validate_input_json_path(cls, path: Any, restrict_to_cwd: bool = False) -> Path:
+    def validate_input_json_path(cls, path: Any, restrict_to_cwd: bool = False, reject_symlinks: bool = True) -> Path:
         """
         Validate input JSON file path.
         
         Convenience method with JSON-specific extension validation.
+        Symlinks are hard-rejected by default for security.
         
         Args:
             path: Path to JSON file
             restrict_to_cwd: If True, reject paths outside current directory
+            reject_symlinks: If True, raise exception on symlinks (default: True for security)
             
         Returns:
             Validated Path object
@@ -2336,7 +2120,8 @@ class InputValidator:
             allowed_extensions=cls.JSON_EXTENSIONS,
             check_exists=True,
             check_readable=True,
-            restrict_to_cwd=restrict_to_cwd
+            restrict_to_cwd=restrict_to_cwd,
+            reject_symlinks=reject_symlinks
         )
     
     @classmethod
@@ -2344,7 +2129,8 @@ class InputValidator:
         cls, 
         path: Any,
         allowed_extensions: Optional[List[str]] = None,
-        restrict_to_cwd: bool = False
+        restrict_to_cwd: bool = False,
+        reject_symlinks: bool = True
     ) -> Path:
         """
         Validate output file path for writing.
@@ -2357,6 +2143,7 @@ class InputValidator:
             path: Path for output file
             allowed_extensions: List of allowed extensions
             restrict_to_cwd: If True, reject paths outside current directory
+            reject_symlinks: If True, raise exception if output target is symlink
             
         Returns:
             Validated Path object
@@ -2381,6 +2168,10 @@ class InputValidator:
         
         # Resolve to absolute path
         path_obj = Path(path).resolve()
+        
+        # Security: Check symlinks if file exists
+        if path_obj.exists():
+            cls._check_symlink(path_obj, strict=reject_symlinks)
         
         # Security: Check directory boundary
         cls._check_directory_boundary(path_obj, warn_only=not restrict_to_cwd)
@@ -2411,6 +2202,40 @@ class InputValidator:
             raise PermissionError(f"File exists but is not writable: {path_obj}")
         
         return path_obj
+    
+    @classmethod
+    def validate_config_file_path(cls, path: Any) -> Path:
+        """
+        Validate configuration file path.
+        
+        Configuration files have stricter validation:
+        - Must be JSON
+        - Must be readable
+        - Must be in safe location (within cwd)
+        - Symlinks are rejected
+        
+        Args:
+            path: Path to config file
+            
+        Returns:
+            Validated Path object
+            
+        Raises:
+            TypeError: If path is not a string
+            ValueError: If path is invalid or outside current directory
+            FileNotFoundError: If file doesn't exist
+            PermissionError: If file is not readable or symlink detected
+        """
+        validated_path = cls.validate_file_path(
+            path,
+            allowed_extensions=cls.JSON_EXTENSIONS,
+            check_exists=True,
+            check_readable=True,
+            restrict_to_cwd=True,  # Strict: config must be in cwd
+            reject_symlinks=True   # Hard reject symlinks
+        )
+        
+        return validated_path
     
     @staticmethod
     def validate_id_prefix(prefix: Any) -> int:

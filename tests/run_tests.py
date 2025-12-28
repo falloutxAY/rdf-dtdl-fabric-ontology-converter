@@ -28,16 +28,21 @@ Usage:
     python run_tests.py <command>
 
 Commands:
-    all         - Run all tests with verbose output
-    quick       - Run all tests quickly (no verbose)
-    samples     - Run only sample ontology tests
-    core        - Run only core converter tests
-    coverage    - Run with coverage report (requires pytest-cov)
-    single TEST - Run a specific test (e.g., 'single test_parse_simple_ttl')
-    watch       - Run tests on file changes (requires pytest-watch)
+    all          - Run all tests with verbose output
+    quick        - Run all tests quickly (no verbose)
+    unit         - Run only unit tests (fast)
+    integration  - Run integration tests
+    samples      - Run only sample ontology tests
+    resilience   - Run resilience tests (rate limiter, circuit breaker, etc.)
+    validation   - Run validation and E2E tests
+    core         - Run only core converter tests
+    coverage     - Run with coverage report (requires pytest-cov)
+    single TEST  - Run a specific test (e.g., 'single test_parse_simple_ttl')
+    watch        - Run tests on file changes (requires pytest-watch)
     
 Examples:
     python run_tests.py all
+    python run_tests.py unit
     python run_tests.py samples
     python run_tests.py single test_foaf_ontology_ttl
 """)
@@ -59,8 +64,32 @@ Examples:
     
     elif command == "samples":
         return run_command(
-            "python -m pytest tests/test_converter.py::TestSampleOntologies -v -s",
+            "python -m pytest -m samples -v -s",
             "Running Sample Ontology Tests"
+        )
+    
+    elif command == "unit":
+        return run_command(
+            "python -m pytest -m unit -v",
+            "Running Unit Tests"
+        )
+    
+    elif command == "integration":
+        return run_command(
+            "python -m pytest -m integration -v",
+            "Running Integration Tests"
+        )
+    
+    elif command == "resilience":
+        return run_command(
+            "python -m pytest tests/test_resilience.py -v",
+            "Running Resilience Tests (Rate Limiter, Circuit Breaker, Cancellation)"
+        )
+    
+    elif command == "validation":
+        return run_command(
+            "python -m pytest tests/test_validation.py -v",
+            "Running Validation and E2E Tests"
         )
     
     elif command == "core":

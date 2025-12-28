@@ -181,29 +181,43 @@ class ValidateCommand(BaseCommand):
         
         ttl_file = args.ttl_file
         
-        # Validate TTL file path
+        # Validate TTL file path with enhanced error messages
         try:
             validated_path = InputValidator.validate_input_ttl_path(ttl_file)
         except ValueError as e:
-            print(f"Error: Invalid TTL file path: {e}")
-            return 1
+            if "symlink" in str(e).lower():
+                print("✗ Security Error: Symlinks are not allowed")
+                print(f"  {e}")
+                print("\n  Please provide the actual file path instead of a symlink.")
+                return 1
+            elif "traversal" in str(e).lower():
+                print("✗ Security Error: Path traversal detected")
+                print(f"  {e}")
+                print("\n  Paths with '..' are not allowed for security reasons.")
+                return 1
+            else:
+                print(f"✗ Invalid file path: {e}")
+                return 1
         except FileNotFoundError:
-            print(f"Error: TTL file not found: {ttl_file}")
+            print(f"✗ File not found: {ttl_file}")
+            print(f"  Please verify the path exists and is correct.")
             return 1
         except PermissionError:
-            print(f"Error: Permission denied reading file: {ttl_file}")
+            print(f"✗ Permission denied: Cannot read file: {ttl_file}")
+            print(f"  Please check file permissions.")
             return 1
         
-        print(f"Validating TTL file: {validated_path}\n")
+        print(f"✓ Validating TTL file: {validated_path}\n")
         
         try:
             with open(validated_path, 'r', encoding='utf-8') as f:
                 ttl_content = f.read()
         except UnicodeDecodeError as e:
-            print(f"Error: Failed to read TTL file due to encoding issue: {e}")
+            print(f"✗ Encoding error: File is not valid UTF-8")
+            print(f"  {e}")
             return 1
         except Exception as e:
-            print(f"Error reading TTL file: {e}")
+            print(f"✗ Error reading TTL file: {e}")
             return 1
         
         # Run validation
@@ -295,16 +309,22 @@ class UploadCommand(BaseCommand):
         try:
             # Load and validate configuration
             config_path = args.config or get_default_config_path()
-            if not os.path.exists(config_path):
-                print(f"Error: Configuration file not found: {config_path}")
-                print("Please create a config.json file or specify one with --config")
+            try:
+                config_data = load_config(config_path)
+            except FileNotFoundError as e:
+                print(f"✗ {e}")
+                return 1
+            except PermissionError as e:
+                print(f"✗ {e}")
+                return 1
+            except ValueError as e:
+                print(f"✗ {e}")
                 return 1
             
-            config_data = load_config(config_path)
             fabric_config = FabricConfig.from_dict(config_data)
             
             if not fabric_config.workspace_id or fabric_config.workspace_id == "YOUR_WORKSPACE_ID":
-                print("Error: Please configure your Fabric workspace_id in config.json")
+                print("✗ Configuration Error: Please configure your Fabric workspace_id in config.json")
                 return 1
             
             # Setup logging
@@ -314,18 +334,31 @@ class UploadCommand(BaseCommand):
                 log_file=log_config.get('file'),
             )
             
-            # Validate and read TTL file
+            # Validate and read TTL file with enhanced error handling
             ttl_file = args.ttl_file
             try:
                 validated_path = InputValidator.validate_input_ttl_path(ttl_file)
             except ValueError as e:
-                print(f"Error: Invalid TTL file path: {e}")
-                return 1
+                if "symlink" in str(e).lower():
+                    print("✗ Security Error: Symlinks are not allowed")
+                    print(f"  {e}")
+                    print("\n  Please provide the actual file path instead of a symlink.")
+                    return 1
+                elif "traversal" in str(e).lower():
+                    print("✗ Security Error: Path traversal detected")
+                    print(f"  {e}")
+                    print("\n  Paths with '..' are not allowed for security reasons.")
+                    return 1
+                else:
+                    print(f"✗ Invalid file path: {e}")
+                    return 1
             except FileNotFoundError:
-                print(f"Error: TTL file not found: {ttl_file}")
+                print(f"✗ File not found: {ttl_file}")
+                print(f"  Please verify the path exists and is correct.")
                 return 1
             except PermissionError:
-                print(f"Error: Permission denied reading file: {ttl_file}")
+                print(f"✗ Permission denied: Cannot read file: {ttl_file}")
+                print(f"  Please check file permissions.")
                 return 1
             
             logger.info(f"Parsing TTL file: {validated_path}")
@@ -334,15 +367,16 @@ class UploadCommand(BaseCommand):
                 with open(validated_path, 'r', encoding='utf-8') as f:
                     ttl_content = f.read()
             except UnicodeDecodeError as e:
-                print(f"Error: Failed to read TTL file due to encoding issue: {e}")
-                print("Try converting the file to UTF-8 encoding")
+                print(f"✗ Encoding error: File is not valid UTF-8")
+                print(f"  {e}")
+                print("\nTry converting the file to UTF-8 encoding")
                 return 1
             except Exception as e:
-                print(f"Error reading TTL file: {e}")
+                print(f"✗ Error reading TTL file: {e}")
                 return 1
             
             if not ttl_content.strip():
-                print(f"Error: TTL file is empty: {ttl_file}")
+                print(f"✗ Error: TTL file is empty: {ttl_file}")
                 return 1
             
             # Pre-flight validation
@@ -748,16 +782,25 @@ class ConvertCommand(BaseCommand):
         try:
             validated_path = InputValidator.validate_input_ttl_path(ttl_file)
         except ValueError as e:
-            print(f"Error: Invalid TTL file path: {e}")
-            return 1
+            if "symlink" in str(e).lower():
+                print("✗ Security Error: Symlinks are not allowed")
+                print(f"  {e}")
+                return 1
+            elif "traversal" in str(e).lower():
+                print("✗ Security Error: Path traversal detected")
+                print(f"  {e}")
+                return 1
+            else:
+                print(f"✗ Invalid file path: {e}")
+                return 1
         except FileNotFoundError:
-            print(f"Error: TTL file not found: {ttl_file}")
+            print(f"✗ File not found: {ttl_file}")
             return 1
         except PermissionError:
-            print(f"Error: Permission denied reading file: {ttl_file}")
+            print(f"✗ Permission denied: Cannot read file: {ttl_file}")
             return 1
         
-        print(f"Converting TTL file: {validated_path}")
+        print(f"✓ Converting TTL file: {validated_path}")
         
         force_memory = getattr(args, 'force_memory', False)
         use_streaming = getattr(args, 'streaming', False)
@@ -797,21 +840,22 @@ class ConvertCommand(BaseCommand):
                     with open(validated_path, 'r', encoding='utf-8') as f:
                         ttl_content = f.read()
                 except UnicodeDecodeError as e:
-                    print(f"Error: Failed to read TTL file due to encoding issue: {e}")
-                    print("Try converting the file to UTF-8 encoding")
+                    print(f"✗ Encoding error: File is not valid UTF-8")
+                    print(f"  {e}")
+                    print("\nTry converting the file to UTF-8 encoding")
                     return 1
                 except Exception as e:
-                    print(f"Error reading TTL file: {e}")
+                    print(f"✗ Error reading TTL file: {e}")
                     return 1
                 
                 definition, ontology_name, conversion_result = parse_ttl_with_result(
                     ttl_content, force_large_file=force_memory
                 )
         except ValueError as e:
-            print(f"Error: Invalid RDF/TTL content: {e}")
+            print(f"✗ Invalid RDF/TTL content: {e}")
             return 1
         except MemoryError as e:
-            print(f"\nError: {e}")
+            print(f"\n✗ {e}")
             print("\nTip: Use --streaming for memory-efficient processing of large files.")
             return 1
         except Exception as e:
@@ -872,38 +916,42 @@ class ExportCommand(BaseCommand):
         from fabric_to_ttl import FabricToTTLConverter
         
         config_path = args.config or get_default_config_path()
-        if os.path.exists(config_path):
+        
+        # Load and validate configuration with enhanced error handling
+        try:
             config_data = load_config(config_path)
             log_config = config_data.get('logging', {})
             setup_logging(level=log_config.get('level', 'INFO'), log_file=log_config.get('file'))
-        else:
-            setup_logging()
-        
-        config_file = args.config or get_default_config_path()
-        try:
-            fabric_config = FabricConfig.from_file(config_file)
-        except FileNotFoundError:
-            logger.error(f"Configuration file not found: {config_file}")
-            logger.error("Create config.json with your Azure credentials (see config.sample.json)")
+        except FileNotFoundError as e:
+            print(f"✗ {e}")
+            return 1
+        except PermissionError as e:
+            print(f"✗ {e}")
             return 1
         except ValueError as e:
-            logger.error(f"Invalid configuration: {e}")
+            print(f"✗ {e}")
+            return 1
+        
+        try:
+            fabric_config = FabricConfig.from_dict(config_data)
+        except ValueError as e:
+            print(f"✗ Configuration error: {e}")
             return 1
         except Exception as e:
-            logger.error(f"Failed to load configuration: {e}")
+            print(f"✗ Failed to load configuration: {e}")
             return 1
         
         client = FabricOntologyClient(fabric_config)
         ontology_id = args.ontology_id
         
-        print(f"Exporting ontology {ontology_id} to TTL format...")
+        print(f"✓ Exporting ontology {ontology_id} to TTL format...")
         
         try:
             ontology_info = client.get_ontology(ontology_id)
             definition = client.get_ontology_definition(ontology_id)
             
             if not definition:
-                print("Error: Failed to get ontology definition")
+                print("✗ Error: Failed to get ontology definition")
                 return 1
             
             fabric_definition = {

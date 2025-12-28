@@ -22,7 +22,7 @@ python src/main.py upload my_ontology.ttl --name "MyOntology"
 # Skip validation: --skip-validation or --force
 ```
 
-## What's Lost or Transformed
+## What's Lost or Transformed (non-exhaustive)
 
 | OWL/RDF Construct | Fabric Conversion | Impact |
 |-------------------|-------------------|--------|
@@ -89,7 +89,6 @@ Many vocabularies like FOAF have properties without explicit domain/range or dep
 ✅ **Provide explicit signatures** — Always declare `rdfs:domain` and `rdfs:range` for properties  
 ✅ **Declare all referenced classes** — Don't rely on external ontologies unless merged  
 ✅ **Use supported XSD types** — string, boolean, integer, decimal, date, dateTime, anyURI  
-✅ **Avoid complex OWL** — Restrictions, property chains, and cardinality constraints aren't preserved  
 ✅ **Validate iteratively** — Use `upload`, `export`, and `compare --verbose` to verify round-trips  
 ✅ **Enable debug logging** — Set `logging.level` to `DEBUG` in `src/config.json`
 

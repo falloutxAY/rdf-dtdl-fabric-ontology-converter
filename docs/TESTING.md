@@ -1,171 +1,124 @@
-# Testing Documentation
+# Testing
 
 ## 🚀 Quick Start
 
 ```powershell
-# Run all tests (286 tests)
+# Run all tests (~333 tests)
 python -m pytest tests/ -v
 
 # Or use the test runner
 python tests/run_tests.py all
+
+# Run by category using markers
+pytest -m unit           # Fast unit tests
+pytest -m integration    # Integration tests
+pytest -m samples        # Sample file tests
+pytest -m resilience     # Rate limiter, circuit breaker, cancellation
+pytest -m security       # Security-related tests
+pytest -m slow           # Long-running tests
 ```
 
-## 📋 Test Files
+## 📋 Test Files (consolidated)
 
-| File | Purpose |
-|------|----------|
-| `test_converter.py` | Core RDF conversion |
-| `test_exporter.py` | Fabric to TTL export |
-| `test_integration.py` | Integration & E2E |
-| `test_preflight_validator.py` | Pre-flight validation |
-| `test_rate_limiter.py` | Rate limiting functionality |
-| `test_fabric_client_integration.py` | Fabric API client integration tests |
-| `test_cancellation.py` | Cancellation support & signal handling |
-| `test_streaming_converter.py` | Streaming parser for large files |
-| `run_tests.py` | Test runner utility |
+| File | Purpose | Est. Tests |
+|------|----------|------------|
+| `test_converter.py` | Core RDF conversion, type mapping | ~90 |
+| `test_resilience.py` | Rate limiter, circuit breaker, cancellation | ~107 |
+| `test_fabric_client.py` | Fabric API client, streaming converter | ~62 |
+| `test_validation.py` | Pre-flight validation, exporter, E2E | ~74 |
+| `conftest.py` | Shared fixtures and pytest markers | - |
+| `run_tests.py` | Test runner utility | - |
 
-## Running Tests
+### Pytest markers
+
+Configure in `conftest.py`:
+- `@pytest.mark.unit` - Fast unit tests (default)
+- `@pytest.mark.integration` - Tests with external dependencies
+- `@pytest.mark.slow` - Long-running tests (>5s)
+- `@pytest.mark.security` - Security/path validation tests
+- `@pytest.mark.resilience` - Fault tolerance tests
+- `@pytest.mark.samples` - Tests using sample files
+
+## Running tests
 
 ### Quick Commands
 ```powershell
 # Run all tests
-python tests/run_tests.py all
+python -m pytest tests/ -v
 
-# Run unit tests only
-python tests/run_tests.py core
+# Run by marker
+pytest -m unit -v                    # Unit tests only
+pytest -m "integration and samples"  # Combined markers
+pytest -m "not slow"                 # Exclude slow tests
 
-# Run sample file tests
-python tests/run_tests.py samples
-
-# Run a specific test
-python tests/run_tests.py single test_foaf_ontology_ttl
+# Run specific test file
+pytest tests/test_converter.py -v
+pytest tests/test_resilience.py -v
+pytest tests/test_fabric_client.py -v
+pytest tests/test_validation.py -v
 
 # Run with coverage
 python -m pytest tests/ --cov=src --cov-report=html
 ```
 
-### Test Categories
+### Examples
 ```powershell
 # Core converter tests
 python -m pytest tests/test_converter.py::TestRDFConverter -v
 
 # Sample file tests
-python -m pytest tests/test_converter.py::TestSampleOntologies -v
-
-# Error handling tests
-python -m pytest tests/test_converter.py::TestErrorHandling -v
-
-# End-to-end tests
-python -m pytest tests/test_integration.py::TestEndToEnd -v
+pytest -m samples -v
 
 # Rate limiter tests
-python -m pytest tests/test_rate_limiter.py -v
+pytest tests/test_resilience.py::TestTokenBucketRateLimiter -v
+
+# Circuit breaker tests  
+pytest tests/test_resilience.py::TestCircuitBreakerStates -v
+
+# Cancellation tests
+pytest tests/test_resilience.py::TestCancellationToken -v
 
 # Fabric API integration tests
-python -m pytest tests/test_fabric_client_integration.py -v
-
-# Cancellation support tests
-python -m pytest tests/test_cancellation.py -v
+pytest tests/test_fabric_client.py::TestListOntologies -v
 
 # Streaming converter tests
-python -m pytest tests/test_streaming_converter.py -v
+pytest tests/test_fabric_client.py::TestStreamingRDFConverterBasic -v
+
+# Pre-flight validation tests
+pytest tests/test_validation.py::TestPreflightValidator -v
+
+# End-to-end tests
+pytest tests/test_validation.py::TestEndToEnd -v
 ```
 
-### Specific Tests
+### Specific tests
 ```powershell
 # Run a test class
-python -m pytest tests/test_converter.py::TestSampleOntologies -v
+pytest tests/test_converter.py::TestSampleOntologies -v
 
 # Run a single test
-python -m pytest tests/test_converter.py::TestSampleOntologies::test_foaf_ontology_ttl -v -s
+pytest tests/test_converter.py::TestSampleOntologies::test_foaf_ontology_ttl -v -s
 
-# Run Fabric API integration test classes
-python -m pytest tests/test_fabric_client_integration.py::TestListOntologies -v
-python -m pytest tests/test_fabric_client_integration.py::TestCreateOntology -v
-python -m pytest tests/test_fabric_client_integration.py::TestRateLimitingAndRetry -v
+# Run tests matching a pattern
+pytest -k "rate_limit" -v
+pytest -k "circuit" -v
 ```
 
-## ✨ Sample Test Output
+## ✨ Sample output
 
-Run the sample file tests to see current results:
+Use `-v` for verbose and `-s` to print output during tests.
 
-```powershell
-python -m pytest tests/test_converter.py::TestSampleOntologies::test_all_sample_ttl_files -v -s
-```
+## What the tests cover
 
-## What the Tests Validate
+High-level coverage includes:
+- Core conversion (entities, properties, relationships, type mapping)
+- Fabric definition structure and serialization
+- Error handling and security guards (paths, symlinks, config)
+- Resilience (rate limiter, circuit breaker, retries)
+- Fabric client behavior and streaming converter
+- Validation, exporter, and end-to-end flows
 
-### Core Functionality ✅
-- ✅ TTL parsing with rdflib
-- ✅ Entity type extraction (owl:Class)
-- ✅ Property extraction (owl:DatatypeProperty)
-- ✅ Relationship extraction (owl:ObjectProperty)
-- ✅ URI to name conversion and sanitization
-- ✅ XSD type to Fabric type mapping
-- ✅ Class hierarchy (rdfs:subClassOf) handling
-- ✅ Multiple domain/range handling
-
-### Fabric Ontology Generation ✅
-- ✅ Correct "parts" array structure
-- ✅ .platform metadata generation
-- ✅ EntityTypes/ and RelationshipTypes/ path structure
-- ✅ Base64 payload encoding
-- ✅ Topological sorting (parents before children)
-
-### Error Handling ✅
-- ✅ Empty/invalid input
-- ✅ Malformed TTL syntax
-- ✅ Missing files
-- ✅ Invalid configuration
-- ✅ Permission errors
-- ✅ Path traversal protection
-
-### Rate Limiting ✅
-- ✅ Token bucket algorithm
-- ✅ Thread safety
-- ✅ Burst handling
-- ✅ Statistics tracking
-- ✅ Retry-After header compliance
-
-### Fabric API Client Integration ✅
-Mock-based integration tests aligned with [Microsoft Fabric REST API](https://learn.microsoft.com/en-us/rest/api/fabric/ontology/items):
-
-- ✅ List ontologies (GET /workspaces/{workspaceId}/ontologies)
-- ✅ Get ontology (GET /ontologies/{ontologyId})
-- ✅ Create ontology (POST with 201/202 responses)
-- ✅ Update ontology definition
-- ✅ Delete ontology (DELETE with 200 OK)
-- ✅ Long-running operations (LRO) with polling
-- ✅ Rate limiting (429 Too Many Requests)
-- ✅ Authentication (Bearer token, refresh)
-- ✅ Error responses (400, 401, 403, 404, 500, 503)
-- ✅ Request timeout handling
-- ✅ Configuration validation
-
-### Cancellation Support ✅
-- ✅ CancellationToken operations (cancel, is_cancelled, throw_if_cancelled)
-- ✅ Thread-safe cancellation with callbacks
-- ✅ Signal handler setup/restore (SIGINT)
-- ✅ Interruptible wait loops
-- ✅ Cleanup callback execution
-- ✅ Fabric client cancellation integration
-- ✅ Pre-cancelled token behavior
-
-### Streaming Converter ✅
-- ✅ Phase-based processing (classes → properties → relationships)
-- ✅ Memory-efficient batch processing
-- ✅ Progress callback integration
-- ✅ Streaming vs standard converter equivalence
-- ✅ Cancellation token support in streaming mode
-- ✅ Skipped item tracking for incomplete properties
-- ✅ Subclass/inheritance chain handling
-- ✅ Sample ontology streaming tests
-- ✅ Threshold constant validation
-
-### Sample Ontologies
-All sample ontology files in the `samples/` directory are tested.
-
-## Adding New Tests
+## Adding new tests
 
 To add a new test:
 
@@ -175,7 +128,7 @@ To add a new test:
 4. Add descriptive docstrings
 5. Use assertions to validate expected behavior
 
-### Example: Unit Test
+### Example: Unit test
 ```python
 def test_my_new_feature(self, converter):
     """Test description"""
@@ -190,7 +143,7 @@ def test_my_new_feature(self, converter):
     assert len(entity_types) == 1
 ```
 
-### Example: Integration Test with Mocked API
+### Example: Integration test with mocked API
 ```python
 def test_create_ontology_success(self, fabric_client):
     """Test successful ontology creation with mocked Fabric API."""
@@ -253,7 +206,7 @@ Optional testing tools:
 pip install pytest-cov pytest-watch pytest-xdist
 ```
 
-## 💡 Testing Best Practices
+## 💡 Best practices
 
 - ✅ Run tests before committing changes
 - ✅ Add tests for new features (TDD)
@@ -264,7 +217,7 @@ pip install pytest-cov pytest-watch pytest-xdist
 - ✅ Use mock responses that match official API documentation
 - ✅ Include both success and error path tests
 
-## 📚 API Documentation References
+## 📚 API documentation
 
 Integration tests are aligned with official Microsoft Fabric API documentation:
 

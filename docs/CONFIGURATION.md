@@ -1,127 +1,13 @@
 # Configuration Guide
 
-## Overview
+## Authentication
 
-The RDF to Fabric Ontology Converter uses a JSON configuration file to manage connection settings, authentication, and conversion options.
+Two options:
 
-## Configuration File
+- Interactive (dev): `use_interactive_auth: true` — opens a browser to sign in
+- Service principal (CI/CD): `use_interactive_auth: false` — set `client_id`, `tenant_id`, and provide `client_secret` via environment variable
 
-Create `config.json` in the project root:
-
-```json
-{
-  "fabric": {
-    "workspace_id": "YOUR_WORKSPACE_ID",
-    "ontology_id": "",
-    "api_base_url": "https://api.fabric.microsoft.com/v1",
-    "tenant_id": "YOUR_TENANT_ID",
-    "client_id": "",
-    "client_secret": "",
-    "use_interactive_auth": true
-  },
-  "ontology": {
-    "default_namespace": "usertypes",
-    "id_prefix": 1000000000000
-  },
-  "logging": {
-    "level": "INFO",
-    "log_file": "rdf_import.log"
-  }
-}
-```
-
-## Configuration Options
-
-### Fabric Settings
-
-| Option | Type | Required | Description |
-|--------|------|----------|-------------|
-| `workspace_id` | string | Yes | Your Microsoft Fabric workspace GUID |
-| `ontology_id` | string | No | Specific ontology ID (leave empty for name-based operations) |
-| `api_base_url` | string | Yes | Fabric API base URL (default shown above) |
-| `tenant_id` | string | Yes | Azure AD tenant ID |
-| `client_id` | string | Yes | Azure AD application client ID |
-| `client_secret` | string | No | Client secret (leave empty for interactive auth) |
-| `use_interactive_auth` | boolean | Yes | Use interactive browser login (true) or service principal (false) |
-
-### Ontology Settings
-
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `default_namespace` | string | "usertypes" | Default namespace for custom types |
-| `id_prefix` | integer | 1000000000000 | Starting ID for generated entity/property IDs |
-
-### Logging Settings
-
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `level` | string | "INFO" | Logging level: DEBUG, INFO, WARNING, ERROR |
-| `log_file` | string | "rdf_import.log" | Path to log file |
-
-### Rate Limiting Settings
-
-Microsoft Fabric throttles API requests and returns HTTP 429 responses with a `Retry-After` header when limits are exceeded. The rate limiter provides proactive client-side throttling to minimize 429 responses.
-
-> **Note:** Microsoft Fabric does not publish specific rate limits—they vary by user and API endpoint. The default settings are conservative estimates. See [Fabric API Throttling](https://learn.microsoft.com/en-us/rest/api/fabric/articles/throttling) for more information.
-
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `rate_limit.enabled` | boolean | true | Enable client-side rate limiting |
-| `rate_limit.requests_per_minute` | integer | 10 | Maximum requests per minute (long-term rate) |
-| `rate_limit.burst` | integer | 15 | Maximum burst size (short-term allowance) |
-
-```json
-{
-  "fabric": {
-    "rate_limit": {
-      "enabled": true,
-      "requests_per_minute": 10,
-      "burst": 15
-    }
-  }
-}
-```
-
-**Tuning Rate Limits:**
-- If you see frequent 429 responses, decrease `requests_per_minute`
-- If operations are slow but no 429 errors, you can increase the rate
-- The `burst` setting allows short bursts above the rate limit
-- When rate limited, the client automatically waits for the server-specified `Retry-After` duration
-
-## Authentication Methods
-
-### Interactive Authentication (Recommended for Development)
-
-```json
-{
-  "fabric": {
-    "use_interactive_auth": true,
-    "client_id": "04b07795-8ddb-461a-bbee-02f9e1bf7b46",
-    "tenant_id": "YOUR_TENANT_ID"
-  }
-}
-```
-
-This uses the Azure CLI public client and opens a browser for login.
-
-### Service Principal Authentication (For Automation)
-
-1. Create an App Registration in Azure AD
-2. Grant required permissions:
-   - `Item.ReadWrite.All` (delegated)
-3. Create a client secret
-4. Configure:
-
-```json
-{
-  "fabric": {
-    "use_interactive_auth": false,
-    "client_id": "YOUR_APP_CLIENT_ID",
-    "client_secret": "YOUR_CLIENT_SECRET",
-    "tenant_id": "YOUR_TENANT_ID"
-  }
-}
-```
+Required permission for service principals: `Item.ReadWrite.All`.
 
 ## Finding Your Configuration Values
 
@@ -142,32 +28,107 @@ This uses the Azure CLI public client and opens a browser for login.
 
 ## Environment Variables
 
-You can also use environment variables (they override config.json):
+Environment variables override `config.json`. Recommended for secrets:
 
-```bash
-# Windows
-set FABRIC_WORKSPACE_ID=your-workspace-id
-set FABRIC_TENANT_ID=your-tenant-id
+```powershell
+# Windows (PowerShell)
+$env:FABRIC_CLIENT_SECRET = "<secret>"
 
 # Linux/Mac
-export FABRIC_WORKSPACE_ID=your-workspace-id
-export FABRIC_TENANT_ID=your-tenant-id
+export FABRIC_CLIENT_SECRET="<secret>"
 ```
 
 ## Security Best Practices
 
-### For Development
-- ✅ Use interactive authentication
-- ✅ Keep `config.json` in `.gitignore`
-- ✅ Use `config.sample.json` for templates
+- Never commit secrets to source control
+- Prefer Managed Identity or Key Vault for production
+- Use environment variables for local development secrets
+- Keep `src/config.json` in `.gitignore`
 
-### For Production
-- ✅ Use service principal authentication
-- ✅ Store secrets in Azure Key Vault or similar
-- ✅ Use managed identities when possible
-- ✅ Rotate secrets regularly
+## Config - Interactive authentication
 
-⚠️ Never commit secrets to source control
+Create `src/config.json`:
+
+```json
+{
+  "fabric": {
+    "workspace_id": "YOUR_WORKSPACE_ID",
+    "tenant_id": "YOUR_TENANT_ID",
+    "use_interactive_auth": true
+  },
+  "ontology": { "default_namespace": "usertypes", "id_prefix": 1000000000000 },
+  "logging":  { "level": "INFO", "log_file": "logs/app.log" }
+}
+```
+
+## Config - Service Principal
+
+```json
+{
+  "fabric": {
+    "workspace_id": "<workspace-id>",
+    "tenant_id": "<tenant-id>",
+    "client_id": "<app-id>",
+    "use_interactive_auth": false,
+    "rate_limit": { "enabled": true, "requests_per_minute": 10, "burst": 15 },
+    "circuit_breaker": { "enabled": true, "failure_threshold": 5, "recovery_timeout": 60.0, "success_threshold": 2 }
+  }
+}
+```
+
+
+Security tip: provide any secrets via environment variables (not in config.json).
+
+## Configuration Options
+
+### Fabric Settings
+
+| Option | Type | Required | Description |
+|--------|------|----------|-------------|
+| `workspace_id` | string | Yes | Your Microsoft Fabric workspace GUID |
+| `ontology_id` | string | No | Specific ontology ID (leave empty for name-based operations) |
+| `api_base_url` | string | Yes | Fabric API base URL (default shown above) |
+| `tenant_id` | string | Yes | Azure AD tenant ID |
+| `client_id` | string | Yes | Azure AD application client ID |
+| `client_secret` | string | No | Client secret (use env var; avoid storing in files) |
+| `use_interactive_auth` | boolean | Yes | Use interactive browser login (true) or service principal (false) |
+
+### Ontology Settings
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `default_namespace` | string | "usertypes" | Default namespace for custom types |
+| `id_prefix` | integer | 1000000000000 | Starting ID for generated entity/property IDs |
+
+### Logging Settings
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `level` | string | "INFO" | Logging level: DEBUG, INFO, WARNING, ERROR |
+| `log_file` | string | "rdf_import.log" | Path to log file |
+
+### Rate Limiting Settings
+
+Used to avoid 429s by throttling proactively. Defaults are conservative. See official [Fabric throttling](https://learn.microsoft.com/en-us/rest/api/fabric/articles/throttling).
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `rate_limit.enabled` | boolean | true | Enable client-side rate limiting |
+| `rate_limit.requests_per_minute` | integer | 10 | Long-term request rate |
+| `rate_limit.burst` | integer | 15 | Short burst capacity |
+
+Tuning: lower the rate if you hit 429s; raise modestly if you never do.
+
+### Circuit Breaker Settings
+
+Prevents cascading failures when the API is unhealthy.
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `circuit_breaker.enabled` | boolean | true | Enable circuit breaker |
+| `circuit_breaker.failure_threshold` | integer | 5 | Failures before opening circuit |
+| `circuit_breaker.recovery_timeout` | float | 60.0 | Wait before attempting recovery |
+| `circuit_breaker.success_threshold` | integer | 2 | Successes to fully close circuit |
 
 ## Troubleshooting
 
@@ -188,17 +149,11 @@ export FABRIC_TENANT_ID=your-tenant-id
 
 ## Configuration Validation
 
-The tool validates your configuration on startup:
+Quick sanity check:
 
-```bash
-python main.py test
+```powershell
+python src/main.py test
 ```
-
-This will:
-- ✅ Check configuration file exists
-- ✅ Validate required fields
-- ✅ Test authentication
-- ✅ Verify workspace access
 
 ## Multiple Configurations
 
@@ -212,43 +167,3 @@ python main.py upload sample.ttl --config config.dev.json
 python main.py upload sample.ttl --config config.prod.json
 ```
 
-## Example Configurations
-
-### Minimal Configuration (Interactive Auth)
-```json
-{
-  "fabric": {
-    "workspace_id": "12345678-1234-1234-1234-123456789abc",
-    "tenant_id": "87654321-4321-4321-4321-cba987654321",
-    "use_interactive_auth": true
-  }
-}
-```
-
-### Full Configuration (Service Principal)
-```json
-{
-  "fabric": {
-    "workspace_id": "12345678-1234-1234-1234-123456789abc",
-    "ontology_id": "",
-    "api_base_url": "https://api.fabric.microsoft.com/v1",
-    "tenant_id": "87654321-4321-4321-4321-cba987654321",
-    "client_id": "abcdef12-3456-7890-abcd-ef1234567890",
-    "client_secret": "your-secret-here",
-    "use_interactive_auth": false,
-    "rate_limit": {
-      "enabled": true,
-      "requests_per_minute": 10,
-      "burst": 15
-    }
-  },
-  "ontology": {
-    "default_namespace": "usertypes",
-    "id_prefix": 1000000000000
-  },
-  "logging": {
-    "level": "INFO",
-    "log_file": "rdf_import.log"
-  }
-}
-```

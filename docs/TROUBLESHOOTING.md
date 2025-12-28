@@ -14,6 +14,7 @@ python -m pytest tests/ -v    # Run test suite
 | Error | Solution |
 |-------|----------|
 | **Unauthorized / 403 Forbidden** | Verify config.json credentials, ensure Contributor role on workspace, try `"use_interactive_auth": true` |
+| **CircuitBreakerOpen** | API failing repeatedly; wait for recovery timeout or check Fabric service status |
 | **ItemDisplayNameAlreadyInUse** | Use `--update` flag or different name: `python src/main.py upload sample.ttl --name "MyOntology_v2"` |
 | **CorruptedPayload** | Validate TTL syntax, check for special characters, ensure parent entities defined first |
 | **Invalid baseEntityTypeId** | Parent class must be defined in same ontology, converter orders entities automatically |
@@ -51,6 +52,15 @@ python src/main.py delete <ontology-id>
 python src/main.py upload sample.ttl
 ```
 
+## Circuit Breaker Issues
+
+Protects you when the Fabric API is unhealthy.
+
+If you see "Circuit breaker is open":
+- Wait for automatic recovery (it will retry after the timeout)
+- Check Fabric service status and your network
+- Optionally relax thresholds in config (e.g., higher `failure_threshold`, longer `recovery_timeout`)
+
 ## Memory Management
 
 For large files (>100MB), use streaming mode:
@@ -66,10 +76,7 @@ python src/main.py upload large.ttl --force-memory
 # Or split into smaller files by domain
 ```
 
-Memory thresholds:
-- Max file size: 500MB (without `--force-memory`)
-- Minimum free memory: 256MB
-- Memory overhead: 3.5x file size
+Memory thresholds (guidance): file size ~3.5× RAM overhead; use streaming for large files.
 
 ## Valid TTL Example
 
@@ -118,9 +125,31 @@ python -m pytest tests/test_converter.py::test_name -v
 
 ## Path Issues
 
+The tool validates all file paths to prevent security issues:
+
+- **Path traversal prevention**: Paths containing `..` are blocked
+- **Symlink rejection**: Symbolic links are not allowed for input files
+- **Extension validation**: Only valid file extensions are accepted (.ttl, .rdf, .owl, .json)
+- **Permission checks**: Files must be readable before processing
+
+If you need to access files outside the current directory:
+```bash
+# Copy files to working directory instead of using path traversal
+cp /some/external/path/ontology.ttl ./ontology.ttl
+python src/main.py upload ontology.ttl --name "MyOntology"
+```
+
 - Windows: Use forward slashes `samples/file.ttl` or double backslashes `samples\\file.ttl`
 - PowerShell: Quote paths with spaces `"samples/my file.ttl"`
 - Linux/Mac: Check permissions `chmod +r sample.ttl`
+
+If you see security-related errors:
+
+| Error | Cause | Solution |
+|-------|-------|----------|
+| `Security Error: Symlinks are not allowed` | Input file is a symbolic link | Use the actual file path |
+| `Security Error: Path traversal detected` | Path contains `..` | Use absolute path or copy file to working directory |
+| `Configuration file must be in current working directory` | Config file outside cwd | Move config.json to working directory |
 
 ## Additional Resources
 
