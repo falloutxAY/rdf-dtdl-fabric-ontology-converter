@@ -16,7 +16,8 @@ import os
 # Add parent directory to path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from main import (
+# Import from cli module (refactored architecture)
+from cli import (
     load_config,
     get_default_config_path,
     setup_logging
