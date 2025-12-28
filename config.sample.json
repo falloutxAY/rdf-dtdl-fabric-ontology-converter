@@ -6,7 +6,12 @@
         "tenant_id": "YOUR_TENANT_ID",
         "client_id": "YOUR_CLIENT_ID", 
         "client_secret": "",
-        "use_interactive_auth": true
+        "use_interactive_auth": true,
+        "rate_limit": {
+            "enabled": true,
+            "requests_per_minute": 10,
+            "burst": 15
+        }
     },
     "ontology": {
         "default_namespace": "usertypes",

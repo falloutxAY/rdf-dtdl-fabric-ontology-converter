@@ -47,25 +47,25 @@ Examples:
     
     if command == "all":
         return run_command(
-            "python -m pytest test_converter.py -v",
+            "python -m pytest tests/ -v",
             "Running All Tests (Verbose)"
         )
     
     elif command == "quick":
         return run_command(
-            "python -m pytest test_converter.py",
+            "python -m pytest tests/",
             "Running All Tests (Quick)"
         )
     
     elif command == "samples":
         return run_command(
-            "python -m pytest test_converter.py::TestSampleOntologies -v -s",
+            "python -m pytest tests/test_converter.py::TestSampleOntologies -v -s",
             "Running Sample Ontology Tests"
         )
     
     elif command == "core":
         return run_command(
-            "python -m pytest test_converter.py::TestRDFConverter -v",
+            "python -m pytest tests/test_converter.py::TestRDFConverter -v",
             "Running Core Converter Tests"
         )
     
@@ -74,7 +74,7 @@ Examples:
         try:
             import pytest_cov
             return run_command(
-                "python -m pytest test_converter.py --cov=rdf_converter --cov-report=html --cov-report=term",
+                "python -m pytest tests/ --cov=src --cov-report=html --cov-report=term",
                 "Running Tests with Coverage"
             )
         except ImportError:
@@ -90,7 +90,7 @@ Examples:
         
         test_name = sys.argv[2]
         return run_command(
-            f"python -m pytest test_converter.py -k {test_name} -v",
+            f"python -m pytest tests/ -k {test_name} -v",
             f"Running Single Test: {test_name}"
         )
     
@@ -98,7 +98,7 @@ Examples:
         try:
             import pytest_watch
             return run_command(
-                "ptw test_converter.py -- -v",
+                "ptw tests/ -- -v",
                 "Running Tests in Watch Mode"
             )
         except ImportError:

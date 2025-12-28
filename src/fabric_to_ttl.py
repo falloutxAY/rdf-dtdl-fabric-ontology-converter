@@ -8,13 +8,20 @@ definitions back to RDF TTL (Turtle) format.
 import json
 import base64
 import logging
-from typing import Dict, List, Any, Optional, Tuple, Set
-from rdflib import Graph, Namespace, RDF, RDFS, OWL, XSD, URIRef, Literal, BNode
+import os
+from pathlib import Path
+from typing import Dict, List, Any, Optional, Tuple, Set, Literal
+
+from rdflib import Graph, Namespace, RDF, RDFS, OWL, XSD, URIRef, BNode
+from rdflib.term import Literal as RDFLiteral
 
 logger = logging.getLogger(__name__)
 
+# Type alias for Fabric value types
+FabricValueType = Literal["String", "Boolean", "DateTime", "BigInt", "Double", "Int", "Long", "Float", "Decimal"]
+
 # Fabric type to XSD type mapping (reverse of XSD_TO_FABRIC_TYPE)
-FABRIC_TO_XSD_TYPE = {
+FABRIC_TO_XSD_TYPE: Dict[str, URIRef] = {
     "String": XSD.string,
     "Boolean": XSD.boolean,
     "DateTime": XSD.dateTime,
@@ -32,20 +39,20 @@ class FabricToTTLConverter:
     Converts Microsoft Fabric Ontology definitions to RDF TTL format.
     """
     
-    def __init__(self, base_namespace: str = "http://example.org/ontology#"):
+    def __init__(self, base_namespace: str = "http://example.org/ontology#") -> None:
         """
         Initialize the converter.
         
         Args:
             base_namespace: Base namespace URI for the ontology
         """
-        self.base_namespace = base_namespace
-        self.graph = Graph()
-        self.ns = Namespace(base_namespace)
+        self.base_namespace: str = base_namespace
+        self.graph: Graph = Graph()
+        self.ns: Namespace = Namespace(base_namespace)
         self.entity_id_to_uri: Dict[str, URIRef] = {}
         self.entity_id_to_name: Dict[str, str] = {}
         
-    def _setup_namespaces(self):
+    def _setup_namespaces(self) -> None:
         """Setup common namespaces in the graph."""
         self.graph.bind("", self.ns)
         self.graph.bind("owl", OWL)
@@ -63,7 +70,15 @@ class FabricToTTLConverter:
         return sanitized or 'UnnamedClass'
     
     def _decode_payload(self, payload: str) -> Dict[str, Any]:
-        """Decode base64 payload from Fabric definition part."""
+        """
+        Decode base64 payload from Fabric definition part.
+        
+        Args:
+            payload: Base64 encoded JSON string
+            
+        Returns:
+            Decoded JSON as dictionary, or empty dict on failure
+        """
         try:
             decoded = base64.b64decode(payload).decode('utf-8')
             return json.loads(decoded)
@@ -157,7 +172,7 @@ class FabricToTTLConverter:
         
         return entity_types, relationship_types
     
-    def _add_entity_type(self, entity: Dict[str, Any]):
+    def _add_entity_type(self, entity: Dict[str, Any]) -> None:
         """
         Add an entity type to the RDF graph as an owl:Class.
         
@@ -177,7 +192,7 @@ class FabricToTTLConverter:
         
         # Add class declaration
         self.graph.add((class_uri, RDF.type, OWL.Class))
-        self.graph.add((class_uri, RDFS.label, Literal(name)))
+        self.graph.add((class_uri, RDFS.label, RDFLiteral(name)))
         
         # Handle inheritance (baseEntityTypeId)
         base_entity_id = entity.get('baseEntityTypeId')
@@ -189,7 +204,7 @@ class FabricToTTLConverter:
         for prop in entity.get('properties', []):
             self._add_datatype_property(prop, class_uri, entity_id)
     
-    def _add_datatype_property(self, prop: Dict[str, Any], domain_uri: URIRef, entity_id: str):
+    def _add_datatype_property(self, prop: Dict[str, Any], domain_uri: URIRef, entity_id: str) -> None:
         """
         Add a datatype property to the RDF graph.
         
@@ -207,7 +222,7 @@ class FabricToTTLConverter:
         
         # Add property declaration
         self.graph.add((prop_uri, RDF.type, OWL.DatatypeProperty))
-        self.graph.add((prop_uri, RDFS.label, Literal(prop_name)))
+        self.graph.add((prop_uri, RDFS.label, RDFLiteral(prop_name)))
         self.graph.add((prop_uri, RDFS.domain, domain_uri))
         
         # Map Fabric type to XSD type
@@ -235,7 +250,7 @@ class FabricToTTLConverter:
         
         return None
     
-    def _add_relationship_type(self, relationship: Dict[str, Any]):
+    def _add_relationship_type(self, relationship: Dict[str, Any]) -> None:
         """
         Add a relationship type to the RDF graph as an owl:ObjectProperty.
         
@@ -251,7 +266,7 @@ class FabricToTTLConverter:
         
         # Add object property declaration
         self.graph.add((prop_uri, RDF.type, OWL.ObjectProperty))
-        self.graph.add((prop_uri, RDFS.label, Literal(name)))
+        self.graph.add((prop_uri, RDFS.label, RDFLiteral(name)))
         
         # Add domain (source)
         source = relationship.get('source', {})
@@ -291,7 +306,7 @@ class FabricToTTLConverter:
         # Add ontology declaration
         ontology_uri = self.ns[self._sanitize_name(ontology_name)]
         self.graph.add((ontology_uri, RDF.type, OWL.Ontology))
-        self.graph.add((ontology_uri, RDFS.label, Literal(ontology_name)))
+        self.graph.add((ontology_uri, RDFS.label, RDFLiteral(ontology_name)))
         
         # Extract entity types and relationships
         entity_types, relationship_types = self._extract_definitions(fabric_definition)
@@ -333,16 +348,38 @@ class FabricToTTLConverter:
             
         Returns:
             TTL string
+            
+        Raises:
+            ValueError: If path traversal detected or invalid extension
+            FileNotFoundError: If input file not found
+            PermissionError: If file not readable/writable
         """
-        with open(input_path, 'r', encoding='utf-8') as f:
+        # Import here to avoid circular imports
+        from rdf_converter import InputValidator
+        
+        # Validate input path with security checks
+        validated_input_path = InputValidator.validate_file_path(
+            input_path,
+            allowed_extensions=['.json'],
+            check_exists=True,
+            check_readable=True
+        )
+        
+        with open(validated_input_path, 'r', encoding='utf-8') as f:
             fabric_definition = json.load(f)
         
         ttl_output = self.convert(fabric_definition)
         
         if output_path:
-            with open(output_path, 'w', encoding='utf-8') as f:
+            # Validate output path with security checks
+            validated_output_path = InputValidator.validate_output_file_path(
+                output_path,
+                allowed_extensions=['.ttl', '.rdf', '.owl', '.n3']
+            )
+            
+            with open(validated_output_path, 'w', encoding='utf-8') as f:
                 f.write(ttl_output)
-            logger.info(f"Saved TTL to {output_path}")
+            logger.info(f"Saved TTL to {validated_output_path}")
         
         return ttl_output
 
@@ -370,8 +407,8 @@ def compare_ontologies(ttl1: str, ttl2: str) -> Dict[str, Any]:
         - extra_classes: set of classes in exported but not original
         - (similar for properties and relationships)
     """
-    g1 = Graph()
-    g2 = Graph()
+    g1: Graph = Graph()
+    g2: Graph = Graph()
     
     g1.parse(data=ttl1, format='turtle')
     g2.parse(data=ttl2, format='turtle')
@@ -547,12 +584,25 @@ def export_ontology_to_ttl(
         
     Returns:
         TTL string
+        
+    Raises:
+        ValueError: If path traversal detected in output_path
+        PermissionError: If output directory not writable
     """
     converter = FabricToTTLConverter(base_namespace=base_namespace)
     ttl_output = converter.convert(fabric_definition)
     
     if output_path:
-        with open(output_path, 'w', encoding='utf-8') as f:
+        # Import here to avoid circular imports
+        from rdf_converter import InputValidator
+        
+        # Validate output path with security checks
+        validated_output_path = InputValidator.validate_output_file_path(
+            output_path,
+            allowed_extensions=['.ttl', '.rdf', '.owl', '.n3']
+        )
+        
+        with open(validated_output_path, 'w', encoding='utf-8') as f:
             f.write(ttl_output)
         logger.info(f"Exported ontology to {output_path}")
     

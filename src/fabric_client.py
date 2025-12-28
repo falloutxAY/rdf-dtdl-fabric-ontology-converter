@@ -9,8 +9,8 @@ import json
 import time
 import logging
 import threading
-from typing import Dict, Any, Optional, List
-from dataclasses import dataclass
+from typing import Dict, Any, Optional, List, Union, Literal, cast
+from dataclasses import dataclass, field
 
 import requests
 from azure.identity import (
@@ -19,6 +19,7 @@ from azure.identity import (
     DefaultAzureCredential,
     ChainedTokenCredential,
 )
+from azure.core.credentials import TokenCredential
 from tenacity import (
     retry,
     stop_after_attempt,
@@ -29,11 +30,26 @@ from tenacity import (
 )
 from tqdm import tqdm
 
+from rate_limiter import TokenBucketRateLimiter, NoOpRateLimiter
+from cancellation import CancellationToken, OperationCancelledException
+
 logger = logging.getLogger(__name__)
+
+# Type aliases
+HttpMethod = Literal["GET", "POST", "PATCH", "DELETE", "PUT"]
+OntologyDefinition = Dict[str, Any]
+OntologyInfo = Dict[str, Any]
 
 
 class TransientAPIError(Exception):
-    """Exception for transient API errors (429, 503) that should be retried."""
+    """Exception for transient API errors (429, 503) that should be retried.
+    
+    Microsoft Fabric uses HTTP 429 with a Retry-After header to indicate
+    when the client should retry. This exception captures that information
+    for use by retry logic.
+    
+    See: https://learn.microsoft.com/en-us/rest/api/fabric/articles/throttling
+    """
     def __init__(self, status_code: int, retry_after: int = 5, message: str = ""):
         self.status_code = status_code
         self.retry_after = retry_after
@@ -41,13 +57,69 @@ class TransientAPIError(Exception):
         super().__init__(f"Transient error (HTTP {status_code}): {message}")
 
 
-def _is_transient_error(exception: Exception) -> bool:
+def _is_transient_error(exception: BaseException) -> bool:
     """Check if exception is a transient error that should be retried."""
     if isinstance(exception, TransientAPIError):
         return True
     if isinstance(exception, (requests.exceptions.Timeout, requests.exceptions.ConnectionError)):
         return True
     return False
+
+
+def _wait_for_retry_after(retry_state: Any) -> float:
+    """
+    Custom wait function that respects the Retry-After header from Fabric API.
+    
+    Microsoft Fabric returns a Retry-After header in 429 responses indicating
+    how many seconds to wait before retrying. This function extracts that value
+    and uses it, falling back to exponential backoff for other errors.
+    
+    Args:
+        retry_state: The tenacity retry state object
+        
+    Returns:
+        Number of seconds to wait before retrying
+    """
+    exception = retry_state.outcome.exception()
+    
+    # Honor Retry-After from TransientAPIError (429/503 responses)
+    if isinstance(exception, TransientAPIError) and exception.retry_after:
+        wait_time = float(exception.retry_after)
+        logger.debug(f"Using Retry-After header value: {wait_time}s")
+        return wait_time
+    
+    # Fall back to exponential backoff for other transient errors
+    # Base: 2s, multiplier: 2x, max: 60s
+    attempt = retry_state.attempt_number
+    wait_time = min(2 * (2 ** (attempt - 1)), 60)
+    logger.debug(f"Using exponential backoff: {wait_time}s (attempt {attempt})")
+    return wait_time
+
+
+@dataclass
+class RateLimitConfig:
+    """Configuration for API rate limiting.
+    
+    Microsoft Fabric throttles API requests on a per-user, per-API basis.
+    While exact limits are not published, this configuration allows
+    proactive rate limiting to minimize 429 responses.
+    
+    See: https://learn.microsoft.com/en-us/rest/api/fabric/articles/throttling
+    """
+    enabled: bool = True
+    requests_per_minute: int = 10
+    burst: Optional[int] = None  # Defaults to requests_per_minute if None
+    
+    @classmethod
+    def from_dict(cls, config_dict: Optional[Dict[str, Any]]) -> 'RateLimitConfig':
+        """Create RateLimitConfig from a dictionary."""
+        if config_dict is None:
+            return cls()
+        return cls(
+            enabled=config_dict.get('enabled', True),
+            requests_per_minute=config_dict.get('requests_per_minute', 10),
+            burst=config_dict.get('burst'),
+        )
 
 
 @dataclass
@@ -59,11 +131,15 @@ class FabricConfig:
     client_id: Optional[str] = None
     client_secret: Optional[str] = None
     use_interactive_auth: bool = True
+    rate_limit: RateLimitConfig = field(default_factory=RateLimitConfig)
     
     @classmethod
     def from_dict(cls, config_dict: Dict[str, Any]) -> 'FabricConfig':
         """Create FabricConfig from a dictionary."""
         fabric_config = config_dict.get('fabric', config_dict)
+        rate_limit_config = RateLimitConfig.from_dict(
+            fabric_config.get('rate_limit')
+        )
         return cls(
             workspace_id=fabric_config.get('workspace_id', ''),
             api_base_url=fabric_config.get('api_base_url', 'https://api.fabric.microsoft.com/v1'),
@@ -71,33 +147,49 @@ class FabricConfig:
             client_id=fabric_config.get('client_id'),
             client_secret=fabric_config.get('client_secret'),
             use_interactive_auth=fabric_config.get('use_interactive_auth', True),
+            rate_limit=rate_limit_config,
         )
     
     @classmethod
     def from_file(cls, config_path: str) -> 'FabricConfig':
-        """Load configuration from a JSON file."""
+        """Load configuration from a JSON file with path validation."""
         if not config_path:
             raise ValueError("config_path cannot be empty")
         
         if not isinstance(config_path, str):
             raise TypeError(f"config_path must be string, got {type(config_path)}")
         
+        # Import InputValidator for path security checks
+        from rdf_converter import InputValidator
+        
+        # Validate config path with security checks
         try:
-            with open(config_path, 'r', encoding='utf-8') as f:
-                config_dict = json.load(f)
+            validated_path = InputValidator.validate_file_path(
+                config_path,
+                allowed_extensions=['.json'],
+                check_exists=True,
+                check_readable=True
+            )
+        except ValueError as e:
+            # Re-raise with context about it being a config file
+            raise ValueError(f"Invalid configuration file path: {e}")
         except FileNotFoundError:
             raise FileNotFoundError(
                 f"Configuration file not found: {config_path}. "
                 f"Please create a config.json file with your Fabric workspace settings."
             )
+        
+        try:
+            with open(validated_path, 'r', encoding='utf-8') as f:
+                config_dict = json.load(f)
         except json.JSONDecodeError as e:
-            raise ValueError(f"Invalid JSON in configuration file {config_path}: {e}")
+            raise ValueError(f"Invalid JSON in configuration file {validated_path}: {e}")
         except UnicodeDecodeError as e:
-            raise ValueError(f"Encoding error reading {config_path}: {e}")
+            raise ValueError(f"Encoding error reading {validated_path}: {e}")
         except PermissionError:
-            raise PermissionError(f"Permission denied reading {config_path}")
+            raise PermissionError(f"Permission denied reading {validated_path}")
         except Exception as e:
-            raise IOError(f"Error reading configuration file {config_path}: {e}")
+            raise IOError(f"Error reading configuration file {validated_path}: {e}")
         
         if not isinstance(config_dict, dict):
             raise ValueError(f"Configuration file must contain a JSON object, got {type(config_dict)}")
@@ -150,17 +242,37 @@ class FabricOntologyClient:
             )
         
         self.config = config
-        self._credential = None
-        self._access_token = None
-        self._token_expires = 0
+        self._credential: Optional[TokenCredential] = None
+        self._access_token: Optional[str] = None
+        self._token_expires: float = 0
         self._token_lock = threading.RLock()  # Thread-safe token caching
+        
+        # Initialize rate limiter
+        if config.rate_limit.enabled:
+            burst = config.rate_limit.burst or config.rate_limit.requests_per_minute
+            self.rate_limiter: Union[TokenBucketRateLimiter, NoOpRateLimiter] = TokenBucketRateLimiter(
+                rate=config.rate_limit.requests_per_minute,
+                per=60,  # per minute
+                burst=burst
+            )
+            logger.info(
+                f"Rate limiting enabled: {config.rate_limit.requests_per_minute} requests/minute "
+                f"(burst: {burst})"
+            )
+        else:
+            self.rate_limiter = NoOpRateLimiter()
+            logger.info("Rate limiting disabled")
     
-    def _get_credential(self):
-        """Get the appropriate credential based on configuration."""
+    def _get_credential(self) -> TokenCredential:
+        """Get the appropriate credential based on configuration.
+        
+        Returns:
+            Azure TokenCredential instance for authentication
+        """
         if self._credential is not None:
             return self._credential
         
-        credentials = []
+        credentials: List[TokenCredential] = []
         
         # Service principal authentication
         if self.config.client_id and self.config.client_secret and self.config.tenant_id:
@@ -249,16 +361,17 @@ class FabricOntologyClient:
 
     def _make_request(
         self,
-        method: str,
+        method: HttpMethod,
         url: str,
         operation_name: str,
         timeout: int = 30,
-        **kwargs
+        **kwargs: Any
     ) -> requests.Response:
         """
-        Make HTTP request with consistent error handling.
+        Make HTTP request with consistent error handling and rate limiting.
         
         Centralizes request logic to ensure all API calls have uniform:
+        - Rate limiting (token bucket algorithm)
         - Timeout handling
         - Connection error handling
         - Logging format
@@ -277,6 +390,12 @@ class FabricOntologyClient:
         Raises:
             FabricAPIError: On any request failure with consistent error codes
         """
+        # Acquire rate limit token before making request
+        wait_time = self.rate_limiter.get_wait_time()
+        if wait_time > 0:
+            logger.debug(f"Rate limit: waiting {wait_time:.2f}s before {operation_name}")
+        self.rate_limiter.acquire()
+        
         try:
             logger.debug(f"{operation_name}: {method} {url}")
             response = requests.request(method, url, timeout=timeout, **kwargs)
@@ -318,7 +437,18 @@ class FabricOntologyClient:
         return cleaned[:90]
     
     def _handle_response(self, response: requests.Response) -> Dict[str, Any]:
-        """Handle API response and raise appropriate errors."""
+        """Handle API response and raise appropriate errors.
+        
+        Args:
+            response: The HTTP response to handle
+            
+        Returns:
+            Parsed JSON response as dictionary
+            
+        Raises:
+            FabricAPIError: On error responses
+            TransientAPIError: On retryable errors (429, 503)
+        """
         if response.status_code in (200, 201):
             if response.text:
                 try:
@@ -372,8 +502,28 @@ class FabricOntologyClient:
             message=error_message,
         )
     
-    def _wait_for_operation(self, operation_url: str, retry_after: int = 30, max_retries: int = 60) -> Dict[str, Any]:
-        """Wait for a long-running operation to complete with progress reporting."""
+    def _wait_for_operation(
+        self, 
+        operation_url: str, 
+        retry_after: int = 30, 
+        max_retries: int = 60,
+        cancellation_token: Optional[CancellationToken] = None
+    ) -> Dict[str, Any]:
+        """Wait for a long-running operation to complete with progress reporting.
+        
+        Args:
+            operation_url: URL to poll for operation status
+            retry_after: Initial delay between polls in seconds
+            max_retries: Maximum number of poll attempts
+            cancellation_token: Optional token for cancellation support
+            
+        Returns:
+            Operation result dictionary
+            
+        Raises:
+            FabricAPIError: If operation fails or times out
+            OperationCancelledException: If cancellation is requested
+        """
         logger.info(f"Waiting for operation to complete... (polling every {retry_after}s)")
         
         # Create progress bar for LRO status
@@ -382,7 +532,19 @@ class FabricOntologyClient:
             last_progress = 0
             
             for attempt in range(max_retries):
-                time.sleep(retry_after)
+                # Check for cancellation before sleeping
+                if cancellation_token:
+                    cancellation_token.throw_if_cancelled("waiting for operation")
+                
+                # Use interruptible sleep if cancellation token provided
+                if cancellation_token:
+                    # Sleep in smaller intervals to check for cancellation
+                    for _ in range(retry_after):
+                        if cancellation_token.is_cancelled():
+                            cancellation_token.throw_if_cancelled("waiting for operation")
+                        time.sleep(1)
+                else:
+                    time.sleep(retry_after)
                 
                 try:
                     response = requests.get(operation_url, headers=self._get_headers(), timeout=30)
@@ -430,7 +592,7 @@ class FabricOntologyClient:
     
     @retry(
         stop=stop_after_attempt(5),
-        wait=wait_exponential(multiplier=2, min=2, max=60),
+        wait=_wait_for_retry_after,
         retry=retry_if_exception(_is_transient_error),
         before_sleep=before_sleep_log(logger, logging.WARNING)
     )
@@ -458,7 +620,7 @@ class FabricOntologyClient:
     
     @retry(
         stop=stop_after_attempt(5),
-        wait=wait_exponential(multiplier=2, min=2, max=60),
+        wait=_wait_for_retry_after,
         retry=retry_if_exception(_is_transient_error),
         before_sleep=before_sleep_log(logger, logging.WARNING)
     )
@@ -485,7 +647,7 @@ class FabricOntologyClient:
     
     @retry(
         stop=stop_after_attempt(15),
-        wait=wait_exponential(multiplier=1, min=1, max=10),
+        wait=_wait_for_retry_after,
         retry=retry_if_exception(_is_transient_error),
         before_sleep=before_sleep_log(logger, logging.WARNING)
     )
@@ -534,12 +696,31 @@ class FabricOntologyClient:
         
         return result
     
-    def _wait_for_operation_and_get_result(self, operation_url: str, retry_after: int = 20, max_retries: int = 60) -> Dict[str, Any]:
+    def _wait_for_operation_and_get_result(
+        self, 
+        operation_url: str, 
+        retry_after: int = 20, 
+        max_retries: int = 60,
+        cancellation_token: Optional[CancellationToken] = None
+    ) -> Dict[str, Any]:
         """
         Wait for a long-running operation to complete and return the full result.
         
         After the operation succeeds, fetches the actual result from the result URL
         which is provided in the Location header of the success response.
+        
+        Args:
+            operation_url: URL to poll for operation status
+            retry_after: Initial delay between polls in seconds
+            max_retries: Maximum number of poll attempts
+            cancellation_token: Optional token for cancellation support
+            
+        Returns:
+            Operation result dictionary
+            
+        Raises:
+            FabricAPIError: If operation fails or times out
+            OperationCancelledException: If cancellation is requested
         """
         logger.info(f"Waiting for operation to complete... (polling every {retry_after}s)")
         
@@ -548,7 +729,19 @@ class FabricOntologyClient:
             last_progress = 0
             
             for attempt in range(max_retries):
-                time.sleep(retry_after)
+                # Check for cancellation before sleeping
+                if cancellation_token:
+                    cancellation_token.throw_if_cancelled("waiting for operation")
+                
+                # Use interruptible sleep if cancellation token provided
+                if cancellation_token:
+                    # Sleep in smaller intervals to check for cancellation
+                    for _ in range(retry_after):
+                        if cancellation_token.is_cancelled():
+                            cancellation_token.throw_if_cancelled("waiting for operation")
+                        time.sleep(1)
+                else:
+                    time.sleep(retry_after)
                 
                 try:
                     response = requests.get(operation_url, headers=self._get_headers(), timeout=30)
@@ -621,7 +814,7 @@ class FabricOntologyClient:
     
     @retry(
         stop=stop_after_attempt(5),
-        wait=wait_exponential(multiplier=2, min=2, max=60),
+        wait=_wait_for_retry_after,
         retry=retry_if_exception(_is_transient_error),
         before_sleep=before_sleep_log(logger, logging.WARNING)
     )
@@ -631,6 +824,7 @@ class FabricOntologyClient:
         description: str = "",
         definition: Optional[Dict[str, Any]] = None,
         wait_for_completion: bool = True,
+        cancellation_token: Optional[CancellationToken] = None,
     ) -> Dict[str, Any]:
         """
         Create a new ontology.
@@ -640,10 +834,18 @@ class FabricOntologyClient:
             description: The ontology description
             definition: Optional ontology definition with parts
             wait_for_completion: Whether to wait for LRO to complete
+            cancellation_token: Optional token for cancellation support
             
         Returns:
             Created ontology object
+            
+        Raises:
+            OperationCancelledException: If cancellation is requested
         """
+        # Check for cancellation before starting
+        if cancellation_token:
+            cancellation_token.throw_if_cancelled("create ontology")
+        
         url = f"{self.config.api_base_url}/workspaces/{self.config.workspace_id}/ontologies"
         
         safe_name = self._sanitize_display_name(display_name)
@@ -674,7 +876,11 @@ class FabricOntologyClient:
         if result.get('_lro'):
             ontology_location = result.get('location')
             if wait_for_completion:
-                result = self._wait_for_operation(result['location'], result['retry_after'])
+                result = self._wait_for_operation(
+                    result['location'], 
+                    result['retry_after'],
+                    cancellation_token=cancellation_token
+                )
         
         # Extract ID from location header
         if ontology_location:
@@ -689,7 +895,7 @@ class FabricOntologyClient:
     
     @retry(
         stop=stop_after_attempt(5),
-        wait=wait_exponential(multiplier=2, min=2, max=60),
+        wait=_wait_for_retry_after,
         retry=retry_if_exception(_is_transient_error),
         before_sleep=before_sleep_log(logger, logging.WARNING)
     )
@@ -699,6 +905,7 @@ class FabricOntologyClient:
         definition: Dict[str, Any],
         update_metadata: bool = True,
         wait_for_completion: bool = True,
+        cancellation_token: Optional[CancellationToken] = None,
     ) -> Dict[str, Any]:
         """
         Update the definition of an existing ontology.
@@ -708,10 +915,18 @@ class FabricOntologyClient:
             definition: The new ontology definition
             update_metadata: Whether to update metadata from .platform file
             wait_for_completion: Whether to wait for LRO to complete
+            cancellation_token: Optional token for cancellation support
             
         Returns:
             Updated ontology object
+            
+        Raises:
+            OperationCancelledException: If cancellation is requested
         """
+        # Check for cancellation before starting
+        if cancellation_token:
+            cancellation_token.throw_if_cancelled("update ontology definition")
+        
         url = f"{self.config.api_base_url}/workspaces/{self.config.workspace_id}/ontologies/{ontology_id}/updateDefinition"
         
         if update_metadata:
@@ -734,14 +949,18 @@ class FabricOntologyClient:
         result = self._handle_response(response)
         
         if result.get('_lro') and wait_for_completion:
-            result = self._wait_for_operation(result['location'], result['retry_after'])
+            result = self._wait_for_operation(
+                result['location'], 
+                result['retry_after'],
+                cancellation_token=cancellation_token
+            )
         
         logger.info(f"Ontology definition updated successfully")
         return result
     
     @retry(
         stop=stop_after_attempt(5),
-        wait=wait_exponential(multiplier=2, min=2, max=60),
+        wait=_wait_for_retry_after,
         retry=retry_if_exception(_is_transient_error),
         before_sleep=before_sleep_log(logger, logging.WARNING)
     )
@@ -782,7 +1001,7 @@ class FabricOntologyClient:
     
     @retry(
         stop=stop_after_attempt(5),
-        wait=wait_exponential(multiplier=2, min=2, max=60),
+        wait=_wait_for_retry_after,
         retry=retry_if_exception(_is_transient_error),
         before_sleep=before_sleep_log(logger, logging.WARNING)
     )
@@ -831,6 +1050,7 @@ class FabricOntologyClient:
         description: str = "",
         definition: Optional[Dict[str, Any]] = None,
         wait_for_completion: bool = True,
+        cancellation_token: Optional[CancellationToken] = None,
     ) -> Dict[str, Any]:
         """
         Create a new ontology or update an existing one.
@@ -844,10 +1064,18 @@ class FabricOntologyClient:
             description: The ontology description
             definition: Optional ontology definition with parts
             wait_for_completion: Whether to wait for LRO to complete
+            cancellation_token: Optional token for cancellation support
             
         Returns:
             Created or updated ontology object
+            
+        Raises:
+            OperationCancelledException: If cancellation is requested
         """
+        # Check for cancellation before starting
+        if cancellation_token:
+            cancellation_token.throw_if_cancelled("create or update ontology")
+        
         # Check if ontology exists
         safe_name = self._sanitize_display_name(display_name)
         existing = self.find_ontology_by_name(safe_name)
@@ -856,12 +1084,21 @@ class FabricOntologyClient:
             logger.info(f"Ontology '{safe_name}' already exists. Updating definition...")
             ontology_id = existing['id']
             
+            # Check for cancellation before updating
+            if cancellation_token:
+                cancellation_token.throw_if_cancelled("update ontology definition")
+            
             # Update the definition if provided
             if definition:
                 self.update_ontology_definition(
                     ontology_id=ontology_id,
-                    definition=definition
+                    definition=definition,
+                    cancellation_token=cancellation_token
                 )
+            
+            # Check for cancellation before updating properties
+            if cancellation_token:
+                cancellation_token.throw_if_cancelled("update ontology properties")
             
             # Update properties if changed
             if description != existing.get('description', ''):
@@ -878,8 +1115,26 @@ class FabricOntologyClient:
                 display_name=safe_name,
                 description=description,
                 definition=definition,
-                wait_for_completion=wait_for_completion
+                wait_for_completion=wait_for_completion,
+                cancellation_token=cancellation_token
             )
+    
+    def get_rate_limit_statistics(self) -> Dict[str, Any]:
+        """
+        Get statistics about rate limiting.
+        
+        Returns:
+            Dictionary with rate limit statistics including:
+            - rate: requests allowed per time period
+            - per_seconds: time period in seconds
+            - burst_capacity: maximum burst size
+            - current_tokens: current available tokens
+            - total_requests: total requests made
+            - times_waited: number of times rate limit caused waiting
+            - total_wait_time_seconds: total time spent waiting
+            - average_wait_time_seconds: average wait time per wait
+        """
+        return self.rate_limiter.get_statistics()
 
 
 class FabricAPIError(Exception):

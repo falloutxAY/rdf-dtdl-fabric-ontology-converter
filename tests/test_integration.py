@@ -2,7 +2,7 @@
 Integration tests for main.py entry point
 
 These tests verify the command-line interface and end-to-end functionality.
-Run with: python -m pytest test_integration.py -v
+Run with: python -m pytest tests/test_integration.py -v
 """
 
 import pytest

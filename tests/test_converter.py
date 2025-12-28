@@ -1,8 +1,8 @@
 """
 Unit tests for RDF to Fabric Ontology Converter
 
-Run with: python -m pytest test_converter.py -v
-Or with coverage: python -m pytest test_converter.py -v --cov=rdf_converter --cov-report=html
+Run with: python -m pytest tests/test_converter.py -v
+Or with coverage: python -m pytest tests/ --cov=src --cov-report=html
 """
 
 import pytest
@@ -1109,6 +1109,428 @@ class TestBlankNodeHandling:
         
         # Should return empty list without crashing
         assert isinstance(targets, list)
+
+
+class TestPathTraversalProtection:
+    """Test suite for path traversal security protection"""
+    
+    @pytest.fixture
+    def validator(self):
+        """Get InputValidator class"""
+        from rdf_converter import InputValidator
+        return InputValidator
+    
+    def test_path_traversal_forward_slash_rejected(self, validator):
+        """Test that paths with ../ are rejected"""
+        with pytest.raises(ValueError, match="Path traversal detected"):
+            validator.validate_file_path("../../../etc/passwd")
+    
+    def test_path_traversal_backslash_rejected(self, validator):
+        """Test that paths with ..\\ are rejected"""
+        with pytest.raises(ValueError, match="Path traversal detected"):
+            validator.validate_file_path("..\\..\\..\\windows\\system32\\config")
+    
+    def test_path_traversal_mixed_rejected(self, validator):
+        """Test that mixed path traversal is rejected"""
+        with pytest.raises(ValueError, match="Path traversal detected"):
+            validator.validate_file_path("some/path/../../../secret")
+    
+    def test_path_traversal_url_encoded_rejected(self, validator):
+        """Test paths with .. components in middle are rejected"""
+        with pytest.raises(ValueError, match="Path traversal detected"):
+            validator.validate_file_path("safe/path/../unsafe")
+    
+    def test_valid_path_allowed(self, validator, tmp_path):
+        """Test that valid paths are allowed"""
+        # Create a valid test file
+        test_file = tmp_path / "test.ttl"
+        test_file.write_text("# test content")
+        
+        # Should not raise
+        result = validator.validate_file_path(str(test_file), allowed_extensions=['.ttl'])
+        assert result.exists()
+        assert result.name == "test.ttl"
+    
+    def test_invalid_extension_rejected(self, validator, tmp_path):
+        """Test that invalid file extensions are rejected"""
+        test_file = tmp_path / "test.exe"
+        test_file.write_text("# test")
+        
+        with pytest.raises(ValueError, match="Invalid file extension"):
+            validator.validate_file_path(str(test_file), allowed_extensions=['.ttl', '.rdf'])
+    
+    def test_extension_validation_case_insensitive(self, validator, tmp_path):
+        """Test that extension validation is case insensitive"""
+        test_file = tmp_path / "test.TTL"
+        test_file.write_text("# test content")
+        
+        # Should not raise - .TTL should match .ttl
+        result = validator.validate_file_path(str(test_file), allowed_extensions=['.ttl'])
+        assert result.exists()
+    
+    def test_empty_path_rejected(self, validator):
+        """Test that empty paths are rejected"""
+        with pytest.raises(ValueError, match="cannot be empty"):
+            validator.validate_file_path("")
+        
+        with pytest.raises(ValueError, match="cannot be empty"):
+            validator.validate_file_path("   ")
+    
+    def test_nonexistent_file_rejected(self, validator):
+        """Test that nonexistent files are rejected"""
+        with pytest.raises(FileNotFoundError):
+            validator.validate_file_path("/nonexistent/path/to/file.ttl")
+    
+    def test_directory_path_rejected(self, validator, tmp_path):
+        """Test that directory paths are rejected"""
+        with pytest.raises(ValueError, match="not a file"):
+            validator.validate_file_path(str(tmp_path))
+    
+    def test_validate_input_ttl_path(self, validator, tmp_path):
+        """Test TTL input path validation convenience method"""
+        test_file = tmp_path / "ontology.ttl"
+        test_file.write_text("@prefix : <http://example.org/> .")
+        
+        result = validator.validate_input_ttl_path(str(test_file))
+        assert result.exists()
+        assert result.suffix == ".ttl"
+    
+    def test_validate_input_ttl_path_rejects_non_ttl(self, validator, tmp_path):
+        """Test that TTL input validator rejects non-TTL files"""
+        test_file = tmp_path / "config.json"
+        test_file.write_text("{}")
+        
+        with pytest.raises(ValueError, match="Invalid file extension"):
+            validator.validate_input_ttl_path(str(test_file))
+    
+    def test_validate_output_file_path(self, validator, tmp_path):
+        """Test output path validation"""
+        output_file = tmp_path / "output.json"
+        
+        # File doesn't exist yet, but should be valid for output
+        result = validator.validate_output_file_path(str(output_file), allowed_extensions=['.json'])
+        assert result.parent.exists()
+        assert result.suffix == ".json"
+    
+    def test_validate_output_file_path_rejects_traversal(self, validator):
+        """Test that output path validation also catches traversal"""
+        with pytest.raises(ValueError, match="Path traversal detected"):
+            validator.validate_output_file_path("../../../tmp/malicious.json")
+    
+    def test_validate_output_path_parent_must_exist(self, validator):
+        """Test that output path parent directory must exist"""
+        with pytest.raises(ValueError, match="Parent directory does not exist"):
+            validator.validate_output_file_path("/nonexistent/directory/output.json")
+    
+    def test_type_validation_rejects_non_string(self, validator):
+        """Test that non-string paths are rejected"""
+        with pytest.raises(TypeError, match="must be string"):
+            validator.validate_file_path(123)
+        
+        with pytest.raises(TypeError, match="must be string"):
+            validator.validate_file_path(None)
+        
+        with pytest.raises(TypeError, match="must be string"):
+            validator.validate_file_path(['path', 'list'])
+
+
+class TestConversionResult:
+    """Tests for ConversionResult tracking functionality."""
+    
+    def test_skipped_item_creation(self):
+        """Test SkippedItem dataclass creation"""
+        from src.rdf_converter import SkippedItem
+        
+        item = SkippedItem(
+            item_type="relationship",
+            name="hasLocation",
+            reason="Missing domain class",
+            uri="http://example.org/hasLocation"
+        )
+        
+        assert item.item_type == "relationship"
+        assert item.name == "hasLocation"
+        assert item.reason == "Missing domain class"
+        assert item.uri == "http://example.org/hasLocation"
+    
+    def test_skipped_item_to_dict(self):
+        """Test SkippedItem serialization"""
+        from src.rdf_converter import SkippedItem
+        
+        item = SkippedItem(
+            item_type="relationship",
+            name="hasLocation",
+            reason="Missing domain class",
+            uri="http://example.org/hasLocation"
+        )
+        
+        d = item.to_dict()
+        assert d["type"] == "relationship"
+        assert d["name"] == "hasLocation"
+        assert d["reason"] == "Missing domain class"
+        assert d["uri"] == "http://example.org/hasLocation"
+    
+    def test_conversion_result_empty(self):
+        """Test ConversionResult with no data"""
+        from src.rdf_converter import ConversionResult
+        
+        result = ConversionResult(
+            entity_types=[],
+            relationship_types=[],
+            skipped_items=[],
+            warnings=[],
+            triple_count=0
+        )
+        
+        assert result.success_rate == 100.0  # No items = 100% success
+        assert result.has_skipped_items is False
+        assert result.skipped_by_type == {}
+    
+    def test_conversion_result_success_rate_calculation(self):
+        """Test success rate calculation with mock entity types"""
+        from src.rdf_converter import ConversionResult, SkippedItem, EntityType
+        
+        # Create 5 EntityType objects and 3 RelationshipType-like dicts
+        entity_types = [EntityType(id=f"id_{i}", name=f"Entity{i}") for i in range(5)]
+        relationship_types = [{"name": f"Rel{i}"} for i in range(3)]
+        
+        skipped = [
+            SkippedItem("relationship", "prop1", "Missing domain", "http://ex.org/p1"),
+            SkippedItem("relationship", "prop2", "Missing range", "http://ex.org/p2"),
+        ]
+        
+        result = ConversionResult(
+            entity_types=entity_types,
+            relationship_types=relationship_types,
+            skipped_items=skipped,
+            warnings=[],
+            triple_count=100
+        )
+        
+        # (5 + 3) / (5 + 3 + 2) = 8/10 = 80%
+        assert result.success_rate == 80.0
+        assert result.has_skipped_items is True
+    
+    def test_conversion_result_skipped_by_type_returns_counts(self):
+        """Test grouping skipped items by type returns counts"""
+        from src.rdf_converter import ConversionResult, SkippedItem
+        
+        skipped = [
+            SkippedItem("relationship", "prop1", "Missing domain", "http://ex.org/p1"),
+            SkippedItem("relationship", "prop2", "Missing range", "http://ex.org/p2"),
+            SkippedItem("entity", "Class1", "Invalid definition", "http://ex.org/c1"),
+        ]
+        
+        result = ConversionResult(
+            entity_types=[],
+            relationship_types=[],
+            skipped_items=skipped,
+            warnings=[],
+            triple_count=50
+        )
+        
+        by_type = result.skipped_by_type
+        # skipped_by_type returns counts, not lists
+        assert by_type["relationship"] == 2
+        assert by_type["entity"] == 1
+    
+    def test_conversion_result_get_summary(self):
+        """Test summary generation"""
+        from src.rdf_converter import ConversionResult, SkippedItem, EntityType, RelationshipType, RelationshipEnd
+        
+        skipped = [
+            SkippedItem("relationship", "prop1", "Missing domain", "http://ex.org/p1"),
+        ]
+        
+        entity_types = [
+            EntityType(id="1", name="Entity1"),
+            EntityType(id="2", name="Entity2"),
+        ]
+        relationship_types = [
+            RelationshipType(id="r1", name="Rel1", 
+                           source=RelationshipEnd(entityTypeId="1"), 
+                           target=RelationshipEnd(entityTypeId="2")),
+        ]
+        
+        result = ConversionResult(
+            entity_types=entity_types,
+            relationship_types=relationship_types,
+            skipped_items=skipped,
+            warnings=["Warning 1"],
+            triple_count=100
+        )
+        
+        summary = result.get_summary()
+        
+        # Check for actual format from get_summary()
+        assert "Entity Types: 2" in summary
+        assert "Relationships: 1" in summary
+        assert "Skipped: 1" in summary
+        assert "Warnings: 1" in summary
+        assert "75.0%" in summary
+        assert "100" in summary  # Triple count
+    
+    def test_conversion_result_to_dict(self):
+        """Test serialization to dictionary"""
+        from src.rdf_converter import ConversionResult, SkippedItem, EntityType
+        
+        skipped = [
+            SkippedItem("relationship", "prop1", "Missing domain", "http://ex.org/p1"),
+        ]
+        
+        entity_types = [EntityType(id="1", name="Entity1")]
+        relationship_types = [{"name": "Rel1"}]
+        
+        result = ConversionResult(
+            entity_types=entity_types,
+            relationship_types=relationship_types,
+            skipped_items=skipped,
+            warnings=["Test warning"],
+            triple_count=50
+        )
+        
+        d = result.to_dict()
+        
+        # Check actual keys from to_dict() implementation
+        assert d["triple_count"] == 50
+        assert d["entity_types_count"] == 1
+        assert d["relationship_types_count"] == 1
+        assert d["skipped_items_count"] == 1
+        assert d["success_rate"] == pytest.approx(66.67, rel=0.01)
+        assert len(d["skipped_items"]) == 1
+        assert d["skipped_items"][0]["type"] == "relationship"  # 'type' not 'item_type'
+        assert d["skipped_items"][0]["name"] == "prop1"
+        assert d["warnings"] == ["Test warning"]
+    
+    def test_parse_ttl_with_result_function(self):
+        """Test parse_ttl_with_result returns ConversionResult"""
+        from src.rdf_converter import parse_ttl_with_result, ConversionResult
+        
+        # parse_ttl_with_result expects TTL content, not file path
+        ttl_content = """
+        @prefix owl: <http://www.w3.org/2002/07/owl#> .
+        @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+        @prefix ex: <http://example.org/> .
+        
+        ex:Person a owl:Class ;
+            rdfs:label "Person" .
+        """
+        
+        ontology, prefix, result = parse_ttl_with_result(ttl_content)
+        
+        assert isinstance(result, ConversionResult)
+        assert result.triple_count > 0
+        assert len(result.entity_types) >= 1
+    
+    def test_parse_ttl_file_with_result_function(self, tmp_path):
+        """Test parse_ttl_file_with_result returns tuple with ConversionResult"""
+        from src.rdf_converter import parse_ttl_file_with_result, ConversionResult
+        
+        # Create a simple TTL file
+        ttl_content = """
+        @prefix owl: <http://www.w3.org/2002/07/owl#> .
+        @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+        @prefix ex: <http://example.org/> .
+        
+        ex:Organization a owl:Class ;
+            rdfs:label "Organization" .
+        """
+        
+        ttl_file = tmp_path / "test.ttl"
+        ttl_file.write_text(ttl_content)
+        
+        ontology, prefix, result = parse_ttl_file_with_result(str(ttl_file))
+        
+        assert isinstance(result, ConversionResult)
+        assert isinstance(ontology, dict)
+        # Result is Fabric definition format with 'parts' key
+        assert "parts" in ontology
+    
+    def test_converter_tracks_skipped_items(self):
+        """Test that converter tracks skipped items during parsing"""
+        from src.rdf_converter import parse_ttl_with_result
+        
+        # Create TTL with an object property that references non-existent classes
+        ttl_content = """
+        @prefix owl: <http://www.w3.org/2002/07/owl#> .
+        @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+        @prefix ex: <http://example.org/> .
+        
+        ex:Person a owl:Class ;
+            rdfs:label "Person" .
+        
+        # This property has missing domain/range classes
+        ex:hasUnknownRelation a owl:ObjectProperty ;
+            rdfs:label "Has Unknown Relation" ;
+            rdfs:domain ex:NonExistentClass ;
+            rdfs:range ex:AnotherNonExistentClass .
+        """
+        
+        ontology, prefix, result = parse_ttl_with_result(ttl_content)
+        
+        # Should have at least one skipped item due to missing domain/range
+        assert result.has_skipped_items is True
+        assert len(result.skipped_items) >= 1
+        
+        # Check that the skipped item is tracked properly
+        skipped_names = [item.name for item in result.skipped_items]
+        assert "hasUnknownRelation" in skipped_names or "Has Unknown Relation" in skipped_names
+    
+    def test_converter_state_reset_between_parses(self):
+        """Test that converter resets state between parse calls"""
+        from src.rdf_converter import RDFToFabricConverter
+        
+        converter = RDFToFabricConverter()
+        
+        # First parse with a skipped item (missing range class)
+        ttl_content1 = """
+        @prefix owl: <http://www.w3.org/2002/07/owl#> .
+        @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+        @prefix ex: <http://example.org/> .
+        
+        ex:badProp a owl:ObjectProperty ;
+            rdfs:domain ex:Missing .
+        """
+        
+        result1 = converter.parse_ttl(ttl_content1, return_result=True)
+        skipped_count1 = len(result1.skipped_items)
+        
+        # Second parse with valid class (no skipped items expected)
+        ttl_content2 = """
+        @prefix owl: <http://www.w3.org/2002/07/owl#> .
+        @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+        @prefix ex: <http://example.org/> .
+        
+        ex:Person a owl:Class .
+        """
+        
+        result2 = converter.parse_ttl(ttl_content2, return_result=True)
+        
+        # Second result should NOT include skipped items from first parse
+        assert len(result2.skipped_items) == 0
+    
+    def test_conversion_result_with_warnings(self):
+        """Test ConversionResult with warnings"""
+        from src.rdf_converter import ConversionResult, EntityType
+        
+        entity_types = [EntityType(id="1", name="Entity1")]
+        
+        result = ConversionResult(
+            entity_types=entity_types,
+            relationship_types=[],
+            skipped_items=[],
+            warnings=["Warning 1", "Warning 2", "Warning 3"],
+            triple_count=10
+        )
+        
+        assert len(result.warnings) == 3
+        summary = result.get_summary()
+        # Check for actual format
+        assert "Warnings: 3" in summary
+        
+        d = result.to_dict()
+        assert len(d["warnings"]) == 3
+        assert d["warnings"] == ["Warning 1", "Warning 2", "Warning 3"]
 
 
 if __name__ == "__main__":

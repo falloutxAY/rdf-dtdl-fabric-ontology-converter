@@ -22,12 +22,19 @@ import tempfile
 from pathlib import Path
 from typing import Optional
 
-from rdf_converter import parse_ttl_file, parse_ttl_content
+from rdf_converter import (
+    parse_ttl_file, parse_ttl_content, parse_ttl_with_result,
+    InputValidator, ConversionResult, StreamingRDFConverter, parse_ttl_streaming
+)
 from fabric_client import FabricConfig, FabricOntologyClient, FabricAPIError
 from fabric_to_ttl import FabricToTTLConverter, compare_ontologies
 from preflight_validator import (
     PreflightValidator, ValidationReport, validate_ttl_file, validate_ttl_content,
     generate_import_log, IssueSeverity
+)
+from cancellation import (
+    setup_cancellation_handler, restore_default_handler,
+    OperationCancelledException, CancellationToken
 )
 
 
@@ -106,26 +113,36 @@ def setup_logging(level: str = "INFO", log_file: Optional[str] = None):
 
 
 def load_config(config_path: str) -> dict:
-    """Load configuration from file."""
+    """Load configuration from file with path validation."""
     if not config_path:
         raise ValueError("config_path cannot be empty")
     
+    # Validate config path (allow .json extension)
     try:
-        with open(config_path, 'r', encoding='utf-8') as f:
-            config = json.load(f)
-    except FileNotFoundError:
-        raise FileNotFoundError(
-            f"Configuration file not found: {config_path}\n"
-            f"Please create a config.json file or specify one with --config"
+        validated_path = InputValidator.validate_file_path(
+            config_path,
+            allowed_extensions=['.json'],
+            check_exists=True,
+            check_readable=True
         )
+    except (ValueError, FileNotFoundError, PermissionError) as e:
+        # Re-raise with more context for config files
+        if isinstance(e, FileNotFoundError):
+            raise FileNotFoundError(
+                f"Configuration file not found: {config_path}\n"
+                f"Please create a config.json file or specify one with --config"
+            )
+        raise
+    
+    try:
+        with open(validated_path, 'r', encoding='utf-8') as f:
+            config = json.load(f)
     except json.JSONDecodeError as e:
         raise ValueError(
-            f"Invalid JSON in configuration file {config_path} at line {e.lineno}, column {e.colno}: {e.msg}"
+            f"Invalid JSON in configuration file {validated_path} at line {e.lineno}, column {e.colno}: {e.msg}"
         )
     except UnicodeDecodeError as e:
-        raise ValueError(f"File encoding error in {config_path}: {e}")
-    except PermissionError:
-        raise PermissionError(f"Permission denied reading {config_path}")
+        raise ValueError(f"File encoding error in {validated_path}: {e}")
     except Exception as e:
         raise IOError(f"Error loading configuration file: {e}")
     
@@ -145,168 +162,265 @@ def cmd_upload(args):
     """Upload an RDF TTL file to Fabric Ontology."""
     logger = logging.getLogger(__name__)
     
-    # Load configuration
-    config_path = args.config or get_default_config_path()
-    if not os.path.exists(config_path):
-        print(f"Error: Configuration file not found: {config_path}")
-        print("Please create a config.json file or specify one with --config")
-        sys.exit(1)
-    
-    config_data = load_config(config_path)
-    fabric_config = FabricConfig.from_dict(config_data)
-    
-    if not fabric_config.workspace_id or fabric_config.workspace_id == "YOUR_WORKSPACE_ID":
-        print("Error: Please configure your Fabric workspace_id in config.json")
-        sys.exit(1)
-    
-    # Setup logging from config
-    log_config = config_data.get('logging', {})
-    setup_logging(
-        level=log_config.get('level', 'INFO'),
-        log_file=log_config.get('file'),
+    # Setup cancellation handler for graceful Ctrl+C handling
+    cancellation_token = setup_cancellation_handler(
+        message="\n⚠️  Cancellation requested. Cleaning up..."
     )
     
-    # Parse the TTL file
-    ttl_file = args.ttl_file
-    if not os.path.exists(ttl_file):
-        print(f"Error: TTL file not found: {ttl_file}")
-        sys.exit(1)
+    # Track ontology ID for potential cleanup
+    created_ontology_id = None
     
-    logger.info(f"Parsing TTL file: {ttl_file}")
+    def cleanup_on_cancel():
+        """Cleanup callback for cancellation."""
+        if created_ontology_id:
+            logger.info(f"Cancellation cleanup: partial ontology may exist: {created_ontology_id}")
+            print(f"\n⚠️  Partial ontology may have been created: {created_ontology_id}")
+            print("   You may want to delete it manually if the upload was incomplete.")
     
-    try:
-        with open(ttl_file, 'r', encoding='utf-8') as f:
-            ttl_content = f.read()
-    except FileNotFoundError:
-        print(f"Error: TTL file not found: {ttl_file}")
-        sys.exit(1)
-    except UnicodeDecodeError as e:
-        print(f"Error: Failed to read TTL file due to encoding issue: {e}")
-        print("Try converting the file to UTF-8 encoding")
-        sys.exit(1)
-    except PermissionError:
-        print(f"Error: Permission denied reading file: {ttl_file}")
-        sys.exit(1)
-    except Exception as e:
-        print(f"Error reading TTL file: {e}")
-        sys.exit(1)
-    
-    if not ttl_content.strip():
-        print(f"Error: TTL file is empty: {ttl_file}")
-        sys.exit(1)
-    
-    # --- PRE-FLIGHT VALIDATION ---
-    if not args.skip_validation:
-        print("\n" + "=" * 60)
-        print("PRE-FLIGHT VALIDATION")
-        print("=" * 60)
-        
-        validation_report = validate_ttl_content(ttl_content, ttl_file)
-        
-        if validation_report.can_import_seamlessly:
-            print("✓ Ontology can be imported seamlessly.")
-            print(f"  Classes: {validation_report.summary.get('declared_classes', 0)}")
-            print(f"  Properties: {validation_report.summary.get('declared_properties', 0)}")
-        else:
-            print("⚠ Issues detected that may affect conversion quality:\n")
-            print(f"  Errors:   {validation_report.issues_by_severity.get('error', 0)}")
-            print(f"  Warnings: {validation_report.issues_by_severity.get('warning', 0)}")
-            print(f"  Info:     {validation_report.issues_by_severity.get('info', 0)}")
-            print()
-            
-            # Show top issues
-            warning_issues = [i for i in validation_report.issues if i.severity in (IssueSeverity.ERROR, IssueSeverity.WARNING)]
-            if warning_issues:
-                print("Key issues:")
-                for issue in warning_issues[:5]:
-                    icon = "✗" if issue.severity == IssueSeverity.ERROR else "⚠"
-                    print(f"  {icon} {issue.message}")
-                if len(warning_issues) > 5:
-                    print(f"  ... and {len(warning_issues) - 5} more warnings/errors")
-            
-            print()
-            
-            # Ask user if they want to proceed (unless --force is specified)
-            if not args.force:
-                print("Some RDF/OWL constructs cannot be fully represented in Fabric Ontology.")
-                confirm = input("Do you want to proceed with the import anyway? [y/N]: ")
-                if confirm.lower() != 'y':
-                    print("Import cancelled.")
-                    
-                    # Optionally save the validation report
-                    if args.save_validation_report:
-                        report_path = str(Path(ttl_file).with_suffix('.validation.json'))
-                        validation_report.save_to_file(report_path)
-                        print(f"Validation report saved to: {report_path}")
-                    
-                    sys.exit(0)
-        
-        print("=" * 60 + "\n")
-    
-    id_prefix = config_data.get('ontology', {}).get('id_prefix', 1000000000000)
-    force_memory = getattr(args, 'force_memory', False)
+    cancellation_token.register_callback(cleanup_on_cancel)
     
     try:
-        definition, extracted_name = parse_ttl_content(ttl_content, id_prefix, force_large_file=force_memory)
-    except ValueError as e:
-        logger.error(f"Invalid TTL content: {e}")
-        print(f"Error: Invalid RDF/TTL content: {e}")
-        sys.exit(1)
-    except MemoryError as e:
-        logger.error(f"Insufficient memory to parse TTL file: {e}")
-        print(f"\nError: {e}")
-        print("\nTip: Use --force-memory to bypass memory safety checks (use with caution).")
-        sys.exit(1)
-    except Exception as e:
-        logger.error(f"Failed to parse TTL file: {e}", exc_info=True)
-        print(f"Error parsing TTL file: {e}")
-        sys.exit(1)
-    
-    if not definition or 'parts' not in definition:
-        print("Error: Generated definition is invalid or empty")
-        sys.exit(1)
-    
-    if not definition['parts']:
-        print("Warning: No entity types or relationship types found in TTL file")
-        logger.warning("Empty ontology definition generated")
-    
-    # Use provided name or extracted name
-    ontology_name = args.name or extracted_name
-    description = args.description or f"Imported from {os.path.basename(ttl_file)}"
-    
-    logger.info(f"Ontology name: {ontology_name}")
-    logger.info(f"Definition has {len(definition['parts'])} parts")
-    
-    # Create Fabric client and upload
-    client = FabricOntologyClient(fabric_config)
-    
-    try:
-        # Use create_or_update for automatic incremental updates
-        result = client.create_or_update_ontology(
-            display_name=ontology_name,
-            description=description,
-            definition=definition,
-            wait_for_completion=True,
+        # Load configuration
+        config_path = args.config or get_default_config_path()
+        if not os.path.exists(config_path):
+            print(f"Error: Configuration file not found: {config_path}")
+            print("Please create a config.json file or specify one with --config")
+            sys.exit(1)
+        
+        config_data = load_config(config_path)
+        fabric_config = FabricConfig.from_dict(config_data)
+        
+        if not fabric_config.workspace_id or fabric_config.workspace_id == "YOUR_WORKSPACE_ID":
+            print("Error: Please configure your Fabric workspace_id in config.json")
+            sys.exit(1)
+        
+        # Setup logging from config
+        log_config = config_data.get('logging', {})
+        setup_logging(
+            level=log_config.get('level', 'INFO'),
+            log_file=log_config.get('file'),
         )
         
-        print(f"Successfully processed ontology '{ontology_name}'")
-        print(f"Ontology ID: {result.get('id', 'Unknown')}")
-        print(f"Workspace ID: {result.get('workspaceId', fabric_config.workspace_id)}")
+        # Parse the TTL file
+        ttl_file = args.ttl_file
         
-        # Generate import log if there were validation issues
-        if not args.skip_validation and not validation_report.can_import_seamlessly:
-            log_dir = log_config.get('file', 'logs/app.log')
-            log_dir = os.path.dirname(log_dir) or 'logs'
-            log_path = generate_import_log(validation_report, log_dir, ontology_name)
-            print(f"\nImport log saved to: {log_path}")
-            print("This log documents RDF/OWL constructs that could not be fully converted.")
+        # Validate TTL file path with security checks
+        try:
+            validated_ttl_path = InputValidator.validate_input_ttl_path(ttl_file)
+        except ValueError as e:
+            print(f"Error: Invalid TTL file path: {e}")
+            sys.exit(1)
+        except FileNotFoundError:
+            print(f"Error: TTL file not found: {ttl_file}")
+            sys.exit(1)
+        except PermissionError:
+            print(f"Error: Permission denied reading file: {ttl_file}")
+            sys.exit(1)
         
-    except FabricAPIError as e:
-        logger.error(f"Fabric API error: {e}")
-        print(f"Error: {e.message}")
-        if e.error_code == "ItemDisplayNameAlreadyInUse":
-            print("Hint: Use --update to update an existing ontology, or choose a different name with --name")
-        sys.exit(1)
+        logger.info(f"Parsing TTL file: {validated_ttl_path}")
+        
+        try:
+            with open(validated_ttl_path, 'r', encoding='utf-8') as f:
+                ttl_content = f.read()
+        except UnicodeDecodeError as e:
+            print(f"Error: Failed to read TTL file due to encoding issue: {e}")
+            print("Try converting the file to UTF-8 encoding")
+            sys.exit(1)
+        except Exception as e:
+            print(f"Error reading TTL file: {e}")
+            sys.exit(1)
+        
+        if not ttl_content.strip():
+            print(f"Error: TTL file is empty: {ttl_file}")
+            sys.exit(1)
+        
+        # --- PRE-FLIGHT VALIDATION ---
+        if not args.skip_validation:
+            print("\n" + "=" * 60)
+            print("PRE-FLIGHT VALIDATION")
+            print("=" * 60)
+            
+            validation_report = validate_ttl_content(ttl_content, ttl_file)
+            
+            if validation_report.can_import_seamlessly:
+                print("✓ Ontology can be imported seamlessly.")
+                print(f"  Classes: {validation_report.summary.get('declared_classes', 0)}")
+                print(f"  Properties: {validation_report.summary.get('declared_properties', 0)}")
+            else:
+                print("⚠ Issues detected that may affect conversion quality:\n")
+                print(f"  Errors:   {validation_report.issues_by_severity.get('error', 0)}")
+                print(f"  Warnings: {validation_report.issues_by_severity.get('warning', 0)}")
+                print(f"  Info:     {validation_report.issues_by_severity.get('info', 0)}")
+                print()
+                
+                # Show top issues
+                warning_issues = [i for i in validation_report.issues if i.severity in (IssueSeverity.ERROR, IssueSeverity.WARNING)]
+                if warning_issues:
+                    print("Key issues:")
+                    for issue in warning_issues[:5]:
+                        icon = "✗" if issue.severity == IssueSeverity.ERROR else "⚠"
+                        print(f"  {icon} {issue.message}")
+                    if len(warning_issues) > 5:
+                        print(f"  ... and {len(warning_issues) - 5} more warnings/errors")
+                
+                print()
+                
+                # Ask user if they want to proceed (unless --force is specified)
+                if not args.force:
+                    print("Some RDF/OWL constructs cannot be fully represented in Fabric Ontology.")
+                    confirm = input("Do you want to proceed with the import anyway? [y/N]: ")
+                    if confirm.lower() != 'y':
+                        print("Import cancelled.")
+                        
+                        # Optionally save the validation report
+                        if args.save_validation_report:
+                            report_path = str(Path(ttl_file).with_suffix('.validation.json'))
+                            validation_report.save_to_file(report_path)
+                            print(f"Validation report saved to: {report_path}")
+                        
+                        sys.exit(0)
+            
+            print("=" * 60 + "\n")
+        
+        id_prefix = config_data.get('ontology', {}).get('id_prefix', 1000000000000)
+        force_memory = getattr(args, 'force_memory', False)
+        use_streaming = getattr(args, 'streaming', False)
+        
+        # Check file size and suggest streaming mode if large
+        file_size_mb = validated_ttl_path.stat().st_size / (1024 * 1024)
+        if file_size_mb > StreamingRDFConverter.STREAMING_THRESHOLD_MB and not use_streaming:
+            print(f"⚠️  Large file detected ({file_size_mb:.1f} MB). Consider using --streaming for better memory efficiency.")
+        
+        try:
+            if use_streaming:
+                # Use streaming mode for large files
+                print(f"Using streaming mode for conversion...")
+                
+                # Setup progress tracking
+                pbar = None
+                progress_callback = None
+                try:
+                    from tqdm import tqdm
+                    pbar = tqdm(desc="Processing ontology", unit=" triples", dynamic_ncols=True, total=0)
+                    
+                    def progress_callback(n: int) -> None:
+                        if pbar is not None:
+                            pbar.total = n if n > 0 else None
+                            pbar.n = n
+                            pbar.refresh()
+                except ImportError:
+                    pass
+                
+                try:
+                    definition, extracted_name, conversion_result = parse_ttl_streaming(
+                        str(validated_ttl_path),
+                        id_prefix=id_prefix,
+                        progress_callback=progress_callback,
+                        cancellation_token=cancellation_token
+                    )
+                finally:
+                    if pbar is not None:
+                        pbar.close()
+            else:
+                # Standard mode - use parse_ttl_with_result for enhanced error recovery tracking
+                definition, extracted_name, conversion_result = parse_ttl_with_result(
+                    ttl_content, id_prefix, force_large_file=force_memory
+                )
+        except ValueError as e:
+            logger.error(f"Invalid TTL content: {e}")
+            print(f"Error: Invalid RDF/TTL content: {e}")
+            sys.exit(1)
+        except MemoryError as e:
+            logger.error(f"Insufficient memory to parse TTL file: {e}")
+            print(f"\nError: {e}")
+            print("\nTip: Use --streaming for memory-efficient processing of large files.")
+            print("     Or use --force-memory to bypass memory safety checks (use with caution).")
+            sys.exit(1)
+        except Exception as e:
+            logger.error(f"Failed to parse TTL file: {e}", exc_info=True)
+            print(f"Error parsing TTL file: {e}")
+            sys.exit(1)
+        
+        # Display conversion summary
+        print("\n" + "=" * 60)
+        print("CONVERSION SUMMARY")
+        print("=" * 60)
+        print(conversion_result.get_summary())
+        print("=" * 60 + "\n")
+        
+        # If items were skipped, ask for confirmation (unless --force)
+        if conversion_result.has_skipped_items and not args.force:
+            print("⚠ Some items were skipped during conversion.")
+            print("  This may result in an incomplete ontology.\n")
+            
+            # Show skipped items by type
+            for item_type, count in conversion_result.skipped_by_type.items():
+                print(f"  - {item_type}s skipped: {count}")
+            
+            print()
+            confirm = input("Do you want to proceed with the upload anyway? [y/N]: ")
+            if confirm.lower() != 'y':
+                print("Upload cancelled.")
+                sys.exit(0)
+        
+        if not definition or 'parts' not in definition:
+            print("Error: Generated definition is invalid or empty")
+            sys.exit(1)
+        
+        if not definition['parts']:
+            print("Warning: No entity types or relationship types found in TTL file")
+            logger.warning("Empty ontology definition generated")
+        
+        # Use provided name or extracted name
+        ontology_name = args.name or extracted_name
+        description = args.description or f"Imported from {os.path.basename(ttl_file)}"
+        
+        logger.info(f"Ontology name: {ontology_name}")
+        logger.info(f"Definition has {len(definition['parts'])} parts")
+        
+        # Create Fabric client and upload
+        client = FabricOntologyClient(fabric_config)
+        
+        try:
+            # Use create_or_update for automatic incremental updates
+            # Pass cancellation token for graceful cancellation support
+            result = client.create_or_update_ontology(
+                display_name=ontology_name,
+                description=description,
+                definition=definition,
+                wait_for_completion=True,
+                cancellation_token=cancellation_token,
+            )
+            
+            # Store the ontology ID for potential cleanup
+            created_ontology_id = result.get('id')
+            
+            print(f"Successfully processed ontology '{ontology_name}'")
+            print(f"Ontology ID: {result.get('id', 'Unknown')}")
+            print(f"Workspace ID: {result.get('workspaceId', fabric_config.workspace_id)}")
+            
+            # Generate import log if there were validation issues
+            if not args.skip_validation and not validation_report.can_import_seamlessly:
+                log_dir = log_config.get('file', 'logs/app.log')
+                log_dir = os.path.dirname(log_dir) or 'logs'
+                log_path = generate_import_log(validation_report, log_dir, ontology_name)
+                print(f"\nImport log saved to: {log_path}")
+                print("This log documents RDF/OWL constructs that could not be fully converted.")
+            
+        except FabricAPIError as e:
+            logger.error(f"Fabric API error: {e}")
+            print(f"Error: {e.message}")
+            if e.error_code == "ItemDisplayNameAlreadyInUse":
+                print("Hint: Use --update to update an existing ontology, or choose a different name with --name")
+            sys.exit(1)
+    
+    except OperationCancelledException:
+        print("\n✗ Upload cancelled by user.")
+        sys.exit(130)  # Standard exit code for SIGINT
+    
+    finally:
+        # Restore default signal handler
+        restore_default_handler()
 
 
 def cmd_validate(args):
@@ -315,14 +429,24 @@ def cmd_validate(args):
     logger = logging.getLogger(__name__)
     
     ttl_file = args.ttl_file
-    if not os.path.exists(ttl_file):
+    
+    # Validate TTL file path with security checks
+    try:
+        validated_ttl_path = InputValidator.validate_input_ttl_path(ttl_file)
+    except ValueError as e:
+        print(f"Error: Invalid TTL file path: {e}")
+        sys.exit(1)
+    except FileNotFoundError:
         print(f"Error: TTL file not found: {ttl_file}")
         sys.exit(1)
+    except PermissionError:
+        print(f"Error: Permission denied reading file: {ttl_file}")
+        sys.exit(1)
     
-    print(f"Validating TTL file: {ttl_file}\n")
+    print(f"Validating TTL file: {validated_ttl_path}\n")
     
     try:
-        with open(ttl_file, 'r', encoding='utf-8') as f:
+        with open(validated_ttl_path, 'r', encoding='utf-8') as f:
             ttl_content = f.read()
     except UnicodeDecodeError as e:
         print(f"Error: Failed to read TTL file due to encoding issue: {e}")
@@ -332,7 +456,7 @@ def cmd_validate(args):
         sys.exit(1)
     
     # Run validation
-    report = validate_ttl_content(ttl_content, ttl_file)
+    report = validate_ttl_content(ttl_content, str(validated_ttl_path))
     
     # Display results
     if args.verbose:
@@ -506,8 +630,14 @@ def cmd_test(args):
     
     print(f"Testing with sample ontology: {sample_ttl}\n")
     
-    # Parse the sample TTL
-    with open(sample_ttl, 'r', encoding='utf-8') as f:
+    # Validate and parse the sample TTL
+    try:
+        validated_sample_path = InputValidator.validate_input_ttl_path(str(sample_ttl))
+    except (ValueError, FileNotFoundError, PermissionError) as e:
+        print(f"Error validating sample file: {e}")
+        sys.exit(1)
+    
+    with open(validated_sample_path, 'r', encoding='utf-8') as f:
         ttl_content = f.read()
     
     definition, ontology_name = parse_ttl_content(ttl_content)
@@ -558,62 +688,132 @@ def cmd_convert(args):
     setup_logging()
     
     ttl_file = args.ttl_file
-    if not os.path.exists(ttl_file):
+    
+    # Validate TTL file path with security checks
+    try:
+        validated_ttl_path = InputValidator.validate_input_ttl_path(ttl_file)
+    except ValueError as e:
+        print(f"Error: Invalid TTL file path: {e}")
+        sys.exit(1)
+    except FileNotFoundError:
         print(f"Error: TTL file not found: {ttl_file}")
         sys.exit(1)
-    
-    print(f"Converting TTL file: {ttl_file}")
-    
-    try:
-        with open(ttl_file, 'r', encoding='utf-8') as f:
-            ttl_content = f.read()
-    except UnicodeDecodeError as e:
-        print(f"Error: Failed to read TTL file due to encoding issue: {e}")
-        print("Try converting the file to UTF-8 encoding")
+    except PermissionError:
+        print(f"Error: Permission denied reading file: {ttl_file}")
         sys.exit(1)
-    except Exception as e:
-        print(f"Error reading TTL file: {e}")
-        sys.exit(1)
+    
+    print(f"Converting TTL file: {validated_ttl_path}")
     
     force_memory = getattr(args, 'force_memory', False)
+    use_streaming = getattr(args, 'streaming', False)
+    
+    # Check file size and suggest streaming mode if large
+    file_size_mb = validated_ttl_path.stat().st_size / (1024 * 1024)
+    if file_size_mb > StreamingRDFConverter.STREAMING_THRESHOLD_MB and not use_streaming:
+        print(f"⚠️  Large file detected ({file_size_mb:.1f} MB). Consider using --streaming for better memory efficiency.")
     
     try:
-        definition, ontology_name = parse_ttl_content(ttl_content, force_large_file=force_memory)
+        if use_streaming:
+            # Use streaming mode for large files
+            print(f"Using streaming mode (batch processing)...")
+            
+            # Setup progress bar if tqdm is available
+            pbar = None
+            progress_callback = None
+            try:
+                from tqdm import tqdm
+                pbar = tqdm(desc="Processing ontology", unit=" triples", dynamic_ncols=True, total=0)
+                
+                def progress_callback(n: int) -> None:
+                    if pbar is not None:
+                        pbar.total = n if n > 0 else None
+                        pbar.n = n
+                        pbar.refresh()
+            except ImportError:
+                pass
+            
+            try:
+                definition, ontology_name, conversion_result = parse_ttl_streaming(
+                    str(validated_ttl_path),
+                    progress_callback=progress_callback
+                )
+            finally:
+                if pbar is not None:
+                    pbar.close()
+        else:
+            # Standard mode - read file into memory
+            try:
+                with open(validated_ttl_path, 'r', encoding='utf-8') as f:
+                    ttl_content = f.read()
+            except UnicodeDecodeError as e:
+                print(f"Error: Failed to read TTL file due to encoding issue: {e}")
+                print("Try converting the file to UTF-8 encoding")
+                sys.exit(1)
+            except Exception as e:
+                print(f"Error reading TTL file: {e}")
+                sys.exit(1)
+            
+            # Use parse_ttl_with_result for enhanced error recovery tracking
+            definition, ontology_name, conversion_result = parse_ttl_with_result(
+                ttl_content, force_large_file=force_memory
+            )
     except ValueError as e:
         print(f"Error: Invalid RDF/TTL content: {e}")
         sys.exit(1)
     except MemoryError as e:
         print(f"\nError: {e}")
-        print("\nTip: Use --force-memory to bypass memory safety checks (use with caution).")
+        print("\nTip: Use --streaming for memory-efficient processing of large files.")
+        print("     Or use --force-memory to bypass memory safety checks (use with caution).")
         sys.exit(1)
     except Exception as e:
         print(f"Error parsing TTL file: {e}")
         sys.exit(1)
     
+    # Display conversion summary
+    print("\n" + conversion_result.get_summary())
+    
     output = {
         "displayName": ontology_name,
-        "description": f"Converted from {os.path.basename(ttl_file)}",
+        "description": f"Converted from {validated_ttl_path.name}",
         "definition": definition,
+        "conversionResult": conversion_result.to_dict()  # Include conversion metadata
     }
     
     if args.output:
         output_path = args.output
     else:
-        output_path = str(Path(ttl_file).with_suffix('.json'))
+        output_path = str(validated_ttl_path.with_suffix('.json'))
+    
+    # Validate output path with security checks
+    try:
+        validated_output_path = InputValidator.validate_output_file_path(
+            output_path,
+            allowed_extensions=['.json']
+        )
+    except ValueError as e:
+        print(f"Error: Invalid output path: {e}")
+        sys.exit(1)
+    except PermissionError as e:
+        print(f"Error: {e}")
+        sys.exit(1)
     
     try:
-        with open(output_path, 'w', encoding='utf-8') as f:
+        with open(validated_output_path, 'w', encoding='utf-8') as f:
             json.dump(output, indent=2, fp=f)
     except PermissionError:
-        print(f"Error: Permission denied writing to {output_path}")
+        print(f"Error: Permission denied writing to {validated_output_path}")
         sys.exit(1)
     except Exception as e:
         print(f"Error writing output file: {e}")
         sys.exit(1)
     
-    print(f"Saved Fabric Ontology definition to: {output_path}")
+    print(f"\nSaved Fabric Ontology definition to: {validated_output_path}")
     print(f"Ontology Name: {ontology_name}")
     print(f"Definition Parts: {len(definition['parts'])}")
+    
+    if conversion_result.has_skipped_items:
+        print(f"⚠ Skipped Items: {len(conversion_result.skipped_items)}")
+        print("  See conversionResult in output file for details.")
 
 
 def cmd_export(args):
@@ -675,11 +875,24 @@ def cmd_export(args):
             safe_name = ontology_info.get("displayName", ontology_id).replace(" ", "_")
             output_path = f"{safe_name}_exported.ttl"
         
+        # Validate output path with security checks
+        try:
+            validated_output_path = InputValidator.validate_output_file_path(
+                output_path,
+                allowed_extensions=['.ttl', '.rdf', '.owl']
+            )
+        except ValueError as e:
+            print(f"Error: Invalid output path: {e}")
+            sys.exit(1)
+        except PermissionError as e:
+            print(f"Error: {e}")
+            sys.exit(1)
+        
         # Write TTL file
-        with open(output_path, 'w', encoding='utf-8') as f:
+        with open(validated_output_path, 'w', encoding='utf-8') as f:
             f.write(ttl_content)
         
-        print(f"Successfully exported ontology to: {output_path}")
+        print(f"Successfully exported ontology to: {validated_output_path}")
         print(f"Ontology Name: {ontology_info.get('displayName', 'Unknown')}")
         print(f"Parts in definition: {len(definition.get('parts', []))}")
         
@@ -698,24 +911,32 @@ def cmd_compare(args):
     ttl_file1 = args.ttl_file1
     ttl_file2 = args.ttl_file2
     
-    # Validate files exist
-    for ttl_file in [ttl_file1, ttl_file2]:
-        if not os.path.isfile(ttl_file):
-            print(f"Error: TTL file not found: {ttl_file}")
-            sys.exit(1)
+    # Validate both TTL file paths with security checks
+    try:
+        validated_ttl_path1 = InputValidator.validate_input_ttl_path(ttl_file1)
+        validated_ttl_path2 = InputValidator.validate_input_ttl_path(ttl_file2)
+    except ValueError as e:
+        print(f"Error: Invalid TTL file path: {e}")
+        sys.exit(1)
+    except FileNotFoundError as e:
+        print(f"Error: TTL file not found: {e}")
+        sys.exit(1)
+    except PermissionError as e:
+        print(f"Error: {e}")
+        sys.exit(1)
     
     try:
-        with open(ttl_file1, 'r', encoding='utf-8') as f:
+        with open(validated_ttl_path1, 'r', encoding='utf-8') as f:
             ttl_content1 = f.read()
-        with open(ttl_file2, 'r', encoding='utf-8') as f:
+        with open(validated_ttl_path2, 'r', encoding='utf-8') as f:
             ttl_content2 = f.read()
     except Exception as e:
         print(f"Error reading TTL files: {e}")
         sys.exit(1)
     
     print(f"Comparing:")
-    print(f"  File 1: {ttl_file1}")
-    print(f"  File 2: {ttl_file2}")
+    print(f"  File 1: {validated_ttl_path1}")
+    print(f"  File 2: {validated_ttl_path2}")
     print()
     
     comparison = compare_ontologies(ttl_content1, ttl_content2)
@@ -801,6 +1022,8 @@ Examples:
                                help='Skip pre-flight validation check')
     upload_parser.add_argument('--force', '-f', action='store_true',
                                help='Proceed with import even if validation issues are found')
+    upload_parser.add_argument('--streaming', '-s', action='store_true',
+                               help='Use streaming mode for large files (>100MB) - processes in batches')
     upload_parser.add_argument('--force-memory', action='store_true',
                                help='Skip memory safety checks for very large files (use with caution)')
     upload_parser.add_argument('--save-validation-report', action='store_true',
@@ -839,6 +1062,8 @@ Examples:
     convert_parser = subparsers.add_parser('convert', help='Convert TTL to Fabric format without uploading')
     convert_parser.add_argument('ttl_file', help='Path to the TTL file to convert')
     convert_parser.add_argument('--output', '-o', help='Output JSON file path')
+    convert_parser.add_argument('--streaming', '-s', action='store_true',
+                               help='Use streaming mode for large files (>100MB) - processes in batches for lower memory usage')
     convert_parser.add_argument('--force-memory', action='store_true',
                                help='Skip memory safety checks for very large files (use with caution)')
     convert_parser.set_defaults(func=cmd_convert)

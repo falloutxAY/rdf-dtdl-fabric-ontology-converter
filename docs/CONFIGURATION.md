@@ -58,6 +58,36 @@ Create `config.json` in the project root:
 | `level` | string | "INFO" | Logging level: DEBUG, INFO, WARNING, ERROR |
 | `log_file` | string | "rdf_import.log" | Path to log file |
 
+### Rate Limiting Settings
+
+Microsoft Fabric throttles API requests and returns HTTP 429 responses with a `Retry-After` header when limits are exceeded. The rate limiter provides proactive client-side throttling to minimize 429 responses.
+
+> **Note:** Microsoft Fabric does not publish specific rate limits—they vary by user and API endpoint. The default settings are conservative estimates. See [Fabric API Throttling](https://learn.microsoft.com/en-us/rest/api/fabric/articles/throttling) for more information.
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `rate_limit.enabled` | boolean | true | Enable client-side rate limiting |
+| `rate_limit.requests_per_minute` | integer | 10 | Maximum requests per minute (long-term rate) |
+| `rate_limit.burst` | integer | 15 | Maximum burst size (short-term allowance) |
+
+```json
+{
+  "fabric": {
+    "rate_limit": {
+      "enabled": true,
+      "requests_per_minute": 10,
+      "burst": 15
+    }
+  }
+}
+```
+
+**Tuning Rate Limits:**
+- If you see frequent 429 responses, decrease `requests_per_minute`
+- If operations are slow but no 429 errors, you can increase the rate
+- The `burst` setting allows short bursts above the rate limit
+- When rate limited, the client automatically waits for the server-specified `Retry-After` duration
+
 ## Authentication Methods
 
 ### Interactive Authentication (Recommended for Development)
@@ -205,7 +235,12 @@ python main.py upload sample.ttl --config config.prod.json
     "tenant_id": "87654321-4321-4321-4321-cba987654321",
     "client_id": "abcdef12-3456-7890-abcd-ef1234567890",
     "client_secret": "your-secret-here",
-    "use_interactive_auth": false
+    "use_interactive_auth": false,
+    "rate_limit": {
+      "enabled": true,
+      "requests_per_minute": 10,
+      "burst": 15
+    }
   },
   "ontology": {
     "default_namespace": "usertypes",

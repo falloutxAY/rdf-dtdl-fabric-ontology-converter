@@ -15,6 +15,8 @@ Please refer to the [LICENSE](LICENSE) file for full terms.
 - Bidirectional conversion: RDF TTL → Fabric and Fabric → RDF TTL
 - Pre-flight validation: Check TTL files for Fabric compatibility before import
 - List, get, and delete ontologies
+- Path traversal protection and input validation
+- Graceful cancellation support (Ctrl+C during long operations)
 
 ## Table of Contents
 
@@ -79,7 +81,12 @@ Create `src/config.json` from `config.sample.json` (config.json is git-ignored):
     "tenant_id": "YOUR_TENANT_ID",
     "client_id": "",
     "use_interactive_auth": "true",
-    "api_base_url": "https://api.fabric.microsoft.com/v1"
+    "api_base_url": "https://api.fabric.microsoft.com/v1",
+    "rate_limit": {
+      "enabled": true,
+      "requests_per_minute": 10,
+      "burst": 15
+    }
   },
   "ontology": {
     "default_namespace": "usertypes",
@@ -134,6 +141,9 @@ You can try this for samples/sample_foaf_ontology.ttl
 ```powershell
 python src/main.py convert <ttl_file> [--output <output.json>] --config src\config.json
 
+# For large files (>100MB), use streaming mode for better memory efficiency
+python src/main.py convert <ttl_file> --streaming
+
 # For very large files (>500MB), bypass memory safety checks
 python src/main.py convert <ttl_file> --force-memory
 ```
@@ -148,6 +158,9 @@ python src/main.py upload <ttl_file> --skip-validation --config src\config.json
 
 # Force upload even if validation issues are found
 python src/main.py upload <ttl_file> --force --config src\config.json
+
+# For large files, use streaming mode for memory-efficient conversion
+python src/main.py upload <ttl_file> --streaming --config src\config.json
 
 # For very large files, bypass memory safety checks (use with caution)
 python src/main.py upload <ttl_file> --force-memory --config src\config.json
@@ -279,7 +292,7 @@ For complete details, see:
  
 ## Testing
 
-Run the comprehensive test suite:
+Run the comprehensive test suite (254 tests):
 
 ```bash
 # Run all tests
@@ -290,6 +303,9 @@ python tests/run_tests.py core
 
 # Run sample file tests
 python tests/run_tests.py samples
+
+# Run Fabric API integration tests
+python -m pytest tests/test_fabric_client_integration.py -v
 
 # Run with coverage
 python -m pytest tests/ --cov=src --cov-report=html
@@ -307,13 +323,18 @@ rdf-fabric-ontology-converter/
 │   ├── rdf_converter.py          # RDF parsing & TTL→Fabric conversion
 │   ├── fabric_to_ttl.py          # Fabric→TTL export & comparison
 │   ├── fabric_client.py          # Fabric API client with retry logic
+│   ├── rate_limiter.py           # Token bucket rate limiter for API throttling
+│   ├── cancellation.py           # Graceful cancellation support (Ctrl+C)
 │   └── preflight_validator.py    # Pre-flight validation for Fabric compatibility
 ├── tests/                        # Test suite
 │   ├── __init__.py
 │   ├── test_converter.py         # Converter unit tests
 │   ├── test_exporter.py          # Exporter unit tests
 │   ├── test_integration.py       # Integration tests
+│   ├── test_fabric_client_integration.py # Fabric API client integration tests
 │   ├── test_preflight_validator.py # Pre-flight validation tests
+│   ├── test_rate_limiter.py      # Rate limiter unit tests
+│   ├── test_cancellation.py      # Cancellation support tests
 │   └── run_tests.py              # Test runner
 ├── samples/                      # Sample ontology files
 │   ├── sample_supply_chain_ontology.ttl  # Supply chain example
