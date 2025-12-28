@@ -159,11 +159,11 @@ python src/main.py test
 
 You can maintain multiple configurations:
 
-```bash
+```powershell
 # Development
-python main.py upload sample.ttl --config config.dev.json
+python src\main.py upload sample.ttl --config config.dev.json
 
 # Production
-python main.py upload sample.ttl --config config.prod.json
+python src\main.py upload sample.ttl --config config.prod.json
 ```
 

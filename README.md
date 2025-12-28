@@ -64,9 +64,9 @@ pip install -r requirements.txt
 ```
 
 4. Configure your settings:
-```bash
+```powershell
 # Copy the sample configuration into src (config.json is git-ignored)
-cp config.sample.json src/config.json
+copy config.sample.json src\config.json
 
 # Edit src/config.json with your Fabric workspace details
 ```
@@ -129,83 +129,83 @@ python src\main.py -h
 ### Validate TTL File (pre-flight)
 ```powershell
 # Check if a TTL file can be imported seamlessly
-python src/main.py validate <ttl_file> [--verbose] [--save-report]
+python src\main.py validate <ttl_file> [--verbose] [--save-report]
 
 # Save detailed validation report to JSON
-python src/main.py validate <ttl_file> --output validation_report.json
+python src\main.py validate <ttl_file> --output validation_report.json
 ```
-You can try this for samples/sample_foaf_ontology.ttl
+You can try this for samples\sample_foaf_ontology.ttl
 
 ### Convert TTL to JSON
 ```powershell
-python src/main.py convert <ttl_file> [--output <output.json>] --config src\config.json
+python src\main.py convert <ttl_file> [--output <output.json>] --config src\config.json
 
 # For large files (>100MB), use streaming mode for better memory efficiency
-python src/main.py convert <ttl_file> --streaming
+python src\main.py convert <ttl_file> --streaming
 
 # For very large files (>500MB), bypass memory safety checks
-python src/main.py convert <ttl_file> --force-memory
+python src\main.py convert <ttl_file> --force-memory
 ```
 
 ### Upload Ontology
 ```powershell
 # Upload with pre-flight validation (default)
-python src/main.py upload <ttl_file> [--name <ontology_name>] [--update] --config src\config.json
+python src\main.py upload <ttl_file> [--name <ontology_name>] [--update] --config src\config.json
 
 # Skip validation and upload directly
-python src/main.py upload <ttl_file> --skip-validation --config src\config.json
+python src\main.py upload <ttl_file> --skip-validation --config src\config.json
 
 # Force upload even if validation issues are found
-python src/main.py upload <ttl_file> --force --config src\config.json
+python src\main.py upload <ttl_file> --force --config src\config.json
 
 # For large files, use streaming mode for memory-efficient conversion
-python src/main.py upload <ttl_file> --streaming --config src\config.json
+python src\main.py upload <ttl_file> --streaming --config src\config.json
 
 # For very large files, bypass memory safety checks (use with caution)
-python src/main.py upload <ttl_file> --force-memory --config src\config.json
+python src\main.py upload <ttl_file> --force-memory --config src\config.json
 ```
 
 ### Export Ontology to TTL
 ```powershell
-python src/main.py export <ontology_id> [--output <output.ttl>] --config src\config.json
+python src\main.py export <ontology_id> [--output <output.ttl>] --config src\config.json
 ```
 
 ### Compare Two TTL Files
 ```powershell
-python src/main.py compare <ttl_file1> <ttl_file2> [--verbose]
+python src\main.py compare <ttl_file1> <ttl_file2> [--verbose]
 ```
 
 ### Round-Trip Test
 ```powershell
 # Manual round-trip test with Fabric:
 # 1) Upload ontology
-python src/main.py upload <ttl_file> --name "TestOntology" --config src\config.json
+python src\main.py upload <ttl_file> --name "TestOntology" --config src\config.json
 
 # 2) Export ontology (use the ontology ID from step 1)
-python src/main.py export <ontology_id> --output exported.ttl --config src\config.json
+python src\main.py export <ontology_id> --output exported.ttl --config src\config.json
 
 # 3) Compare original and exported
-python src/main.py compare <ttl_file> exported.ttl --verbose
+python src\main.py compare <ttl_file> exported.ttl --verbose
 ```
 
 ### List Ontologies
 ```powershell
-python src/main.py list --config src\config.json
+python src\main.py list --config src\config.json
 ```
 
 ### Get Ontology Details
 ```powershell
-python src/main.py get <ontology_id> --config src\config.json
+python src\main.py get <ontology_id> --config src\config.json
 ```
 
 ### Delete Ontology
 ```powershell
-python src/main.py delete <ontology_id> --config src\config.json
+python src\main.py delete <ontology_id> --config src\config.json
 ```
 
 ### Test Connection
 ```powershell
-python src/main.py test --config src\config.json
+python src\main.py test --config src\config.json
 ```
 
 ## Limitations
@@ -216,8 +216,8 @@ python src/main.py test --config src\config.json
 
 Use the **validate** command to check if your TTL file can be imported seamlessly:
 
-```bash
-python src/main.py validate samples/sample_foaf_ontology.ttl --verbose
+```powershell
+python src\main.py validate samples\sample_foaf_ontology.ttl --verbose
 ```
 
 For complete details, see:
