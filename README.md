@@ -292,7 +292,7 @@ For complete details, see:
  
 ## Testing
 
-Run the comprehensive test suite (254 tests):
+Run the comprehensive test suite (286 tests):
 
 ```bash
 # Run all tests
@@ -319,22 +319,28 @@ For more details, see [docs/TESTING.md](docs/TESTING.md).
 rdf-fabric-ontology-converter/
 ├── src/                          # Source code
 │   ├── __init__.py
-│   ├── main.py                   # CLI entry point
+│   ├── main.py                   # CLI entry point (thin dispatcher)
+│   ├── cli/                      # CLI module (Clean Architecture)
+│   │   ├── __init__.py           # Module exports
+│   │   ├── commands.py           # Command handlers (Command pattern)
+│   │   ├── parsers.py            # Argument parsing configuration
+│   │   └── helpers.py            # Shared utilities (logging, config)
 │   ├── rdf_converter.py          # RDF parsing & TTL→Fabric conversion
 │   ├── fabric_to_ttl.py          # Fabric→TTL export & comparison
 │   ├── fabric_client.py          # Fabric API client with retry logic
 │   ├── rate_limiter.py           # Token bucket rate limiter for API throttling
 │   ├── cancellation.py           # Graceful cancellation support (Ctrl+C)
 │   └── preflight_validator.py    # Pre-flight validation for Fabric compatibility
-├── tests/                        # Test suite
+├── tests/                        # Test suite (286 tests)
 │   ├── __init__.py
 │   ├── test_converter.py         # Converter unit tests
 │   ├── test_exporter.py          # Exporter unit tests
 │   ├── test_integration.py       # Integration tests
-│   ├── test_fabric_client_integration.py # Fabric API client integration tests
+│   ├── test_fabric_client_integration.py # Fabric API integration tests
 │   ├── test_preflight_validator.py # Pre-flight validation tests
 │   ├── test_rate_limiter.py      # Rate limiter unit tests
 │   ├── test_cancellation.py      # Cancellation support tests
+│   ├── test_streaming_converter.py # Streaming parser tests
 │   └── run_tests.py              # Test runner
 ├── samples/                      # Sample ontology files
 │   ├── sample_supply_chain_ontology.ttl  # Supply chain example

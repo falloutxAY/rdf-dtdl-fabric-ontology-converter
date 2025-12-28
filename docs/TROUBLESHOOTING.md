@@ -53,9 +53,13 @@ python src/main.py upload sample.ttl
 
 ## Memory Management
 
-For large files (>500MB):
+For large files (>100MB), use streaming mode:
 ```powershell
-# Use force flag if you have sufficient RAM (4x file size)
+# Use streaming mode for memory-efficient processing
+python src/main.py convert large.ttl --streaming
+python src/main.py upload large.ttl --streaming
+
+# Or use force flag if you have sufficient RAM (4x file size)
 python src/main.py convert large.ttl --force-memory
 python src/main.py upload large.ttl --force-memory
 
