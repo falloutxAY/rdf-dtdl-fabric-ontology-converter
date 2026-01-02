@@ -64,9 +64,9 @@ python -m venv .venv
 source .venv/bin/activate
 ```
 
-3. Install dependencies:
+3. Install the package with dependencies:
 ```bash
-pip install -r requirements.txt
+pip install -e .
 ```
 
 4. Configure your settings:
@@ -370,7 +370,7 @@ rdf-fabric-ontology-converter/
 ├── samples/                      # Example TTL & DTDL files
 ├── docs/                         # Full documentation
 ├── config.sample.json            # Configuration template
-└── requirements.txt              # Python dependencies
+└── pyproject.toml                # Project metadata and dependencies
 ```
 
 For detailed architecture, see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).

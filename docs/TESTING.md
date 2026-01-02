@@ -175,8 +175,8 @@ Ensure you're running from the project root directory with dependencies installe
 # Activate virtual environment
 .venv\Scripts\Activate.ps1
 
-# Install dependencies
-pip install -r requirements.txt
+# Install dependencies with dev extras
+pip install -e ".[dev]"
 
 # Run tests from project root
 python -m pytest tests/ -v

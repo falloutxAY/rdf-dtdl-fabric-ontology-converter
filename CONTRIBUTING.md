@@ -33,7 +33,7 @@ samples/          # Example RDF, DTDL, and CSV datasets
    ```bash
    python -m venv .venv
    source .venv/bin/activate  # or .venv\Scripts\activate on Windows
-   pip install -r requirements.txt
+   pip install -e ".[dev]"
    ```
 3. **Run tests** before committing:
    ```bash
