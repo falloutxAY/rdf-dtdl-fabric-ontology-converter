@@ -8,14 +8,16 @@ Mapping Strategy:
 - DTDLProperty -> EntityTypeProperty
 - DTDLTelemetry -> EntityTypeProperty (timeseries)
 - DTDLRelationship -> RelationshipType
-- DTDLComponent -> Flattened properties from referenced Interface
-- DTDLCommand -> Custom metadata or skipped
+- DTDLComponent -> Separate EntityType (SEPARATE) or flattened (FLATTEN)
+- DTDLCommand -> CommandType entity (ENTITY) or string property (PROPERTY)
+- DTDLScaledDecimal -> JSON, structured properties, or calculated value
 """
 
 import hashlib
 import json
 import logging
 from dataclasses import dataclass, field
+from enum import Enum
 from typing import Dict, List, Any, Optional, Set, Tuple
 from pathlib import Path
 
@@ -26,6 +28,7 @@ from .dtdl_models import (
     DTDLRelationship,
     DTDLComponent,
     DTDLCommand,
+    DTDLCommandPayload,
     DTDLEnum,
     DTDLObject,
     DTDLArray,
@@ -48,6 +51,13 @@ try:
         FabricLimitsValidator,
         EntityIdPartsInferrer,
     )
+    from ..core.compliance import (
+        DTDLComplianceValidator,
+        FabricComplianceChecker,
+        ConversionReportGenerator,
+        ConversionReport,
+        DTDLVersion,
+    )
 except ImportError:
     # Fallback for direct script execution without sys.path manipulation
     from models import (  # type: ignore[import-not-found]
@@ -67,6 +77,21 @@ except ImportError:
         # Define fallback if validators not available
         FabricLimitsValidator = None  # type: ignore[assignment, misc]
         EntityIdPartsInferrer = None  # type: ignore[assignment, misc]
+    try:
+        from core.compliance import (  # type: ignore[import-not-found]
+            DTDLComplianceValidator,
+            FabricComplianceChecker,
+            ConversionReportGenerator,
+            ConversionReport,
+            DTDLVersion,
+        )
+    except ImportError:
+        # Define fallback if compliance not available
+        DTDLComplianceValidator = None  # type: ignore[assignment, misc]
+        FabricComplianceChecker = None  # type: ignore[assignment, misc]
+        ConversionReportGenerator = None  # type: ignore[assignment, misc]
+        ConversionReport = None  # type: ignore[assignment, misc]
+        DTDLVersion = None  # type: ignore[assignment, misc]
 
 logger = logging.getLogger(__name__)
 
@@ -107,6 +132,68 @@ DTDL_TO_FABRIC_TYPE: Dict[str, str] = {
 }
 
 
+class ComponentMode(str, Enum):
+    """Component handling modes for DTDL to Fabric conversion."""
+    FLATTEN = "flatten"  # Flatten properties into parent entity (legacy)
+    SEPARATE = "separate"  # Create separate entity types with relationships
+    SKIP = "skip"  # Skip components entirely
+
+
+class CommandMode(str, Enum):
+    """Command handling modes for DTDL to Fabric conversion."""
+    SKIP = "skip"  # Skip commands entirely (legacy)
+    PROPERTY = "property"  # Create string property (legacy include_commands=True)
+    ENTITY = "entity"  # Create separate CommandType entity with parameters
+
+
+class ScaledDecimalMode(str, Enum):
+    """ScaledDecimal handling modes for DTDL to Fabric conversion."""
+    JSON_STRING = "json_string"  # Store as JSON string: {"scale": 7, "value": "123"}
+    STRUCTURED = "structured"  # Store with separate _scale and _value properties
+    CALCULATED = "calculated"  # Store calculated numeric value as Double
+
+
+@dataclass
+class ScaledDecimalValue:
+    """
+    Represents a parsed scaledDecimal value.
+    
+    The scaledDecimal schema type combines a decimal value with an explicit scale,
+    useful for representing very large or small values efficiently.
+    
+    Attributes:
+        scale: Count of decimal places to shift (positive=left, negative=right)
+        value: The significand as a decimal string
+    """
+    scale: int
+    value: str
+    
+    def calculate_actual_value(self) -> float:
+        """
+        Calculate the actual numeric value.
+        
+        Returns:
+            float: The computed value (value * 10^scale)
+            
+        Example:
+            ScaledDecimalValue(scale=7, value="1234.56").calculate_actual_value()
+            # Returns 12345600000.0
+        """
+        try:
+            base_value = float(self.value)
+            return base_value * (10 ** self.scale)
+        except (ValueError, OverflowError):
+            return float('nan')
+    
+    def to_json_object(self) -> Dict[str, Any]:
+        """Return JSON-serializable representation."""
+        return {
+            "scale": self.scale,
+            "value": self.value,
+            "calculatedValue": self.calculate_actual_value()
+        }
+
+
 class DTDLToFabricConverter:
     """
     Convert parsed DTDL interfaces to Microsoft Fabric Ontology format.
@@ -115,7 +202,9 @@ class DTDLToFabricConverter:
     - Interface to EntityType mapping
     - Property/Telemetry to EntityTypeProperty mapping
     - Relationship to RelationshipType mapping
-    - Component flattening (optional)
+    - Component handling (flatten, separate entity, or skip)
+    - Command handling (skip, property, or separate entity)
+    - ScaledDecimal handling (JSON, structured, or calculated)
     - Inheritance resolution
     - Complex schema type handling
     
@@ -123,6 +212,13 @@ class DTDLToFabricConverter:
         converter = DTDLToFabricConverter()
         result = converter.convert(interfaces)
         definition = converter.to_fabric_definition(result, "MyOntology")
+        
+    Advanced usage:
+        converter = DTDLToFabricConverter(
+            component_mode=ComponentMode.SEPARATE,
+            command_mode=CommandMode.ENTITY,
+            scaled_decimal_mode=ScaledDecimalMode.STRUCTURED
+        )
     """
     
     def __init__(
@@ -130,7 +226,10 @@ class DTDLToFabricConverter:
         id_prefix: int = 1000000000000,
         namespace: str = "usertypes",
         flatten_components: bool = False,
-        include_commands: bool = False
+        include_commands: bool = False,
+        component_mode: Optional[ComponentMode] = None,
+        command_mode: Optional[CommandMode] = None,
+        scaled_decimal_mode: ScaledDecimalMode = ScaledDecimalMode.JSON_STRING
     ):
         """
         Initialize the converter.
@@ -138,13 +237,45 @@ class DTDLToFabricConverter:
         Args:
             id_prefix: Base prefix for generated IDs
             namespace: Namespace for entity types
-            flatten_components: If True, flatten Component contents into parent
-            include_commands: If True, create properties for commands
+            flatten_components: DEPRECATED - Use component_mode instead. 
+                               If True, flatten Component contents into parent.
+            include_commands: DEPRECATED - Use command_mode instead.
+                             If True, create properties for commands.
+            component_mode: How to handle DTDL Components:
+                - FLATTEN: Flatten properties into parent entity
+                - SEPARATE: Create separate entity types with relationships
+                - SKIP: Skip components entirely
+            command_mode: How to handle DTDL Commands:
+                - SKIP: Skip commands entirely
+                - PROPERTY: Create string property per command
+                - ENTITY: Create separate CommandType entities
+            scaled_decimal_mode: How to handle scaledDecimal properties:
+                - JSON_STRING: Store as JSON string {"scale": n, "value": "x"}
+                - STRUCTURED: Create _scale (BigInt) and _value (String) properties
+                - CALCULATED: Calculate and store as Double
         """
         self.id_prefix = id_prefix
         self.namespace = namespace
-        self.flatten_components = flatten_components
-        self.include_commands = include_commands
+        self.scaled_decimal_mode = scaled_decimal_mode
+        
+        # Handle deprecated parameters with backward compatibility
+        if component_mode is not None:
+            self.component_mode = component_mode
+        elif flatten_components:
+            self.component_mode = ComponentMode.FLATTEN
+        else:
+            self.component_mode = ComponentMode.SKIP
+            
+        if command_mode is not None:
+            self.command_mode = command_mode
+        elif include_commands:
+            self.command_mode = CommandMode.PROPERTY
+        else:
+            self.command_mode = CommandMode.SKIP
+        
+        # Keep deprecated flags for backward compatibility
+        self.flatten_components = self.component_mode == ComponentMode.FLATTEN
+        self.include_commands = self.command_mode != CommandMode.SKIP
         
         # Mapping tables
         self._dtmi_to_fabric_id: Dict[str, str] = {}
@@ -286,7 +417,128 @@ class DTDLToFabricConverter:
                         uri=rel.dtmi or f"{interface.dtmi}:{rel.name}",
                     ))
         
+        # Handle Components in SEPARATE mode (create entity types and relationships)
+        if self.component_mode == ComponentMode.SEPARATE:
+            for interface in interfaces:
+                source_id = self._get_or_create_fabric_id(interface.dtmi)
+                for component in interface.components:
+                    try:
+                        comp_entity, comp_rel = self._convert_component_to_entity(
+                            component, interface, source_id
+                        )
+                        if comp_entity:
+                            result.entity_types.append(comp_entity)
+                        if comp_rel:
+                            result.relationship_types.append(comp_rel)
+                    except Exception as e:
+                        logger.warning(f"Failed to convert component {component.name}: {e}")
+                        result.skipped_items.append(SkippedItem(
+                            item_type="component",
+                            name=component.name,
+                            reason=str(e),
+                            uri=component.dtmi or f"{interface.dtmi}:{component.name}",
+                        ))
+        
+        # Handle Commands in ENTITY mode (create entity types per command)
+        if self.command_mode == CommandMode.ENTITY:
+            for interface in interfaces:
+                source_id = self._get_or_create_fabric_id(interface.dtmi)
+                for command in interface.commands:
+                    try:
+                        cmd_entity, cmd_rel = self._convert_command_to_entity(
+                            command, interface, source_id
+                        )
+                        if cmd_entity:
+                            result.entity_types.append(cmd_entity)
+                        if cmd_rel:
+                            result.relationship_types.append(cmd_rel)
+                    except Exception as e:
+                        logger.warning(f"Failed to convert command {command.name}: {e}")
+                        result.skipped_items.append(SkippedItem(
+                            item_type="command",
+                            name=command.name,
+                            reason=str(e),
+                            uri=command.dtmi or f"{interface.dtmi}:{command.name}",
+                        ))
+        
         return result
+    
+    def convert_with_compliance_report(
+        self,
+        interfaces: List[DTDLInterface],
+        dtdl_version: Optional[str] = None
+    ) -> Tuple[ConversionResult, Optional["ConversionReport"]]:
+        """
+        Convert DTDL interfaces to Fabric format with a compliance report.
+        
+        This method performs the standard conversion and additionally generates
+        a detailed compliance report showing:
+        - DTDL compliance issues
+        - Fabric API limit compliance
+        - Features that are preserved, limited, or lost in conversion
+        
+        Args:
+            interfaces: List of parsed DTDL interfaces
+            dtdl_version: Optional DTDL version string ("v2", "v3", "v4")
+                         If None, auto-detected from interface contexts
+        
+        Returns:
+            Tuple of (ConversionResult, ConversionReport or None)
+            The report may be None if compliance module is not available
+        """
+        # Perform standard conversion
+        result = self.convert(interfaces)
+        
+        # Generate compliance report if module is available
+        report = None
+        if ConversionReportGenerator is not None:
+            # Auto-detect DTDL version if not specified
+            detected_version = dtdl_version
+            if not detected_version and interfaces:
+                # Check first interface's context for version hint
+                first_iface = interfaces[0]
+                if hasattr(first_iface, 'context') and first_iface.context:
+                    ctx = first_iface.context[0] if isinstance(first_iface.context, list) else first_iface.context
+                    if "dtdl/dtdl/v4" in ctx.lower():
+                        detected_version = "v4"
+                    elif "dtdl/dtdl/v3" in ctx.lower():
+                        detected_version = "v3"
+                    else:
+                        detected_version = "v2"
+            
+            # Convert to DTDLVersion enum
+            version_enum = None
+            if DTDLVersion is not None:
+                if detected_version == "v4":
+                    version_enum = DTDLVersion.V4
+                elif detected_version == "v3":
+                    version_enum = DTDLVersion.V3
+                else:
+                    version_enum = DTDLVersion.V2
+            
+            try:
+                report = ConversionReportGenerator.generate_dtdl_report(
+                    interfaces=interfaces,
+                    conversion_result=result,
+                    dtdl_version=version_enum
+                )
+                
+                # Log conversion warnings
+                for warning in report.warnings:
+                    logger.warning(
+                        f"Conversion warning [{warning.impact.value}]: "
+                        f"{warning.feature} - {warning.message}"
+                    )
+                
+                # Log summary
+                logger.info(
+                    f"Compliance report: {report.total_issues} issues, "
+                    f"{len(report.warnings)} conversion warnings"
+                )
+            except Exception as e:
+                logger.warning(f"Failed to generate compliance report: {e}")
+        
+        return result, report
     
     def _get_or_create_fabric_id(self, dtmi: str) -> str:
         """
@@ -393,11 +645,28 @@ class DTDLToFabricConverter:
                 )
                 properties.append(cmd_prop)
         
-        # Optionally flatten Components
+        # Optionally flatten Components (legacy mode)
         if self.flatten_components:
             for component in interface.components:
                 component_props = self._flatten_component(component, fabric_id)
                 properties.extend(component_props)
+        
+        # Handle scaledDecimal properties in STRUCTURED mode
+        if self.scaled_decimal_mode == ScaledDecimalMode.STRUCTURED:
+            for prop in interface.properties:
+                if isinstance(prop.schema, DTDLScaledDecimal) or prop.schema == "scaledDecimal":
+                    # Add _scale and _value suffix properties
+                    scale_prop = EntityTypeProperty(
+                        id=self._create_property_id(fabric_id, f"{prop.name}_scale"),
+                        name=self._sanitize_name(f"{prop.name}_scale"),
+                        valueType="BigInt",
+                    )
+                    value_prop = EntityTypeProperty(
+                        id=self._create_property_id(fabric_id, f"{prop.name}_value"),
+                        name=self._sanitize_name(f"{prop.name}_value"),
+                        valueType="String",
+                    )
+                    properties.extend([scale_prop, value_prop])
         
         # Build preliminary entity for entityIdParts inference
         entity = EntityType(
@@ -529,6 +798,269 @@ class DTDLToFabricConverter:
             namespaceType="Custom",
         )
     
+    def _convert_component_to_entity(
+        self,
+        component: DTDLComponent,
+        source_interface: DTDLInterface,
+        source_entity_id: str
+    ) -> Tuple[Optional[EntityType], Optional[RelationshipType]]:
+        """
+        Convert a DTDL Component to a separate EntityType with a relationship.
+        
+        In SEPARATE mode, components become their own entity types rather than
+        being flattened into the parent. A "hasComponent" relationship links them.
+        
+        Args:
+            component: The DTDL component to convert
+            source_interface: The parent interface
+            source_entity_id: Parent entity's Fabric ID
+            
+        Returns:
+            Tuple of (EntityType, RelationshipType) or (None, None) if skipped
+        """
+        # Look up the component's interface schema
+        component_interface = self._interface_map.get(component.schema)
+        
+        if component_interface:
+            # Component references an interface we already converted
+            # Just create the relationship
+            target_id = self._get_or_create_fabric_id(component.schema)
+            
+            rel_id = self._create_property_id(source_entity_id, f"comp_{component.name}")
+            rel_type = RelationshipType(
+                id=rel_id,
+                name=self._sanitize_name(f"has_{component.name}"),
+                source=RelationshipEnd(entityTypeId=source_entity_id),
+                target=RelationshipEnd(entityTypeId=target_id),
+                namespace=self.namespace,
+                namespaceType="Custom",
+            )
+            
+            logger.info(
+                f"Component '{component.name}' converted to relationship to existing "
+                f"interface '{component_interface.name}'"
+            )
+            return None, rel_type
+        else:
+            # Component references an external interface - create stub entity
+            stub_entity_id = self._get_or_create_fabric_id(component.schema)
+            
+            # Extract name from schema DTMI
+            schema_name = component.schema.replace("dtmi:", "").split(";")[0].split(":")[-1]
+            
+            stub_entity = EntityType(
+                id=stub_entity_id,
+                name=self._sanitize_name(f"{component.name}_{schema_name}"),
+                namespace=self.namespace,
+                namespaceType="Custom",
+                visibility="Visible",
+                baseEntityTypeId=None,
+                entityIdParts=[],
+                displayNamePropertyId=None,
+                properties=[
+                    # Add stub identifier property
+                    EntityTypeProperty(
+                        id=self._create_property_id(stub_entity_id, "componentId"),
+                        name="componentId",
+                        valueType="String",
+                    )
+                ],
+                timeseriesProperties=[],
+            )
+            
+            # Set entityIdParts to the stub property
+            stub_entity.entityIdParts = [stub_entity.properties[0].id]
+            
+            # Create relationship
+            rel_id = self._create_property_id(source_entity_id, f"comp_{component.name}")
+            rel_type = RelationshipType(
+                id=rel_id,
+                name=self._sanitize_name(f"has_{component.name}"),
+                source=RelationshipEnd(entityTypeId=source_entity_id),
+                target=RelationshipEnd(entityTypeId=stub_entity_id),
+                namespace=self.namespace,
+                namespaceType="Custom",
+            )
+            
+            logger.warning(
+                f"Component '{component.name}' references external interface "
+                f"'{component.schema}'; created stub entity"
+            )
+            return stub_entity, rel_type
+    
+    def _convert_command_to_entity(
+        self,
+        command: DTDLCommand,
+        source_interface: DTDLInterface,
+        source_entity_id: str
+    ) -> Tuple[EntityType, RelationshipType]:
+        """
+        Convert a DTDL Command to a separate CommandType EntityType.
+        
+        In ENTITY mode, commands become their own entity types with properties
+        for request/response schemas. A "supportsCommand" relationship links them.
+        
+        Args:
+            command: The DTDL command to convert
+            source_interface: The parent interface
+            source_entity_id: Parent entity's Fabric ID
+            
+        Returns:
+            Tuple of (EntityType for command, RelationshipType linking to parent)
+        """
+        # Generate command entity ID
+        cmd_dtmi = command.dtmi or f"{source_interface.dtmi}:cmd:{command.name}"
+        cmd_entity_id = self._get_or_create_fabric_id(cmd_dtmi)
+        
+        # Build properties from command definition
+        properties: List[EntityTypeProperty] = []
+        
+        # Command name property (identifier)
+        name_prop = EntityTypeProperty(
+            id=self._create_property_id(cmd_entity_id, "commandName"),
+            name="commandName",
+            valueType="String",
+        )
+        properties.append(name_prop)
+        
+        # Request schema as JSON property if present
+        if command.request:
+            request_schema = self._command_payload_to_json(command.request)
+            req_prop = EntityTypeProperty(
+                id=self._create_property_id(cmd_entity_id, "requestSchema"),
+                name="requestSchema",
+                valueType="String",  # JSON-encoded schema
+            )
+            properties.append(req_prop)
+            
+            # Also add individual request parameter properties
+            if command.request.schema:
+                req_params = self._extract_command_parameters(
+                    command.request, cmd_entity_id, "request"
+                )
+                properties.extend(req_params)
+        
+        # Response schema as JSON property if present
+        if command.response:
+            response_schema = self._command_payload_to_json(command.response)
+            resp_prop = EntityTypeProperty(
+                id=self._create_property_id(cmd_entity_id, "responseSchema"),
+                name="responseSchema",
+                valueType="String",  # JSON-encoded schema
+            )
+            properties.append(resp_prop)
+            
+            # Also add individual response parameter properties
+            if command.response.schema:
+                resp_params = self._extract_command_parameters(
+                    command.response, cmd_entity_id, "response"
+                )
+                properties.extend(resp_params)
+        
+        # Create command entity
+        cmd_entity = EntityType(
+            id=cmd_entity_id,
+            name=self._sanitize_name(f"Command_{command.name}"),
+            namespace=self.namespace,
+            namespaceType="Custom",
+            visibility="Visible",
+            baseEntityTypeId=None,
+            entityIdParts=[name_prop.id],
+            displayNamePropertyId=name_prop.id,
+            properties=properties,
+            timeseriesProperties=[],
+        )
+        
+        # Create relationship from interface to command
+        rel_id = self._create_property_id(source_entity_id, f"cmd_rel_{command.name}")
+        cmd_rel = RelationshipType(
+            id=rel_id,
+            name=self._sanitize_name(f"supports_{command.name}"),
+            source=RelationshipEnd(entityTypeId=source_entity_id),
+            target=RelationshipEnd(entityTypeId=cmd_entity_id),
+            namespace=self.namespace,
+            namespaceType="Custom",
+        )
+        
+        logger.info(f"Command '{command.name}' converted to entity type with relationship")
+        return cmd_entity, cmd_rel
+    
+    def _command_payload_to_json(self, payload: DTDLCommandPayload) -> Dict[str, Any]:
+        """
+        Convert a command payload to JSON schema representation.
+        
+        Args:
+            payload: The command request or response payload
+            
+        Returns:
+            JSON-serializable dictionary
+        """
+        result: Dict[str, Any] = {
+            "name": payload.name,
+        }
+        
+        if isinstance(payload.schema, str):
+            result["schema"] = payload.schema
+        elif isinstance(payload.schema, DTDLObject):
+            result["schema"] = {
+                "type": "object",
+                "fields": [
+                    {"name": f.name, "schema": f.schema if isinstance(f.schema, str) else "complex"}
+                    for f in payload.schema.fields
+                ]
+            }
+        else:
+            result["schema"] = "complex"
+        
+        if payload.nullable:
+            result["nullable"] = True
+            
+        return result
+    
+    def _extract_command_parameters(
+        self,
+        payload: DTDLCommandPayload,
+        entity_id: str,
+        prefix: str
+    ) -> List[EntityTypeProperty]:
+        """
+        Extract properties from a command payload schema.
+        
+        For Object schemas, creates individual properties for each field.
+        For primitive schemas, creates a single property.
+        
+        Args:
+            payload: The command request or response payload
+            entity_id: Parent command entity ID
+            prefix: Property name prefix ("request" or "response")
+            
+        Returns:
+            List of EntityTypeProperty for the parameters
+        """
+        properties: List[EntityTypeProperty] = []
+        
+        if isinstance(payload.schema, DTDLObject):
+            # Extract each field as a property
+            for field in payload.schema.fields:
+                field_type = self._schema_to_fabric_type(field.schema)
+                prop = EntityTypeProperty(
+                    id=self._create_property_id(entity_id, f"{prefix}_{field.name}"),
+                    name=self._sanitize_name(f"{prefix}_{field.name}"),
+                    valueType=field_type,
+                )
+                properties.append(prop)
+        elif isinstance(payload.schema, str):
+            # Single parameter
+            param_type = self._schema_to_fabric_type(payload.schema)
+            prop = EntityTypeProperty(
+                id=self._create_property_id(entity_id, f"{prefix}_{payload.name}"),
+                name=self._sanitize_name(f"{prefix}_{payload.name}"),
+                valueType=param_type,
+            )
+            properties.append(prop)
+        
+        return properties
+    
     def _flatten_component(
         self,
         component: DTDLComponent,
@@ -577,6 +1109,9 @@ class DTDLToFabricConverter:
             Fabric value type string
         """
         if isinstance(schema, str):
+            # Handle scaledDecimal in CALCULATED mode
+            if schema == "scaledDecimal" and self.scaled_decimal_mode == ScaledDecimalMode.CALCULATED:
+                return "Double"
             # Primitive type or DTMI reference
             return DTDL_TO_FABRIC_TYPE.get(schema, "String")
         
@@ -590,7 +1125,10 @@ class DTDLToFabricConverter:
             return "String"
         
         if isinstance(schema, DTDLScaledDecimal):
-            # ScaledDecimal stored as JSON object string
+            # Handle based on mode
+            if self.scaled_decimal_mode == ScaledDecimalMode.CALCULATED:
+                return "Double"
+            # JSON_STRING or STRUCTURED mode - base property is String
             return "String"
         
         return "String"

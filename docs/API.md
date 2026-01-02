@@ -520,33 +520,98 @@ else:
 
 ### `DTDLToFabricConverter`
 
-Converts DTDL interfaces to Fabric format.
+Converts DTDL interfaces to Fabric format with configurable handling of Components, Commands, and scaledDecimal.
 
 ```python
-from src.dtdl import DTDLToFabricConverter
-
-converter = DTDLToFabricConverter(
-    namespace="usertypes",
-    flatten_components=False
+from src.dtdl import (
+    DTDLToFabricConverter,
+    ComponentMode,
+    CommandMode,
+    ScaledDecimalMode
 )
 
+# Basic usage (default modes)
+converter = DTDLToFabricConverter(
+    namespace="usertypes"
+)
+result = converter.convert(interfaces)
+
+# Advanced usage with all modes configured
+converter = DTDLToFabricConverter(
+    namespace="usertypes",
+    component_mode=ComponentMode.SEPARATE,    # Create separate entities for components
+    command_mode=CommandMode.ENTITY,          # Create Command entities
+    scaled_decimal_mode=ScaledDecimalMode.STRUCTURED  # Create _scale/_value properties
+)
 result = converter.convert(interfaces)
 definition = converter.to_fabric_definition(result, "my_ontology")
 ```
 
+**Constructor Parameters:**
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `id_prefix` | `int` | `1000000000000` | Base prefix for generated IDs |
+| `namespace` | `str` | `"usertypes"` | Namespace for entity types |
+| `component_mode` | `ComponentMode` | `SKIP` | How to handle DTDL Components |
+| `command_mode` | `CommandMode` | `SKIP` | How to handle DTDL Commands |
+| `scaled_decimal_mode` | `ScaledDecimalMode` | `JSON_STRING` | How to handle scaledDecimal |
+| `flatten_components` | `bool` | `False` | DEPRECATED: Use `component_mode=FLATTEN` |
+| `include_commands` | `bool` | `False` | DEPRECATED: Use `command_mode=PROPERTY` |
+
+#### `ComponentMode` Enum
+
+| Value | Behavior |
+|-------|----------|
+| `SKIP` | Components are ignored (default) |
+| `FLATTEN` | Properties merged into parent with `{component}_` prefix |
+| `SEPARATE` | Creates separate EntityType with `has_{component}` relationship |
+
+#### `CommandMode` Enum
+
+| Value | Behavior |
+|-------|----------|
+| `SKIP` | Commands are ignored (default) |
+| `PROPERTY` | Creates `command_{name}` String property |
+| `ENTITY` | Creates `Command_{name}` EntityType with request/response properties |
+
+#### `ScaledDecimalMode` Enum
+
+| Value | Behavior |
+|-------|----------|
+| `JSON_STRING` | Stored as JSON: `{"scale": n, "value": "x"}` (default) |
+| `STRUCTURED` | Creates `{prop}_scale` (BigInt) and `{prop}_value` (String) properties |
+| `CALCULATED` | Calculates `value × 10^scale` and stores as Double |
+
+#### `ScaledDecimalValue` Class
+
+Helper class for working with scaledDecimal values.
+
+```python
+from src.dtdl import ScaledDecimalValue
+
+# Create and calculate
+sd = ScaledDecimalValue(scale=7, value="1234.56")
+actual = sd.calculate_actual_value()  # Returns 12345600000.0
+
+# Get JSON representation
+json_obj = sd.to_json_object()
+# {"scale": 7, "value": "1234.56", "calculatedValue": 12345600000.0}
+```
+
 **v4 Type Mappings:**
-| DTDL v4 Type | Fabric ValueType |
-|--------------|------------------|
-| `scaledDecimal` | `string` (JSON-encoded) |
-| `byte` | `integer` |
-| `bytes` | `binary` |
-| `decimal` | `string` |
-| `short` | `integer` |
-| `uuid` | `string` |
-| `unsignedByte` | `integer` |
-| `unsignedShort` | `integer` |
-| `unsignedInteger` | `integer` |
-| `unsignedLong` | `integer` |
+| DTDL v4 Type | Fabric ValueType | Notes |
+|--------------|------------------|-------|
+| `scaledDecimal` | `String` / `Double` | Depends on `scaled_decimal_mode` |
+| `byte` | `BigInt` | |
+| `bytes` | `String` | Base64 encoded |
+| `decimal` | `Double` | |
+| `short` | `BigInt` | |
+| `uuid` | `String` | |
+| `unsignedByte` | `BigInt` | |
+| `unsignedShort` | `BigInt` | |
+| `unsignedInteger` | `BigInt` | |
+| `unsignedLong` | `BigInt` | |
 
 ---
 

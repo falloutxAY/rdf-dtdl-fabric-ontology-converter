@@ -46,6 +46,12 @@ try:
         FabricLimitsValidator,
         EntityIdPartsInferrer,
     )
+    from .core.compliance import (
+        RDFOWLComplianceValidator,
+        FabricComplianceChecker,
+        ConversionReportGenerator,
+        ConversionReport,
+    )
     from .models import (
         EntityType,
         EntityTypeProperty,
@@ -71,6 +77,19 @@ except ImportError:
         FabricLimitsValidator,
         EntityIdPartsInferrer,
     )
+    try:
+        from core.compliance import (
+            RDFOWLComplianceValidator,
+            FabricComplianceChecker,
+            ConversionReportGenerator,
+            ConversionReport,
+        )
+    except ImportError:
+        # Define fallback if compliance not available
+        RDFOWLComplianceValidator = None  # type: ignore[assignment, misc]
+        FabricComplianceChecker = None  # type: ignore[assignment, misc]
+        ConversionReportGenerator = None  # type: ignore[assignment, misc]
+        ConversionReport = None  # type: ignore[assignment, misc]
     from models import (
         EntityType,
         EntityTypeProperty,
@@ -520,6 +539,108 @@ class RDFToFabricConverter:
             )
         
         return entity_list, relationship_list
+    
+    def parse_ttl_with_compliance_report(
+        self, 
+        ttl_content: str, 
+        force_large_file: bool = False
+    ) -> Tuple[ConversionResult, Optional["ConversionReport"]]:
+        """
+        Parse RDF TTL content with a compliance report.
+        
+        This method performs the standard conversion and additionally generates
+        a detailed compliance report showing:
+        - RDF/OWL compliance issues
+        - Fabric API limit compliance
+        - Features that are preserved, limited, or lost in conversion
+        
+        Args:
+            ttl_content: The TTL content as a string
+            force_large_file: If True, skip memory safety checks for large files
+        
+        Returns:
+            Tuple of (ConversionResult, ConversionReport or None)
+            The report may be None if compliance module is not available
+            
+        Raises:
+            ValueError: If TTL content is empty or has invalid syntax
+            MemoryError: If insufficient memory is available to parse the file
+        """
+        # Delegate TTL parsing to RDFGraphParser
+        graph, triple_count, content_size_mb = RDFGraphParser.parse_ttl_content(
+            ttl_content, force_large_file
+        )
+        
+        # Reset state (includes skipped_items and conversion_warnings)
+        self._reset_state()
+        
+        # Step 1: Extract all classes (entity types) using ClassExtractor
+        self.entity_types, class_uri_to_id = ClassExtractor.extract_classes(
+            graph, self._generate_id, self._uri_to_name
+        )
+        self.uri_to_id.update(class_uri_to_id)
+        
+        # Step 2: Extract data properties using DataPropertyExtractor
+        self.property_to_domain, prop_uri_to_id = DataPropertyExtractor.extract_data_properties(
+            graph, self.entity_types, self._generate_id, self._uri_to_name
+        )
+        self.uri_to_id.update(prop_uri_to_id)
+        
+        # Step 3: Extract object properties (relationships) using ObjectPropertyExtractor
+        self.relationship_types, rel_uri_to_id = ObjectPropertyExtractor.extract_object_properties(
+            graph, self.entity_types, self.property_to_domain,
+            self._generate_id, self._uri_to_name, self._add_skipped_item
+        )
+        self.uri_to_id.update(rel_uri_to_id)
+        
+        # Step 4: Set entity ID parts and display name properties
+        EntityIdentifierSetter.set_identifiers(self.entity_types)
+        
+        entity_list = list(self.entity_types.values())
+        relationship_list = list(self.relationship_types.values())
+        
+        logger.info(
+            f"Parsed {len(entity_list)} entity types and "
+            f"{len(relationship_list)} relationship types"
+        )
+        
+        if self.skipped_items:
+            logger.info(f"Skipped {len(self.skipped_items)} items during conversion")
+        
+        # Create conversion result
+        result = ConversionResult(
+            entity_types=entity_list,
+            relationship_types=relationship_list,
+            skipped_items=self.skipped_items.copy(),
+            warnings=self.conversion_warnings.copy(),
+            triple_count=triple_count
+        )
+        
+        # Generate compliance report if module is available
+        report = None
+        if ConversionReportGenerator is not None:
+            try:
+                report = ConversionReportGenerator.generate_rdf_report(
+                    graph=graph,
+                    conversion_result=result
+                )
+                
+                # Log conversion warnings
+                for warning in report.warnings:
+                    logger.warning(
+                        f"Conversion warning [{warning.impact.value}]: "
+                        f"{warning.feature} - {warning.message}"
+                    )
+                
+                # Log summary
+                logger.info(
+                    f"Compliance report: {report.total_issues} issues, "
+                    f"{len(report.warnings)} conversion warnings"
+                )
+            except Exception as e:
+                logger.warning(f"Failed to generate compliance report: {e}")
+        
+        return result, report
 
 
 class StreamingRDFConverter:

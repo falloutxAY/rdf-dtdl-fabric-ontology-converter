@@ -44,7 +44,14 @@ from .dtdl_models import (
 
 from .dtdl_parser import DTDLParser
 from .dtdl_validator import DTDLValidator, DTDLValidationError
-from .dtdl_converter import DTDLToFabricConverter, DTDL_TO_FABRIC_TYPE
+from .dtdl_converter import (
+    DTDLToFabricConverter,
+    DTDL_TO_FABRIC_TYPE,
+    ComponentMode,
+    CommandMode,
+    ScaledDecimalMode,
+    ScaledDecimalValue,
+)
 from .dtdl_type_mapper import (
     DTDLTypeMapper,
     TypeMappingResult,
@@ -80,6 +87,11 @@ __all__ = [
     'DTDLValidationError',
     'DTDLToFabricConverter',
     'DTDL_TO_FABRIC_TYPE',
+    # Converter mode enums
+    'ComponentMode',
+    'CommandMode',
+    'ScaledDecimalMode',
+    'ScaledDecimalValue',
     # Type Mapper
     'DTDLTypeMapper',
     'TypeMappingResult',

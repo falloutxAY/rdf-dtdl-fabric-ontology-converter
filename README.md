@@ -317,7 +317,31 @@ The RealEstateCore DTDL ontology (~269 interfaces) has been successfully tested 
 
 ## Limitations
 
-**Conversions are not 1:1**: RDF/OWL is highly expressive with features like complex class expressions, property restrictions, and inference-driven semantics that cannot be fully represented in Microsoft Fabric Ontology's business-friendly model.
+**Conversions are not 1:1**: RDF/OWL is highly expressive with features like complex class expressions, property restrictions, and inference-driven semantics that cannot be fully represented in Microsoft Fabric Ontology's business-friendly model. Similarly, some DTDL features have limited or no support in Fabric.
+
+### ⚠️ Information Loss Warning
+
+When converting ontologies to Fabric format, **some information may be lost or transformed**:
+
+| Source Format | Feature Type | Impact |
+|---------------|-------------|--------|
+| **RDF/OWL** | Property restrictions (owl:Restriction, cardinality) | Lost - constraints not enforced |
+| **RDF/OWL** | Property characteristics (transitive, symmetric) | Lost - semantic behavior lost |
+| **RDF/OWL** | Complex class expressions (owl:intersectionOf) | Flattened - semantics simplified |
+| **DTDL** | Commands | Not converted (optional include) |
+| **DTDL** | Complex schemas (Enum, Object, Array, Map) | Serialized to JSON String |
+| **DTDL** | Multiple inheritance (extends) | First parent only |
+
+**Use compliance reports** to understand exactly what will be preserved, limited, or lost:
+
+```python
+from src.dtdl.dtdl_converter import DTDLToFabricConverter
+converter = DTDLToFabricConverter()
+result, report = converter.convert_with_compliance_report(interfaces)
+if report:
+    for warning in report.warnings:
+        print(f"[{warning.impact.value}] {warning.feature}: {warning.message}")
+```
 
 ### Pre-flight Validation
 
@@ -328,7 +352,7 @@ python src\main.py rdf-validate samples\sample_foaf_ontology.ttl --verbose
 ```
 
 For complete details, see:
-- **[Mapping Limitations](docs/MAPPING_LIMITATIONS.md)** - Why TTL → Fabric is not perfectly lossless
+- **[Mapping Limitations](docs/MAPPING_LIMITATIONS.md)** - Full list of supported/unsupported features and their impact
 
 
 ## Documentation

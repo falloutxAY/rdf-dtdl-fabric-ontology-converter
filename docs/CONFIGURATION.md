@@ -303,6 +303,75 @@ inferrer = EntityIdPartsInferrer(
 updated_count = inferrer.infer_all(entity_types)
 ```
 
+### DTDL Conversion Settings
+
+Configure how DTDL elements are converted to Fabric Ontology format.
+
+| Setting | Type | Default | Description |
+|---------|------|---------|-------------|
+| `dtdl.component_mode` | string | `"skip"` | How to handle DTDL Components |
+| `dtdl.command_mode` | string | `"skip"` | How to handle DTDL Commands |
+| `dtdl.scaled_decimal_mode` | string | `"json_string"` | How to handle scaledDecimal properties |
+
+#### Component Mode Options
+
+| Mode | Behavior |
+|------|----------|
+| `skip` | Components are ignored (default) |
+| `flatten` | Component properties merged into parent entity with `{component}_` prefix |
+| `separate` | Component becomes separate EntityType with `has_{component}` relationship |
+
+#### Command Mode Options
+
+| Mode | Behavior |
+|------|----------|
+| `skip` | Commands are ignored (default) |
+| `property` | Creates `command_{name}` String property per command |
+| `entity` | Creates `Command_{name}` EntityType with request/response properties |
+
+#### ScaledDecimal Mode Options
+
+| Mode | Behavior |
+|------|----------|
+| `json_string` | Stored as JSON string: `{"scale": n, "value": "x"}` (default) |
+| `structured` | Creates `{prop}_scale` (BigInt) and `{prop}_value` (String) properties |
+| `calculated` | Calculates actual value (`value × 10^scale`) as Double |
+
+**Example Configuration:**
+
+```json
+{
+  "dtdl": {
+    "component_mode": "separate",
+    "command_mode": "entity",
+    "scaled_decimal_mode": "structured"
+  }
+}
+```
+
+**Programmatic Usage:**
+
+```python
+from src.dtdl import (
+    DTDLToFabricConverter,
+    ComponentMode,
+    CommandMode,
+    ScaledDecimalMode
+)
+
+# Full feature conversion
+converter = DTDLToFabricConverter(
+    component_mode=ComponentMode.SEPARATE,
+    command_mode=CommandMode.ENTITY,
+    scaled_decimal_mode=ScaledDecimalMode.STRUCTURED
+)
+
+result = converter.convert(interfaces)
+# Components become separate EntityTypes with relationships
+# Commands become CommandType entities with request/response properties
+# ScaledDecimal creates _scale and _value suffix properties
+```
+
 ### Circuit Breaker Settings
 
 Prevents cascading failures when the API is unhealthy.

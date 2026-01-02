@@ -39,6 +39,11 @@
             "explicit_mappings": {}
         }
     },
+    "dtdl": {
+        "component_mode": "skip",
+        "command_mode": "skip",
+        "scaled_decimal_mode": "json_string"
+    },
     "logging": {
         "level": "INFO",
         "file": "logs/app.log",

@@ -63,6 +63,24 @@ from .validators import (
     EntityIdPartsInferrer,
 )
 
+# Compliance validation and conversion warnings
+from .compliance import (
+    ComplianceLevel,
+    ConversionImpact,
+    DTDLVersion,
+    ComplianceIssue,
+    ConversionWarning,
+    ComplianceResult,
+    ConversionReport,
+    DTDLComplianceValidator,
+    RDFOWLComplianceValidator,
+    FabricComplianceChecker,
+    ConversionReportGenerator,
+    DTDL_LIMITS,
+    OWL_CONSTRUCT_SUPPORT,
+    DTDL_FEATURE_SUPPORT,
+)
+
 # Re-export constants from parent module
 try:
     from ..constants import (
@@ -114,6 +132,21 @@ __all__ = [
     "FabricLimitsValidator",
     "FabricLimitValidationError",
     "EntityIdPartsInferrer",
+    # Compliance validation and conversion warnings
+    "ComplianceLevel",
+    "ConversionImpact",
+    "DTDLVersion",
+    "ComplianceIssue",
+    "ConversionWarning",
+    "ComplianceResult",
+    "ConversionReport",
+    "DTDLComplianceValidator",
+    "RDFOWLComplianceValidator",
+    "FabricComplianceChecker",
+    "ConversionReportGenerator",
+    "DTDL_LIMITS",
+    "OWL_CONSTRUCT_SUPPORT",
+    "DTDL_FEATURE_SUPPORT",
     # Constants
     "ExitCode",
     "MemoryLimits",
