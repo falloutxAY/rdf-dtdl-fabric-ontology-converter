@@ -18,13 +18,6 @@ If you discover a security vulnerability, please do **not** create a public GitH
    - Potential impact
    - Suggested remediation (if known)
 2. Please encrypt sensitive details if possible.
-3. We aim to acknowledge reports within **3 business days** and provide a remediation plan within **10 business days**.
-
-## Disclosure Process
-
-- We will work with you to understand the scope and impact.
-- A fix will be developed, tested, and released.
-- Once a fix is available, we will publish an advisory and credit you (if desired).
 
 ## Scope
 
