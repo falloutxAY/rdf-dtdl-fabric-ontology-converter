@@ -123,8 +123,9 @@ For the complete command reference, see [docs/COMMANDS.md](docs/COMMANDS.md).
 ### 📚 User Guides
 - **[Configuration Guide](docs/CONFIGURATION.md)** – Detailed setup, authentication, and API configuration
 - **[Commands Reference](docs/COMMANDS.md)** – Complete command-line reference
+- **[RDF Guide](docs/RDF_GUIDE.md)** – RDF/OWL import, mapping, and examples
 - **[DTDL Guide](docs/DTDL_GUIDE.md)** – DTDL import, mapping, and examples
-- **[Mapping Limitations](docs/MAPPING_LIMITATIONS.md)** – RDF/DTDL → Fabric conversion constraints
+- **[Mapping Limitations](docs/MAPPING_LIMITATIONS.md)** – RDF & DTDL → Fabric conversion constraints
 - **[Troubleshooting](docs/TROUBLESHOOTING.md)** – Common issues and solutions
 
 ### 🛠️ Developer Guides  

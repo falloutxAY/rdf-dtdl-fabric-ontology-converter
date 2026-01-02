@@ -17,6 +17,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 - Community documentation: CONTRIBUTING, CODE_OF_CONDUCT, SECURITY, and CHANGELOG.
 - Standards compliance review docs in `review/`.
 - New DTDL v4 test suite with 13 comprehensive tests
+- **Documentation Structure**: Created consistent documentation with Table of Contents
+  - New `docs/RDF_GUIDE.md` parallel to `docs/DTDL_GUIDE.md`
+  - Added TOCs to all major docs (API, COMMANDS, CONFIGURATION, TESTING, TROUBLESHOOTING)
+  - Renamed MAPPING_LIMITATIONS.md title to clarify it covers both RDF and DTDL
 
 ### Changed
 - **Package Reorganization**: Consolidated folder structure for consistency

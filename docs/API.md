@@ -2,6 +2,20 @@
 
 This document provides detailed API documentation for the RDF/DTDL to Microsoft Fabric Ontology converter.
 
+## Table of Contents
+
+- [Package Structure](#package-structure)
+- [Core Modules](#core-modules)
+- [Core Utilities](#core-utilities)
+- [Streaming Engine](#streaming-engine)
+- [RDF Converter](#rdf-converter)
+- [DTDL Converter](#dtdl-converter)
+- [Fabric Client](#fabric-client)
+- [RDF Converter Components](#rdf-converter-components)
+- [CLI Commands](#cli-commands)
+- [Error Handling](#error-handling)
+- [Type Mappings](#type-mappings)
+
 ---
 
 ## Package Structure

@@ -2,6 +2,17 @@
 
 This document provides a comprehensive reference for all CLI commands available in the RDF/DTDL to Microsoft Fabric Ontology Converter.
 
+## Table of Contents
+
+- [Command Naming Convention](#command-naming-convention)
+- [Feature Comparison Matrix](#feature-comparison-matrix)
+- [RDF Commands](#rdf-commands)
+- [DTDL Commands](#dtdl-commands)
+- [Common Commands](#common-commands)
+- [Streaming Mode](#streaming-mode)
+- [Exit Codes](#exit-codes)
+- [See Also](#see-also)
+
 ## Command Naming Convention
 
 - **RDF commands**: Use `rdf-` prefix (e.g., `rdf-validate`, `rdf-convert`)

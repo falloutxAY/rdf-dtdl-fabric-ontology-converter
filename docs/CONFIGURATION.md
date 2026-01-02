@@ -1,5 +1,18 @@
 # Configuration Guide
 
+## Table of Contents
+
+- [Authentication](#authentication)
+- [Finding Your Configuration Values](#finding-your-configuration-values)
+- [Environment Variables](#environment-variables)
+- [Security Best Practices](#security-best-practices)
+- [Config - Interactive Authentication](#config---interactive-authentication)
+- [Config - Service Principal](#config---service-principal)
+- [Configuration Options](#configuration-options)
+- [Troubleshooting](#troubleshooting)
+- [Configuration Validation](#configuration-validation)
+- [Multiple Configurations](#multiple-configurations)
+
 ## Authentication
 
 Two options:

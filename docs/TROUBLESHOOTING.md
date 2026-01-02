@@ -1,5 +1,19 @@
 # Troubleshooting Guide
 
+## Table of Contents
+
+- [Quick Diagnostics](#quick-diagnostics)
+- [Common Errors](#common-errors)
+- [Authentication Issues](#authentication-issues)
+- [Upload Issues](#upload-issues)
+- [Circuit Breaker Issues](#circuit-breaker-issues)
+- [Memory Management](#memory-management)
+- [Valid TTL Example](#valid-ttl-example)
+- [Enable Debug Logging](#enable-debug-logging)
+- [Testing Issues](#testing-issues)
+- [Path Issues](#path-issues)
+- [Additional Resources](#additional-resources)
+
 ## Quick Diagnostics
 
 ```powershell

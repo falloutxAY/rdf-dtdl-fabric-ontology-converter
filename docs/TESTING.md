@@ -1,5 +1,18 @@
 # Testing
 
+## Table of Contents
+
+- [🚀 Quick Start](#-quick-start)
+- [📋 Test Files](#-test-files-consolidated)
+- [Running Tests](#running-tests)
+- [✨ Sample Output](#-sample-output)
+- [What the Tests Cover](#what-the-tests-cover)
+- [Adding New Tests](#adding-new-tests)
+- [Troubleshooting](#troubleshooting)
+- [Dependencies](#dependencies)
+- [💡 Best Practices](#-best-practices)
+- [📚 API Documentation](#-api-documentation)
+
 ## 🚀 Quick Start
 
 ```powershell
