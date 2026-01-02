@@ -1,0 +1,49 @@
+{
+  "@context": "dtmi:dtdl:context;4",
+  "@id": "dtmi:com:example:manufacturing:Factory;1",
+  "@type": "Interface",
+  "displayName": "Factory",
+  "description": "Represents a manufacturing facility",
+  "contents": [
+    {
+      "@type": "Property",
+      "name": "factoryId",
+      "displayName": "Factory ID",
+      "schema": "string"
+    },
+    {
+      "@type": "Property",
+      "name": "name",
+      "displayName": "Factory Name",
+      "schema": "string"
+    },
+    {
+      "@type": "Property",
+      "name": "location",
+      "displayName": "Location",
+      "schema": {
+        "@type": "Object",
+        "fields": [
+          {
+            "name": "city",
+            "schema": "string"
+          },
+          {
+            "name": "country",
+            "schema": "string"
+          },
+          {
+            "name": "coordinates",
+            "schema": "point"
+          }
+        ]
+      }
+    },
+    {
+      "@type": "Relationship",
+      "name": "hasProductionLine",
+      "displayName": "Has Production Line",
+      "target": "dtmi:com:example:manufacturing:ProductionLine;1"
+    }
+  ]
+}

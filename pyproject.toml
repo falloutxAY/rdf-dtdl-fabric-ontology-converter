@@ -1,0 +1,63 @@
+[build-system]
+requires = ["setuptools>=65", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "fabric-ontology-importer"
+version = "1.0.0"
+description = "Convert RDF/TTL and DTDL ontologies into Microsoft Fabric Ontology definitions."
+readme = "README.md"
+authors = [{ name = "Fabric Ontology Maintainers", email = "fabric-ontology-owners@example.com" }]
+license = { file = "LICENSE" }
+requires-python = ">=3.9"
+keywords = ["rdf", "dtdl", "fabric", "ontology", "converter"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+    "rdflib>=7.0.0",
+    "azure-identity>=1.15.0",
+    "requests>=2.31.0",
+    "msal>=1.26.0",
+    "tenacity>=8.2.0",
+    "tqdm>=4.66.0",
+    "psutil>=5.9.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0",
+    "ruff>=0.6.8",
+    "mypy>=1.10.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/your-org/fabric-ontology-importer"
+Documentation = "https://github.com/your-org/fabric-ontology-importer#readme"
+Issues = "https://github.com/your-org/fabric-ontology-importer/issues"
+
+[tool.pytest.ini_options]
+minversion = "7.0"
+addopts = "-ra -q"
+testpaths = [
+    "tests",
+]
+
+[tool.mypy]
+python_version = "3.9"
+warn_return_any = true
+warn_unused_configs = true
+ignore_missing_imports = true
+packages = ["src"]
+
+[tool.ruff]
+target-version = "py39"
+line-length = 100
+extend-select = ["I", "UP", "B"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "auto"

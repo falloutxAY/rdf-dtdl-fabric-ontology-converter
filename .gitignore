@@ -44,15 +44,22 @@ code-validation/
 # Testing
 .pytest_cache/
 .coverage
+coverage.xml
 htmlcov/
 .tox/
 .hypothesis/
 test_results.txt
 *.cover
 
+# Type checking
+.mypy_cache/
+.ruff_cache/
+
 # Logs
 *.log
 logs/
+src/logs/
+**/logs/
 
 # Secrets and credentials
 config.json
@@ -63,6 +70,24 @@ config.json
 *.key
 *.env
 .env*
+.envrc
+.envrc*
+.azure/
+*.azureauth
+*.publishsettings
+azureProfile.json
+AzureProfile.json
+*.secrets.json
+*.secrets.yaml
+*.secret
+*.token
+*.auth
+*.tfvars
+*.tfvars.json
+terraform.tfstate
+terraform.tfstate.*
+*.db
+*.sqlite*
 secrets/
 credentials/
 

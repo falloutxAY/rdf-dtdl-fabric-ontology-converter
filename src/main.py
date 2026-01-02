@@ -2,9 +2,10 @@
 """
 RDF TTL to Microsoft Fabric Ontology Uploader
 
-This is the main entry point for uploading RDF TTL ontologies to Microsoft Fabric.
+This is the main entry point for uploading RDF TTL and DTDL ontologies to Microsoft Fabric.
 
 Usage:
+    # RDF/TTL Commands
     python main.py upload <ttl_file> [--config <config.json>] [--name <ontology_name>]
     python main.py validate <ttl_file> [--verbose]
     python main.py list [--config <config.json>]
@@ -14,6 +15,11 @@ Usage:
     python main.py convert <ttl_file> [--output <output.json>]
     python main.py export <ontology_id> [--output <output.ttl>]
     python main.py compare <ttl_file1> <ttl_file2>
+    
+    # DTDL Commands
+    python main.py dtdl-validate <path> [--recursive]
+    python main.py dtdl-convert <path> [--output <output.json>] [--ontology-name <name>]
+    python main.py dtdl-import <path> [--ontology-name <name>] [--config <config.json>]
 
 Architecture:
     This module provides the main entry point and delegates to the cli/ module
@@ -42,11 +48,16 @@ from cli import (
     ConvertCommand,
     ExportCommand,
     CompareCommand,
+    # DTDL commands
+    DTDLValidateCommand,
+    DTDLConvertCommand,
+    DTDLImportCommand,
 )
 
 
 # Command mapping from command name to Command class
 COMMAND_MAP = {
+    # RDF/TTL commands
     'validate': ValidateCommand,
     'upload': UploadCommand,
     'list': ListCommand,
@@ -56,6 +67,10 @@ COMMAND_MAP = {
     'convert': ConvertCommand,
     'export': ExportCommand,
     'compare': CompareCommand,
+    # DTDL commands
+    'dtdl-validate': DTDLValidateCommand,
+    'dtdl-convert': DTDLConvertCommand,
+    'dtdl-import': DTDLImportCommand,
 }
 
 

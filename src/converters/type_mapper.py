@@ -18,20 +18,57 @@ FabricType = str  # One of: "String", "Boolean", "DateTime", "BigInt", "Double"
 
 # XSD type to Fabric value type mapping
 XSD_TO_FABRIC_TYPE: Dict[str, FabricType] = {
+    # String types
     str(XSD.string): "String",
+    str(XSD.anyURI): "String",
+    str(XSD.normalizedString): "String",
+    str(XSD.token): "String",
+    str(XSD.language): "String",
+    str(XSD.Name): "String",
+    str(XSD.NCName): "String",
+    str(XSD.NMTOKEN): "String",
+    
+    # Boolean
     str(XSD.boolean): "Boolean",
+    
+    # Date/Time types
     str(XSD.dateTime): "DateTime",
     str(XSD.date): "DateTime",
     str(XSD.dateTimeStamp): "DateTime",
+    # Time-only is not directly supported by Fabric; preserve as String
+    str(XSD.time): "String",
+    # Duration stored as ISO 8601 string
+    str(XSD.duration): "String",
+    str(XSD.dayTimeDuration): "String",
+    str(XSD.yearMonthDuration): "String",
+    
+    # Integer types
     str(XSD.integer): "BigInt",
     str(XSD.int): "BigInt",
     str(XSD.long): "BigInt",
+    str(XSD.short): "BigInt",
+    str(XSD.byte): "BigInt",
+    str(XSD.nonNegativeInteger): "BigInt",
+    str(XSD.positiveInteger): "BigInt",
+    str(XSD.nonPositiveInteger): "BigInt",
+    str(XSD.negativeInteger): "BigInt",
+    str(XSD.unsignedInt): "BigInt",
+    str(XSD.unsignedLong): "BigInt",
+    str(XSD.unsignedShort): "BigInt",
+    str(XSD.unsignedByte): "BigInt",
+    
+    # Floating point types
     str(XSD.double): "Double",
     str(XSD.float): "Double",
-    str(XSD.decimal): "Double",
-    str(XSD.anyURI): "String",
-    # Time-only is not directly supported by Fabric; preserve as String
-    str(XSD.time): "String",
+    str(XSD.decimal): "Double",  # Note: Precision loss possible
+    
+    # Binary types (stored as base64/hex string)
+    str(XSD.base64Binary): "String",
+    str(XSD.hexBinary): "String",
+    
+    # Other types mapped to String
+    str(XSD.QName): "String",
+    str(XSD.NOTATION): "String",
 }
 
 # Type hierarchy for union resolution (most to least restrictive)
@@ -39,11 +76,14 @@ TYPE_HIERARCHY = [
     ([str(XSD.boolean)], "Boolean"),
     ([str(XSD.integer), str(XSD.int), str(XSD.long), str(XSD.short), str(XSD.byte), 
       str(XSD.nonNegativeInteger), str(XSD.positiveInteger), str(XSD.unsignedInt),
-      str(XSD.unsignedLong), str(XSD.unsignedShort), str(XSD.unsignedByte)], "BigInt"),
+      str(XSD.unsignedLong), str(XSD.unsignedShort), str(XSD.unsignedByte),
+      str(XSD.nonPositiveInteger), str(XSD.negativeInteger)], "BigInt"),
     ([str(XSD.double), str(XSD.float), str(XSD.decimal)], "Double"),
     ([str(XSD.dateTime), str(XSD.date), str(XSD.dateTimeStamp)], "DateTime"),
     ([str(XSD.string), str(XSD.anyURI), str(XSD.normalizedString), str(XSD.token),
-      str(XSD.language), str(XSD.Name), str(XSD.NCName), str(XSD.NMTOKEN)], "String"),
+      str(XSD.language), str(XSD.Name), str(XSD.NCName), str(XSD.NMTOKEN),
+      str(XSD.time), str(XSD.duration), str(XSD.dayTimeDuration), str(XSD.yearMonthDuration),
+      str(XSD.base64Binary), str(XSD.hexBinary), str(XSD.QName), str(XSD.NOTATION)], "String"),
 ]
 
 

@@ -1,0 +1,50 @@
+{
+  "@context": "dtmi:dtdl:context;4",
+  "@id": "dtmi:com:example:Thermostat;1",
+  "@type": "Interface",
+  "displayName": "Thermostat",
+  "description": "A simple thermostat device that reports temperature and allows setting target temperature.",
+  "contents": [
+    {
+      "@type": "Property",
+      "name": "serialNumber",
+      "displayName": "Serial Number",
+      "description": "Unique identifier for this device instance",
+      "schema": "string"
+    },
+    {
+      "@type": "Property",
+      "name": "targetTemperature",
+      "displayName": "Target Temperature",
+      "description": "The desired temperature setpoint",
+      "schema": "double",
+      "writable": true
+    },
+    {
+      "@type": "Telemetry",
+      "name": "currentTemperature",
+      "displayName": "Current Temperature",
+      "description": "The current measured temperature",
+      "schema": "double"
+    },
+    {
+      "@type": "Telemetry",
+      "name": "humidity",
+      "displayName": "Humidity",
+      "description": "The current relative humidity",
+      "schema": "double"
+    },
+    {
+      "@type": "Command",
+      "name": "reboot",
+      "displayName": "Reboot",
+      "description": "Reboots the device",
+      "request": {
+        "name": "delay",
+        "displayName": "Delay",
+        "description": "Delay in seconds before reboot",
+        "schema": "integer"
+      }
+    }
+  ]
+}

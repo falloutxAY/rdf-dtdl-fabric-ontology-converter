@@ -1,0 +1,80 @@
+{
+  "@context": "dtmi:dtdl:context;4",
+  "@id": "dtmi:com:example:manufacturing:ProductionLine;1",
+  "@type": "Interface",
+  "displayName": "Production Line",
+  "description": "Represents a production line within a factory",
+  "contents": [
+    {
+      "@type": "Property",
+      "name": "lineId",
+      "displayName": "Line ID",
+      "schema": "string"
+    },
+    {
+      "@type": "Property",
+      "name": "name",
+      "displayName": "Line Name",
+      "schema": "string"
+    },
+    {
+      "@type": "Property",
+      "name": "capacity",
+      "displayName": "Capacity",
+      "description": "Production capacity per hour",
+      "schema": "integer"
+    },
+    {
+      "@type": "Property",
+      "name": "status",
+      "displayName": "Status",
+      "schema": {
+        "@type": "Enum",
+        "valueSchema": "string",
+        "enumValues": [
+          {
+            "name": "running",
+            "displayName": "Running",
+            "enumValue": "RUNNING"
+          },
+          {
+            "name": "stopped",
+            "displayName": "Stopped",
+            "enumValue": "STOPPED"
+          },
+          {
+            "name": "maintenance",
+            "displayName": "Maintenance",
+            "enumValue": "MAINTENANCE"
+          }
+        ]
+      }
+    },
+    {
+      "@type": "Telemetry",
+      "name": "throughput",
+      "displayName": "Throughput",
+      "description": "Current throughput per minute",
+      "schema": "double"
+    },
+    {
+      "@type": "Telemetry",
+      "name": "efficiency",
+      "displayName": "Efficiency",
+      "description": "Current efficiency percentage",
+      "schema": "double"
+    },
+    {
+      "@type": "Relationship",
+      "name": "hasMachine",
+      "displayName": "Has Machine",
+      "target": "dtmi:com:example:manufacturing:Machine;1"
+    },
+    {
+      "@type": "Relationship",
+      "name": "belongsToFactory",
+      "displayName": "Belongs To Factory",
+      "target": "dtmi:com:example:manufacturing:Factory;1"
+    }
+  ]
+}

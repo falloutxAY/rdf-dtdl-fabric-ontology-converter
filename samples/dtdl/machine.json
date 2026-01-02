@@ -1,0 +1,114 @@
+{
+  "@context": "dtmi:dtdl:context;4",
+  "@id": "dtmi:com:example:manufacturing:Machine;1",
+  "@type": "Interface",
+  "displayName": "Machine",
+  "description": "Represents a machine on a production line",
+  "contents": [
+    {
+      "@type": "Property",
+      "name": "machineId",
+      "displayName": "Machine ID",
+      "schema": "string"
+    },
+    {
+      "@type": "Property",
+      "name": "name",
+      "displayName": "Machine Name",
+      "schema": "string"
+    },
+    {
+      "@type": "Property",
+      "name": "manufacturer",
+      "displayName": "Manufacturer",
+      "schema": "string"
+    },
+    {
+      "@type": "Property",
+      "name": "model",
+      "displayName": "Model",
+      "schema": "string"
+    },
+    {
+      "@type": "Property",
+      "name": "installDate",
+      "displayName": "Installation Date",
+      "schema": "date"
+    },
+    {
+      "@type": "Property",
+      "name": "lastMaintenanceDate",
+      "displayName": "Last Maintenance Date",
+      "schema": "dateTime"
+    },
+    {
+      "@type": "Property",
+      "name": "operatingHours",
+      "displayName": "Operating Hours",
+      "schema": "long"
+    },
+    {
+      "@type": "Telemetry",
+      "name": "temperature",
+      "displayName": "Temperature",
+      "description": "Machine operating temperature",
+      "schema": "double"
+    },
+    {
+      "@type": "Telemetry",
+      "name": "vibration",
+      "displayName": "Vibration",
+      "description": "Vibration level (mm/s)",
+      "schema": "double"
+    },
+    {
+      "@type": "Telemetry",
+      "name": "powerConsumption",
+      "displayName": "Power Consumption",
+      "description": "Current power consumption in kW",
+      "schema": "double"
+    },
+    {
+      "@type": "Telemetry",
+      "name": "cycleCount",
+      "displayName": "Cycle Count",
+      "description": "Number of cycles completed",
+      "schema": "long"
+    },
+    {
+      "@type": "Command",
+      "name": "start",
+      "displayName": "Start Machine",
+      "description": "Start the machine"
+    },
+    {
+      "@type": "Command",
+      "name": "stop",
+      "displayName": "Stop Machine",
+      "description": "Stop the machine"
+    },
+    {
+      "@type": "Command",
+      "name": "setSpeed",
+      "displayName": "Set Speed",
+      "description": "Set the machine operating speed",
+      "request": {
+        "name": "speedPercent",
+        "displayName": "Speed Percentage",
+        "schema": "integer"
+      }
+    },
+    {
+      "@type": "Relationship",
+      "name": "belongsToLine",
+      "displayName": "Belongs To Line",
+      "target": "dtmi:com:example:manufacturing:ProductionLine;1"
+    },
+    {
+      "@type": "Relationship",
+      "name": "produces",
+      "displayName": "Produces",
+      "target": "dtmi:com:example:manufacturing:Product;1"
+    }
+  ]
+}

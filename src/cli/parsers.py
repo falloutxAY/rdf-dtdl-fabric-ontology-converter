@@ -47,6 +47,11 @@ Examples:
     _add_export_parser(subparsers)
     _add_compare_parser(subparsers)
     
+    # DTDL commands
+    _add_dtdl_validate_parser(subparsers)
+    _add_dtdl_convert_parser(subparsers)
+    _add_dtdl_import_parser(subparsers)
+    
     return parser
 
 
@@ -231,4 +236,107 @@ def _add_compare_parser(subparsers: argparse._SubParsersAction) -> None:
         '--allow-relative-up',
         action='store_true',
         help="Permit '..' in path only if the resolved path stays within the current directory"
+    )
+
+
+# ============================================================================
+# DTDL Command Parsers
+# ============================================================================
+
+def _add_dtdl_validate_parser(subparsers: argparse._SubParsersAction) -> None:
+    """Add the dtdl-validate command parser."""
+    parser = subparsers.add_parser(
+        'dtdl-validate',
+        help='Validate DTDL files or directory'
+    )
+    parser.add_argument('path', help='Path to DTDL file or directory')
+    parser.add_argument(
+        '--recursive', '-r',
+        action='store_true',
+        help='Recursively search directories for DTDL files'
+    )
+    parser.add_argument(
+        '--continue-on-error',
+        action='store_true',
+        help='Continue validation even if parse errors occur'
+    )
+    parser.add_argument(
+        '--verbose', '-v',
+        action='store_true',
+        help='Show detailed interface information'
+    )
+
+
+def _add_dtdl_convert_parser(subparsers: argparse._SubParsersAction) -> None:
+    """Add the dtdl-convert command parser."""
+    parser = subparsers.add_parser(
+        'dtdl-convert',
+        help='Convert DTDL to Fabric JSON format without uploading'
+    )
+    parser.add_argument('path', help='Path to DTDL file or directory')
+    parser.add_argument(
+        '--output', '-o',
+        help='Output JSON file path (default: <ontology_name>_fabric.json)'
+    )
+    parser.add_argument(
+        '--ontology-name', '-n',
+        help='Name for the ontology (default: directory/file name)'
+    )
+    parser.add_argument(
+        '--namespace',
+        default='usertypes',
+        help='Namespace for entity types (default: usertypes)'
+    )
+    parser.add_argument(
+        '--recursive', '-r',
+        action='store_true',
+        help='Recursively search directories for DTDL files'
+    )
+    parser.add_argument(
+        '--flatten-components',
+        action='store_true',
+        help='Flatten component properties into parent entity'
+    )
+    parser.add_argument(
+        '--save-mapping',
+        action='store_true',
+        help='Save DTMI to Fabric ID mapping file'
+    )
+
+
+def _add_dtdl_import_parser(subparsers: argparse._SubParsersAction) -> None:
+    """Add the dtdl-import command parser (validate + convert + upload)."""
+    parser = subparsers.add_parser(
+        'dtdl-import',
+        help='Import DTDL models to Fabric Ontology (validate + convert + upload)'
+    )
+    parser.add_argument('path', help='Path to DTDL file or directory')
+    parser.add_argument('--config', '-c', help='Path to configuration file')
+    parser.add_argument(
+        '--ontology-name', '-n',
+        help='Name for the ontology (default: directory/file name)'
+    )
+    parser.add_argument(
+        '--namespace',
+        default='usertypes',
+        help='Namespace for entity types (default: usertypes)'
+    )
+    parser.add_argument(
+        '--recursive', '-r',
+        action='store_true',
+        help='Recursively search directories for DTDL files'
+    )
+    parser.add_argument(
+        '--flatten-components',
+        action='store_true',
+        help='Flatten component properties into parent entity'
+    )
+    parser.add_argument(
+        '--dry-run',
+        action='store_true',
+        help='Convert but do not upload (saves to file instead)'
+    )
+    parser.add_argument(
+        '--output', '-o',
+        help='Output file path for dry-run mode'
     )

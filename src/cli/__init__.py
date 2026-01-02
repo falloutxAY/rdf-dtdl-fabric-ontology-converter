@@ -17,6 +17,10 @@ from .commands import (
     ConvertCommand,
     ExportCommand,
     CompareCommand,
+    # DTDL commands
+    DTDLValidateCommand,
+    DTDLConvertCommand,
+    DTDLImportCommand,
 )
 
 from .parsers import create_argument_parser
@@ -38,6 +42,10 @@ __all__ = [
     'ConvertCommand',
     'ExportCommand',
     'CompareCommand',
+    # DTDL Commands
+    'DTDLValidateCommand',
+    'DTDLConvertCommand',
+    'DTDLImportCommand',
     # Parsers
     'create_argument_parser',
     # Helpers

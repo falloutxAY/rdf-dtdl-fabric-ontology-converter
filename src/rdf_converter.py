@@ -37,11 +37,27 @@ try:
     from .converters.uri_utils import URIUtils
     from .converters.class_resolver import ClassResolver
     from .converters.fabric_serializer import FabricSerializer
+    from .models import (
+        EntityType,
+        EntityTypeProperty,
+        RelationshipType,
+        RelationshipEnd,
+        ConversionResult,
+        SkippedItem,
+    )
 except ImportError:
     from converters.type_mapper import TypeMapper, XSD_TO_FABRIC_TYPE
     from converters.uri_utils import URIUtils
     from converters.class_resolver import ClassResolver
     from converters.fabric_serializer import FabricSerializer
+    from models import (
+        EntityType,
+        EntityTypeProperty,
+        RelationshipType,
+        RelationshipEnd,
+        ConversionResult,
+        SkippedItem,
+    )
 
 # Type aliases for clarity
 RDFNode = Union[URIRef, BNode, RDFLiteral]
@@ -68,10 +84,18 @@ class MemoryManager:
     to fail gracefully with helpful error messages instead of crashing.
     """
     
-    # Safety thresholds
-    MIN_AVAILABLE_MB = 256  # Always need at least 256MB free
-    MAX_SAFE_FILE_MB = 500  # Default max file size without explicit override
-    MEMORY_MULTIPLIER = 3.5  # RDFlib typically uses ~3-4x file size in memory
+    # Import centralized constants - fallback to hardcoded if not available
+    try:
+        from constants import MemoryLimits
+        MIN_AVAILABLE_MB = MemoryLimits.MIN_AVAILABLE_MEMORY_MB // 2  # 256MB minimum
+        MAX_SAFE_FILE_MB = MemoryLimits.MAX_SAFE_FILE_MB
+        MEMORY_MULTIPLIER = MemoryLimits.MEMORY_MULTIPLIER
+    except ImportError:
+        # Fallback values if constants module not available
+        MIN_AVAILABLE_MB = 256
+        MAX_SAFE_FILE_MB = 500
+        MEMORY_MULTIPLIER = 3.5
+    
     LOAD_FACTOR = 0.7  # Only use 70% of available memory as safe threshold
     
     @staticmethod
@@ -199,218 +223,9 @@ class MemoryManager:
             logger.debug(f"Could not log memory status: {e}")
 
 
-# XSD type to Fabric value type mapping
-XSD_TO_FABRIC_TYPE = {
-    str(XSD.string): "String",
-    str(XSD.boolean): "Boolean",
-    str(XSD.dateTime): "DateTime",
-    str(XSD.date): "DateTime",
-    str(XSD.dateTimeStamp): "DateTime",
-    str(XSD.integer): "BigInt",
-    str(XSD.int): "BigInt",
-    str(XSD.long): "BigInt",
-    str(XSD.double): "Double",
-    str(XSD.float): "Double",
-    str(XSD.decimal): "Double",
-    str(XSD.anyURI): "String",
-    # Time-only is not directly supported by Fabric; preserve as String
-    str(XSD.time): "String",
-}
-
-
-@dataclass
-class EntityTypeProperty:
-    """Represents a property of an entity type."""
-    id: str
-    name: str
-    valueType: str
-    redefines: Optional[str] = None
-    baseTypeNamespaceType: Optional[str] = None
-    
-    def to_dict(self) -> Dict[str, Any]:
-        result = {
-            "id": self.id,
-            "name": self.name,
-            "valueType": self.valueType,
-        }
-        if self.redefines:
-            result["redefines"] = self.redefines
-        if self.baseTypeNamespaceType:
-            result["baseTypeNamespaceType"] = self.baseTypeNamespaceType
-        return result
-
-
-@dataclass
-class EntityType:
-    """Represents an entity type in the ontology."""
-    id: str
-    name: str
-    namespace: str = "usertypes"
-    namespaceType: str = "Custom"
-    visibility: str = "Visible"
-    baseEntityTypeId: Optional[str] = None
-    entityIdParts: List[str] = field(default_factory=list)
-    displayNamePropertyId: Optional[str] = None
-    properties: List[EntityTypeProperty] = field(default_factory=list)
-    timeseriesProperties: List[EntityTypeProperty] = field(default_factory=list)
-    
-    def to_dict(self) -> Dict[str, Any]:
-        result: Dict[str, Any] = {
-            "id": self.id,
-            "namespace": self.namespace,
-            "name": self.name,
-            "namespaceType": self.namespaceType,
-            "visibility": self.visibility,
-            "baseEntityTypeId": self.baseEntityTypeId,
-        }
-        if self.entityIdParts:
-            result["entityIdParts"] = self.entityIdParts
-        if self.displayNamePropertyId:
-            result["displayNamePropertyId"] = self.displayNamePropertyId
-        if self.properties:
-            result["properties"] = [p.to_dict() for p in self.properties]
-        if self.timeseriesProperties:
-            result["timeseriesProperties"] = [p.to_dict() for p in self.timeseriesProperties]
-        return result
-
-
-@dataclass
-class RelationshipEnd:
-    """Represents one end of a relationship."""
-    entityTypeId: str
-    
-    def to_dict(self) -> Dict[str, Any]:
-        return {"entityTypeId": self.entityTypeId}
-
-
-@dataclass
-class RelationshipType:
-    """Represents a relationship type in the ontology."""
-    id: str
-    name: str
-    source: RelationshipEnd
-    target: RelationshipEnd
-    namespace: str = "usertypes"
-    namespaceType: str = "Custom"
-    
-    def to_dict(self) -> Dict[str, Any]:
-        return {
-            "id": self.id,
-            "namespace": self.namespace,
-            "name": self.name,
-            "namespaceType": self.namespaceType,
-            "source": self.source.to_dict(),
-            "target": self.target.to_dict(),
-        }
-
-
-@dataclass
-class SkippedItem:
-    """Represents an item that was skipped during conversion."""
-    item_type: str  # "class", "property", "relationship"
-    name: str
-    reason: str
-    uri: str
-    
-    def to_dict(self) -> Dict[str, str]:
-        return {
-            "type": self.item_type,
-            "name": self.name,
-            "reason": self.reason,
-            "uri": self.uri
-        }
-
-
-@dataclass
-class ConversionResult:
-    """
-    Results of TTL conversion with detailed tracking.
-    
-    Provides information about successful conversions, skipped items,
-    and warnings encountered during the conversion process.
-    """
-    entity_types: List[EntityType]
-    relationship_types: List[RelationshipType]
-    skipped_items: List[SkippedItem] = field(default_factory=list)
-    warnings: List[str] = field(default_factory=list)
-    triple_count: int = 0
-    
-    @property
-    def success_rate(self) -> float:
-        """Calculate success rate as percentage of items successfully converted."""
-        total = (
-            len(self.entity_types) + 
-            len(self.relationship_types) + 
-            len(self.skipped_items)
-        )
-        if total == 0:
-            return 100.0
-        successful = len(self.entity_types) + len(self.relationship_types)
-        return (successful / total) * 100
-    
-    @property
-    def has_skipped_items(self) -> bool:
-        """Check if any items were skipped during conversion."""
-        return len(self.skipped_items) > 0
-    
-    @property
-    def skipped_by_type(self) -> Dict[str, int]:
-        """Get count of skipped items grouped by type."""
-        counts: Dict[str, int] = {}
-        for item in self.skipped_items:
-            counts[item.item_type] = counts.get(item.item_type, 0) + 1
-        return counts
-    
-    def get_summary(self) -> str:
-        """Generate human-readable summary of conversion results."""
-        lines = [
-            "Conversion Summary:",
-            f"  ✓ Entity Types: {len(self.entity_types)}",
-            f"  ✓ Relationships: {len(self.relationship_types)}",
-        ]
-        
-        if self.skipped_items:
-            lines.append(f"  ⚠ Skipped: {len(self.skipped_items)}")
-            
-            # Group by type
-            by_type = self.skipped_by_type
-            for item_type, count in by_type.items():
-                lines.append(f"      - {item_type}s: {count}")
-            
-            # Show first few skipped items with details
-            lines.append("    Details (first 5):")
-            for item in self.skipped_items[:5]:
-                lines.append(f"      - {item.item_type}: {item.name}")
-                lines.append(f"        Reason: {item.reason}")
-            
-            if len(self.skipped_items) > 5:
-                lines.append(f"      ... and {len(self.skipped_items) - 5} more")
-        
-        if self.warnings:
-            lines.append(f"  ⚠ Warnings: {len(self.warnings)}")
-            for warning in self.warnings[:3]:
-                lines.append(f"      - {warning}")
-            if len(self.warnings) > 3:
-                lines.append(f"      ... and {len(self.warnings) - 3} more")
-        
-        lines.append(f"  Success Rate: {self.success_rate:.1f}%")
-        
-        if self.triple_count > 0:
-            lines.append(f"  Total RDF Triples: {self.triple_count}")
-        
-        return "\n".join(lines)
-    
-    def to_dict(self) -> Dict[str, Any]:
-        """Serialize conversion result to dictionary."""
-        return {
-            "entity_types_count": len(self.entity_types),
-            "relationship_types_count": len(self.relationship_types),
-            "skipped_items_count": len(self.skipped_items),
-            "skipped_items": [item.to_dict() for item in self.skipped_items],
-            "warnings": self.warnings,
-            "success_rate": self.success_rate,
-            "triple_count": self.triple_count
-        }
+# Note: XSD_TO_FABRIC_TYPE is imported from converters.type_mapper
+# EntityType, EntityTypeProperty, RelationshipType, RelationshipEnd,
+# ConversionResult, and SkippedItem are imported from models package
 
 
 @dataclass

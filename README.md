@@ -1,5 +1,10 @@
 # RDF to Microsoft Fabric Ontology Converter
 
+[![CI](https://github.com/falloutxAY/rdf-fabric-ontology-converter/actions/workflows/ci.yml/badge.svg)](https://github.com/falloutxAY/rdf-fabric-ontology-converter/actions/workflows/ci.yml)
+[![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Code style: ruff](https://img.shields.io/badge/code%20style-ruff-000000.svg)](https://github.com/astral-sh/ruff)
+
 Convert RDF TTL (Turtle) ontology files to Microsoft Fabric Ontology format and upload them via the [Fabric Ontology REST API](https://learn.microsoft.com/rest/api/fabric/ontology/items). Also supports exporting Fabric ontologies back to TTL format for verification.
 
 ## Disclaimer
@@ -12,25 +17,26 @@ Please refer to the [LICENSE](LICENSE) file for full terms.
 
 ## Features
 
-- Convert RDF TTL ↔ Fabric Ontology
-- Pre-flight validation
-- Upload, list, get, update, delete ontologies
-- Graceful cancellation (Ctrl+C)
+- **RDF/TTL Conversion** – Import Turtle ontologies to Fabric Ontology format
+- **DTDL Import** – Convert Digital Twins Definition Language models 
+- **Export & Compare** – Export Fabric ontologies back to TTL for verification
+- **Pre-flight Validation** – Check compatibility before upload
+- **Ontology API Coverage** – Create, read, update, delete, list ontologies
+- **Enterprise Resilience** – Rate limiting, circuit breakers, graceful cancellation
 
 ## Table of Contents
 
 - [Prerequisites](#prerequisites)
 - [Installation](#installation)
 - [Configuration](#configuration)
-- [Resilience Patterns](#resilience-patterns-built-in)
-- [Security Guidelines](#security-guidelines)
 - [Quick Start](#quick-start)
 - [Usage](#usage)
-- [Examples](#examples)
+  - [RDF/TTL Commands](#rdfttl-commands)
+  - [DTDL Commands](#dtdl-commands)
 - [Limitations](#limitations)
 - [Documentation](#documentation)
 - [Testing](#testing)
-- [Project Structure](#-project-structure)
+- [Contributing](#contributing)
 - [License](#license)
 
 ## Prerequisites
@@ -122,11 +128,13 @@ python src/main.py upload   samples/sample_supply_chain_ontology.ttl --name "MyO
 ## Usage
 
 ```powershell
-# Understand the commands and options available
+# View all available commands
 python src\main.py -h
 ```
 
-### Validate TTL File (pre-flight)
+### RDF/TTL Commands
+
+#### Validate TTL File (pre-flight)
 ```powershell
 # Check if a TTL file can be imported seamlessly
 python src\main.py validate <ttl_file> [--verbose] [--save-report]
@@ -208,6 +216,96 @@ python src\main.py delete <ontology_id> --config src\config.json
 python src\main.py test --config src\config.json
 ```
 
+---
+
+### DTDL Commands
+
+Import **Digital Twins Definition Language (DTDL)** models from Azure IoT/Digital Twins into Microsoft Fabric Ontology.
+
+#### What is DTDL?
+
+[DTDL](https://learn.microsoft.com/azure/digital-twins/concepts-models) is a JSON-LD based modeling language used by Azure Digital Twins and Azure IoT. It defines:
+- **Interfaces** - Digital twin types with properties, telemetry, relationships, and commands
+- **Properties** - Static attributes of a twin
+- **Telemetry** - Time-series sensor data
+- **Relationships** - Connections between twins
+- **Components** - Reusable interface compositions
+
+#### DTDL Usage
+
+**Validate DTDL**
+```powershell
+# Validate a single DTDL file
+python src\main.py dtdl-validate path/to/model.json
+
+# Validate a directory of DTDL files recursively
+python src\main.py dtdl-validate path/to/dtdl/ --recursive --verbose
+```
+
+#### Convert DTDL (without upload)
+```powershell
+# Convert DTDL to Fabric JSON format for inspection
+python src\main.py dtdl-convert path/to/dtdl/ --recursive --output fabric_output.json
+```
+
+#### Import DTDL to Fabric
+```powershell
+# Full import: validate → convert → upload
+python src\main.py dtdl-import path/to/dtdl/ --recursive --ontology-name "MyDTDLOntology"
+
+# Dry run: validate and convert without uploading
+python src\main.py dtdl-import path/to/dtdl/ --recursive --dry-run --output preview.json
+
+# With custom namespace
+python src\main.py dtdl-import path/to/dtdl/ --namespace customtypes --ontology-name "CustomOntology"
+
+# Flatten component properties into parent entities
+python src\main.py dtdl-import path/to/dtdl/ --flatten-components --ontology-name "FlatOntology"
+```
+
+### DTDL to Fabric Mapping
+
+| DTDL Concept | Fabric Ontology Equivalent |
+|--------------|---------------------------|
+| Interface | EntityType |
+| Property | Property (static) |
+| Telemetry | TimeseriesProperty |
+| Relationship | RelationshipType |
+| Component | Nested properties (when flattened) |
+| Inheritance (extends) | BaseEntityTypeId |
+| Enum | String with allowed values |
+
+### Supported DTDL Features
+
+- ✅ DTDL v2 and v3 contexts
+- ✅ Properties with primitive and complex types
+- ✅ Telemetry (mapped to timeseries properties)
+- ✅ Relationships with target constraints
+- ✅ Interface inheritance (extends)
+- ✅ Components (with flatten option)
+- ✅ Semantic types (@type annotations)
+- ✅ Display names and descriptions
+
+### DTDL Validation Checks
+
+The validator performs comprehensive checks including:
+- **DTMI format validation** - Ensures valid Digital Twin Model Identifiers
+- **Inheritance cycle detection** - Prevents circular extends chains
+- **Relationship target validation** - Warns about orphaned relationship targets
+- **Component schema validation** - Warns about missing component schemas
+- **Large ontology warnings** - Alerts when >200 interfaces may cause performance issues
+
+### Example: RealEstateCore DTDL
+
+```powershell
+# Import the RealEstateCore DTDL ontology
+python src\main.py dtdl-import path/to/RealEstateCore/ --recursive --ontology-name "RealEstateCore"
+```
+
+The RealEstateCore DTDL ontology (~269 interfaces) has been successfully tested with this tool.
+
+---
+
 ## Limitations
 
 **Conversions are not 1:1**: RDF/OWL is highly expressive with features like complex class expressions, property restrictions, and inference-driven semantics that cannot be fully represented in Microsoft Fabric Ontology's business-friendly model.
@@ -226,12 +324,22 @@ For complete details, see:
 
 ## Documentation
 
-- **[Configuration Guide](docs/CONFIGURATION.md)** - Detailed setup instructions
-- **[Testing Guide](docs/TESTING.md)** - Comprehensive testing documentation
-- **[Troubleshooting](docs/TROUBLESHOOTING.md)** - Common issues and solutions
-- **[Mapping Challenges and Limitations](docs/MAPPING_LIMITATIONS.md)** - Why TTL → Fabric Ontology Limitations
+### User Guides
+- **[Configuration Guide](docs/CONFIGURATION.md)** – Detailed setup and API configuration
+- **[Troubleshooting](docs/TROUBLESHOOTING.md)** – Common issues and solutions
+- **[Mapping Limitations](docs/MAPPING_LIMITATIONS.md)** – RDF/DTDL → Fabric conversion constraints
 
- 
+### Developer Guides  
+- **[API Reference](docs/API.md)** – Fabric Ontology REST API usage
+- **[Architecture Overview](docs/ARCHITECTURE.md)** – System design and patterns
+- **[Testing Guide](docs/TESTING.md)** – Running tests and coverage
+
+### Community
+- **[Contributing Guidelines](CONTRIBUTING.md)** – How to contribute
+- **[Code of Conduct](CODE_OF_CONDUCT.md)** – Community standards
+- **[Security Policy](SECURITY.md)** – Reporting vulnerabilities
+- **[Changelog](CHANGELOG.md)** – Version history
+
 ## Testing
 
 ```powershell
@@ -243,53 +351,39 @@ python -m pytest tests/ -v
 
 ```
 rdf-fabric-ontology-converter/
-├── src/                          # Source code
-│   ├── __init__.py
-│   ├── main.py                   # CLI entry point (thin dispatcher)
-│   ├── cli/                      # CLI module (Clean Architecture)
-│   │   ├── __init__.py           # Module exports
-│   │   ├── commands.py           # Command handlers (Command pattern)
-│   │   ├── parsers.py            # Argument parsing configuration
-│   │   └── helpers.py            # Shared utilities (logging, config)
-│   ├── converters/               # Extracted converter components (SRP)
-│   │   ├── __init__.py           # Package exports
-│   │   ├── type_mapper.py        # XSD to Fabric type mapping
-│   │   ├── uri_utils.py          # URI parsing and name extraction
-│   │   ├── class_resolver.py     # OWL class expression resolution
-│   │   └── fabric_serializer.py  # Fabric API JSON serialization
-│   ├── rdf_converter.py          # RDF parsing & TTL→Fabric conversion
-│   ├── fabric_to_ttl.py          # Fabric→TTL export & comparison
-│   ├── fabric_client.py          # Fabric API client with retry logic
-│   ├── rate_limiter.py           # Token bucket rate limiter for API throttling
-│   ├── circuit_breaker.py        # Circuit breaker for fault tolerance
-│   ├── cancellation.py           # Graceful cancellation support (Ctrl+C)
-│   └── preflight_validator.py    # Pre-flight validation for Fabric compatibility
-├── tests/                        # Test suite (~317 tests, 4 consolidated files)
-│   ├── __init__.py
-│   ├── conftest.py               # Pytest markers & shared fixtures
-│   ├── test_converter.py         # Core RDF conversion (~90 tests)
-│   ├── test_resilience.py        # Rate limiter, circuit breaker, cancellation (~107 tests)
-│   ├── test_fabric_client.py     # Fabric API client & streaming (~62 tests)
-│   ├── test_validation.py        # Pre-flight validation, exporter, E2E (~74 tests)
-│   └── run_tests.py              # Test runner utility
-├── samples/                      # Sample ontology files
-│   ├── sample_supply_chain_ontology.ttl  # Supply chain example
-│   ├── sample_foaf_ontology.ttl          # FOAF vocabulary
-│   ├── sample_iot_ontology.ttl           # IoT devices
-│   ├── sample_fibo_ontology.ttl          # Financial ontology
-│   └── manufacturingMedical/             # Medical device manufacturing
-├── docs/                         # Documentation
-│   ├── CONFIGURATION.md          # Configuration guide
-│   ├── TESTING.md                # Comprehensive testing guide
-│   ├── TROUBLESHOOTING.md        # Common issues
-│   └── MAPPING_LIMITATIONS.md    # Mapping limitations
-├── config.sample.json            # Sample configuration
-├── src/config.json               # Your local config (git-ignored)
-├── requirements.txt              # Python dependencies
-├── .gitignore                    # Git ignore rules
-├── LICENSE                       # MIT License
-└── README.md                     # This file
+├── src/
+│   ├── main.py                   # CLI entry point
+│   ├── cli/                      # Command handlers & parsers
+│   ├── converters/               # Type mapping & serialization
+│   ├── core/                     # Rate limiter, circuit breaker, cancellation
+│   ├── models/                   # Shared data models
+│   ├── dtdl/                     # DTDL import support
+│   ├── rdf_converter.py          # RDF/TTL conversion
+│   ├── fabric_client.py          # Fabric API client
+│   └── preflight_validator.py    # Pre-upload validation
+├── tests/                        # 354 passing tests
+│   ├── test_converter.py
+│   ├── test_resilience.py
+│   ├── test_fabric_client.py
+│   ├── test_validation.py
+│   └── integration/
+├── samples/                      # Example TTL & DTDL files
+├── docs/                         # Full documentation
+├── config.sample.json            # Configuration template
+└── requirements.txt              # Python dependencies
 ```
+
+For detailed architecture, see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+
+## Contributing
+
+Contributions are welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for:
+- Development setup
+- Code style guidelines  
+- Pull request process
+- Issue reporting
+
+Please review our [Code of Conduct](CODE_OF_CONDUCT.md) before contributing.
 
 ## License
 

@@ -1,0 +1,87 @@
+{
+  "@context": "dtmi:dtdl:context;4",
+  "@id": "dtmi:com:example:manufacturing:Product;1",
+  "@type": "Interface",
+  "displayName": "Product",
+  "description": "Represents a manufactured product",
+  "contents": [
+    {
+      "@type": "Property",
+      "name": "productId",
+      "displayName": "Product ID",
+      "schema": "string"
+    },
+    {
+      "@type": "Property",
+      "name": "sku",
+      "displayName": "SKU",
+      "schema": "string"
+    },
+    {
+      "@type": "Property",
+      "name": "name",
+      "displayName": "Product Name",
+      "schema": "string"
+    },
+    {
+      "@type": "Property",
+      "name": "category",
+      "displayName": "Category",
+      "schema": "string"
+    },
+    {
+      "@type": "Property",
+      "name": "unitCost",
+      "displayName": "Unit Cost",
+      "schema": "double"
+    },
+    {
+      "@type": "Property",
+      "name": "weight",
+      "displayName": "Weight (kg)",
+      "schema": "double"
+    },
+    {
+      "@type": "Property",
+      "name": "dimensions",
+      "displayName": "Dimensions",
+      "schema": {
+        "@type": "Object",
+        "fields": [
+          {
+            "name": "length",
+            "schema": "double"
+          },
+          {
+            "name": "width",
+            "schema": "double"
+          },
+          {
+            "name": "height",
+            "schema": "double"
+          },
+          {
+            "name": "unit",
+            "schema": "string"
+          }
+        ]
+      }
+    },
+    {
+      "@type": "Property",
+      "name": "specifications",
+      "displayName": "Specifications",
+      "schema": {
+        "@type": "Map",
+        "mapKey": {
+          "name": "specName",
+          "schema": "string"
+        },
+        "mapValue": {
+          "name": "specValue",
+          "schema": "string"
+        }
+      }
+    }
+  ]
+}
