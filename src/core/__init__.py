@@ -53,8 +53,15 @@ from .cancellation import (
 # Memory management
 from .memory import MemoryManager
 
-# Input validation
-from .validators import InputValidator, URLValidator, ValidationRateLimiter
+# Input validation and Fabric limits
+from .validators import (
+    InputValidator,
+    URLValidator,
+    ValidationRateLimiter,
+    FabricLimitsValidator,
+    FabricLimitValidationError,
+    EntityIdPartsInferrer,
+)
 
 # Re-export constants from parent module
 try:
@@ -67,6 +74,8 @@ try:
         FileExtensions,
         NamespaceConfig,
         LoggingConfig,
+        FabricLimits,
+        EntityIdPartsConfig,
     )
 except ImportError:
     # Fallback if running standalone
@@ -98,10 +107,13 @@ __all__ = [
     "get_global_token",
     # Memory management
     "MemoryManager",
-    # Input validation
+    # Input validation and Fabric limits
     "InputValidator",
     "URLValidator",
     "ValidationRateLimiter",
+    "FabricLimitsValidator",
+    "FabricLimitValidationError",
+    "EntityIdPartsInferrer",
     # Constants
     "ExitCode",
     "MemoryLimits",
@@ -111,4 +123,6 @@ __all__ = [
     "FileExtensions",
     "NamespaceConfig",
     "LoggingConfig",
+    "FabricLimits",
+    "EntityIdPartsConfig",
 ]

@@ -254,6 +254,140 @@ limiter = ValidationRateLimiter(enabled=False)
 
 ---
 
+### `FabricLimitsValidator`
+
+Validates Fabric Ontology definitions against API limits and constraints. Located in `src/core/validators.py`.
+
+```python
+from src.core.validators import FabricLimitsValidator
+
+# Create validator with default limits
+validator = FabricLimitsValidator()
+
+# Create validator with custom limits
+validator = FabricLimitsValidator(
+    max_entity_name_length=256,
+    max_property_name_length=256,
+    max_relationship_name_length=256,
+    max_definition_size_kb=1024,
+    warn_definition_size_kb=768,
+    max_entity_types=500,
+    max_relationship_types=500,
+    max_properties_per_entity=200,
+    max_entity_id_parts=5,
+)
+
+# Validate entity types
+entity_errors = validator.validate_entity_types(entity_types)
+
+# Validate relationship types
+rel_errors = validator.validate_relationship_types(relationship_types)
+
+# Validate definition size
+size_errors = validator.validate_definition_size(entity_types, relationship_types)
+
+# Validate all at once
+all_errors = validator.validate_all(entity_types, relationship_types)
+
+# Check for errors vs warnings
+if validator.has_errors(all_errors):
+    critical = validator.get_errors_only(all_errors)
+    raise ValueError(f"Fabric limits exceeded: {critical[0].message}")
+
+# Log warnings
+for warning in validator.get_warnings_only(all_errors):
+    logger.warning(f"Approaching limit: {warning.message}")
+```
+
+**Validation Checks:**
+
+| Check | Default Limit | Description |
+|-------|---------------|-------------|
+| Entity name length | 256 chars | Maximum characters in entity type name |
+| Property name length | 256 chars | Maximum characters in property name |
+| Relationship name length | 256 chars | Maximum characters in relationship name |
+| Definition size | 1024 KB | Maximum JSON size of entire definition |
+| Entity type count | 500 | Maximum entity types per ontology |
+| Relationship type count | 500 | Maximum relationship types per ontology |
+| Properties per entity | 200 | Maximum properties per entity type |
+| entityIdParts count | 5 | Maximum properties in entityIdParts |
+
+**FabricLimitValidationError:**
+
+```python
+@dataclass
+class FabricLimitValidationError:
+    level: str          # "error" or "warning"
+    message: str        # Human-readable description
+    entity_name: str    # Affected entity/property name
+    field: str          # Field that violated limit
+    current_value: Any  # Current value
+    limit_value: Any    # Limit that was exceeded
+```
+
+---
+
+### `EntityIdPartsInferrer`
+
+Intelligently infers and sets `entityIdParts` for entity types. Located in `src/core/validators.py`.
+
+```python
+from src.core.validators import EntityIdPartsInferrer
+
+# Auto strategy (default) - looks for id/key patterns, falls back to first valid type
+inferrer = EntityIdPartsInferrer(strategy="auto")
+
+# First valid strategy - uses first String/BigInt property
+inferrer = EntityIdPartsInferrer(strategy="first_valid")
+
+# Explicit strategy - only uses explicit mappings
+inferrer = EntityIdPartsInferrer(
+    strategy="explicit",
+    explicit_mappings={
+        "Machine": ["serialNumber"],
+        "Product": ["productCode", "batchId"],
+    }
+)
+
+# None strategy - never auto-set entityIdParts
+inferrer = EntityIdPartsInferrer(strategy="none")
+
+# Custom patterns for primary key detection
+inferrer = EntityIdPartsInferrer(
+    strategy="auto",
+    custom_patterns=["record_id", "asset_code"],
+)
+
+# Infer for single entity
+entity_id_parts = inferrer.infer_entity_id_parts(entity)
+
+# Infer for all entities (modifies in place)
+updated_count = inferrer.infer_all(entity_types, overwrite=False)
+
+# Set displayNamePropertyId
+display_prop_id = inferrer.set_display_name_property(entity)
+```
+
+**Inference Strategies:**
+
+| Strategy | Behavior |
+|----------|----------|
+| `auto` | Match property names against primary key patterns, then fall back to first valid |
+| `first_valid` | Use first property with valid type (String or BigInt) |
+| `explicit` | Only set if entity name has explicit mapping |
+| `none` | Never automatically set entityIdParts |
+
+**Default Primary Key Patterns:**
+- `id`, `identifier`, `pk`, `primary_key`, `key`
+- `uuid`, `guid`, `oid`, `object_id`
+- `entity_id`, `record_id`, `unique_id`
+
+**Valid Types for entityIdParts:**
+- `String`
+- `BigInt`
+
+---
+
 ## RDF Converter
 
 ### `RDFToFabricConverter`

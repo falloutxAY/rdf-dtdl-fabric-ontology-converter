@@ -148,6 +148,121 @@ class FileExtensions:
 
 
 # ============================================================================
+# Fabric API Limits
+# ============================================================================
+
+class FabricLimits:
+    """
+    Microsoft Fabric Ontology API limits and constraints.
+    
+    These limits are based on the Fabric Ontology API documentation and
+    real-world testing. Values are conservative to ensure compatibility.
+    
+    Reference:
+        https://learn.microsoft.com/en-us/rest/api/fabric/ontology
+    """
+    
+    # Name length limits (characters)
+    MAX_ENTITY_NAME_LENGTH: Final[int] = 256
+    """Maximum length for entity type names."""
+    
+    MAX_PROPERTY_NAME_LENGTH: Final[int] = 256
+    """Maximum length for property names."""
+    
+    MAX_RELATIONSHIP_NAME_LENGTH: Final[int] = 256
+    """Maximum length for relationship type names."""
+    
+    MAX_NAMESPACE_LENGTH: Final[int] = 128
+    """Maximum length for namespace names."""
+    
+    # ID format constraints
+    MIN_ID_LENGTH: Final[int] = 1
+    """Minimum length for IDs."""
+    
+    MAX_ID_LENGTH: Final[int] = 64
+    """Maximum length for IDs."""
+    
+    # Definition size limits (KB)
+    MAX_DEFINITION_SIZE_KB: Final[int] = 1024
+    """Maximum total definition size (1 MB)."""
+    
+    WARN_DEFINITION_SIZE_KB: Final[int] = 768
+    """Warning threshold for definition size (75% of max)."""
+    
+    # Count limits
+    MAX_ENTITY_TYPES: Final[int] = 500
+    """Maximum number of entity types per ontology."""
+    
+    MAX_RELATIONSHIP_TYPES: Final[int] = 500
+    """Maximum number of relationship types per ontology."""
+    
+    MAX_PROPERTIES_PER_ENTITY: Final[int] = 200
+    """Maximum properties per entity type."""
+    
+    MAX_ENTITY_ID_PARTS: Final[int] = 5
+    """Maximum number of properties in entityIdParts."""
+    
+    # Inheritance limits
+    MAX_INHERITANCE_DEPTH: Final[int] = 10
+    """Maximum inheritance chain depth."""
+
+
+# ============================================================================
+# Entity ID Parts Configuration
+# ============================================================================
+
+class EntityIdPartsConfig:
+    """
+    Configuration for entityIdParts inference and behavior.
+    
+    entityIdParts defines which properties form the unique identity of an entity.
+    This is crucial for Fabric to correctly identify and deduplicate entities.
+    """
+    
+    # Inference strategies
+    STRATEGY_AUTO: Final[str] = "auto"
+    """Automatically infer from property names and types."""
+    
+    STRATEGY_FIRST_VALID: Final[str] = "first_valid"
+    """Use the first valid (String/BigInt) property."""
+    
+    STRATEGY_EXPLICIT: Final[str] = "explicit"
+    """Only set if explicitly configured."""
+    
+    STRATEGY_NONE: Final[str] = "none"
+    """Never set entityIdParts automatically."""
+    
+    DEFAULT_STRATEGY: Final[str] = "auto"
+    """Default inference strategy."""
+    
+    # Property name patterns for primary key detection (case-insensitive)
+    PRIMARY_KEY_PATTERNS: Final[tuple[str, ...]] = (
+        "id",
+        "identifier",
+        "pk",
+        "primary_key",
+        "primarykey",
+        "key",
+        "uuid",
+        "guid",
+        "oid",
+        "object_id",
+        "objectid",
+        "entity_id",
+        "entityid",
+        "record_id",
+        "recordid",
+        "unique_id",
+        "uniqueid",
+    )
+    """Patterns that indicate a property is a primary key."""
+    
+    # Valid types for entityIdParts (Fabric requirement)
+    VALID_TYPES: Final[tuple[str, ...]] = ("String", "BigInt")
+    """Only these Fabric types can be used in entityIdParts."""
+
+
+# ============================================================================
 # Namespace Defaults
 # ============================================================================
 

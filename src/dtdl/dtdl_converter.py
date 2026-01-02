@@ -44,6 +44,10 @@ try:
         ConversionResult,
         SkippedItem,
     )
+    from ..core.validators import (
+        FabricLimitsValidator,
+        EntityIdPartsInferrer,
+    )
 except ImportError:
     # Fallback for direct script execution without sys.path manipulation
     from models import (  # type: ignore[import-not-found]
@@ -54,6 +58,15 @@ except ImportError:
         ConversionResult,
         SkippedItem,
     )
+    try:
+        from core.validators import (  # type: ignore[import-not-found]
+            FabricLimitsValidator,
+            EntityIdPartsInferrer,
+        )
+    except ImportError:
+        # Define fallback if validators not available
+        FabricLimitsValidator = None  # type: ignore[assignment, misc]
+        EntityIdPartsInferrer = None  # type: ignore[assignment, misc]
 
 logger = logging.getLogger(__name__)
 
@@ -386,25 +399,40 @@ class DTDLToFabricConverter:
                 component_props = self._flatten_component(component, fabric_id)
                 properties.extend(component_props)
         
-        # Determine entity ID parts (use first BigInt property if available)
-        entity_id_parts: List[str] = []
-        for prop in properties:
-            if prop.valueType == "BigInt":
-                entity_id_parts.append(prop.id)
-                break
-        
-        return EntityType(
+        # Build preliminary entity for entityIdParts inference
+        entity = EntityType(
             id=fabric_id,
             name=self._sanitize_name(interface.resolved_display_name),
             namespace=self.namespace,
             namespaceType="Custom",
             visibility="Visible",
             baseEntityTypeId=base_entity_type_id,
-            entityIdParts=entity_id_parts,
+            entityIdParts=[],  # Will be set by inferrer
             displayNamePropertyId=display_name_property_id,
             properties=properties,
             timeseriesProperties=timeseries_properties,
         )
+        
+        # Use EntityIdPartsInferrer if available, otherwise fallback to legacy logic
+        if EntityIdPartsInferrer is not None:
+            inferrer = EntityIdPartsInferrer(strategy="auto")
+            entity.entityIdParts = inferrer.infer_entity_id_parts(entity)
+            if not entity.displayNamePropertyId:
+                inferrer.set_display_name_property(entity)
+        else:
+            # Legacy fallback: use first BigInt property if available
+            for prop in properties:
+                if prop.valueType == "BigInt":
+                    entity.entityIdParts = [prop.id]
+                    break
+            # Try first String property if no BigInt found
+            if not entity.entityIdParts:
+                for prop in properties:
+                    if prop.valueType == "String":
+                        entity.entityIdParts = [prop.id]
+                        break
+        
+        return entity
     
     def _convert_property(
         self,
@@ -643,7 +671,8 @@ class DTDLToFabricConverter:
     def to_fabric_definition(
         self,
         result: ConversionResult,
-        ontology_name: str = "DTDLOntology"
+        ontology_name: str = "DTDLOntology",
+        skip_fabric_limits: bool = False,
     ) -> Dict[str, Any]:
         """
         Create the Fabric API definition format from conversion result.
@@ -651,11 +680,42 @@ class DTDLToFabricConverter:
         Args:
             result: Conversion result with entity and relationship types
             ontology_name: Display name for the ontology
+            skip_fabric_limits: If True, skip Fabric API limits validation
             
         Returns:
             Dictionary with "parts" array for Fabric API
+            
+        Raises:
+            ValueError: If Fabric limits are exceeded (unless skip_fabric_limits=True)
         """
         import base64
+        
+        # Validate Fabric API limits (unless explicitly skipped)
+        if not skip_fabric_limits and FabricLimitsValidator is not None:
+            fabric_validator = FabricLimitsValidator()
+            limit_errors = fabric_validator.validate_all(
+                result.entity_types, 
+                result.relationship_types
+            )
+            
+            # Log limit validation issues
+            for error in limit_errors:
+                if error.level == "warning":
+                    logger.warning(f"Fabric limit warning: {error.message}")
+                else:
+                    logger.error(f"Fabric limit error: {error.message}")
+            
+            # Fail on critical limit errors
+            if fabric_validator.has_errors(limit_errors):
+                critical_errors = fabric_validator.get_errors_only(limit_errors)
+                error_msg = "Fabric API limit exceeded:\n" + "\n".join(
+                    f"  - {e.message}" for e in critical_errors
+                )
+                raise ValueError(error_msg)
+            
+            warnings = fabric_validator.get_warnings_only(limit_errors)
+            if warnings:
+                logger.info(f"Fabric limits check passed with {len(warnings)} warning(s)")
         
         parts = []
         

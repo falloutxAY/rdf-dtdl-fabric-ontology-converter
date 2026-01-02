@@ -17,11 +17,27 @@
             "failure_threshold": 5,
             "recovery_timeout": 60.0,
             "success_threshold": 2
+        },
+        "limits": {
+            "max_entity_name_length": 256,
+            "max_property_name_length": 256,
+            "max_relationship_name_length": 256,
+            "max_definition_size_kb": 1024,
+            "warn_definition_size_kb": 768,
+            "max_entity_types": 500,
+            "max_relationship_types": 500,
+            "max_properties_per_entity": 200,
+            "max_entity_id_parts": 5
         }
     },
     "ontology": {
         "default_namespace": "usertypes",
-        "id_prefix": 1000000000000
+        "id_prefix": 1000000000000,
+        "entity_id_parts": {
+            "strategy": "auto",
+            "custom_patterns": [],
+            "explicit_mappings": {}
+        }
     },
     "logging": {
         "level": "INFO",

@@ -199,6 +199,110 @@ Used to avoid 429s by throttling proactively. Defaults are conservative. See off
 
 Tuning: lower the rate if you hit 429s; raise modestly if you never do.
 
+### Fabric API Limits Settings
+
+Validates ontology definitions against Fabric API limits before upload. These limits help prevent API errors and ensure compatibility.
+
+| Setting | Type | Default | Description |
+|---------|------|---------|-------------|
+| `limits.max_entity_name_length` | integer | 256 | Max characters in entity type name |
+| `limits.max_property_name_length` | integer | 256 | Max characters in property name |
+| `limits.max_relationship_name_length` | integer | 256 | Max characters in relationship name |
+| `limits.max_definition_size_kb` | integer | 1024 | Max total definition size (KB) |
+| `limits.warn_definition_size_kb` | integer | 768 | Warning threshold for definition size |
+| `limits.max_entity_types` | integer | 500 | Max entity types per ontology |
+| `limits.max_relationship_types` | integer | 500 | Max relationship types per ontology |
+| `limits.max_properties_per_entity` | integer | 200 | Max properties per entity type |
+| `limits.max_entity_id_parts` | integer | 5 | Max properties in entityIdParts |
+
+**Example Configuration:**
+
+```json
+{
+  "fabric": {
+    "limits": {
+      "max_entity_name_length": 256,
+      "max_definition_size_kb": 1024,
+      "max_entity_types": 500
+    }
+  }
+}
+```
+
+**Programmatic Usage:**
+
+```python
+from src.core.validators import FabricLimitsValidator
+
+validator = FabricLimitsValidator(
+    max_entity_name_length=256,
+    max_definition_size_kb=1024,
+)
+
+errors = validator.validate_all(entity_types, relationship_types)
+if validator.has_errors(errors):
+    for e in validator.get_errors_only(errors):
+        print(f"ERROR: {e.message}")
+```
+
+### EntityIdParts Configuration
+
+Controls how `entityIdParts` (unique entity identifiers) are inferred for entity types. This is important for Fabric to correctly identify and deduplicate entities.
+
+| Setting | Type | Default | Description |
+|---------|------|---------|-------------|
+| `entity_id_parts.strategy` | string | `"auto"` | Inference strategy (see below) |
+| `entity_id_parts.custom_patterns` | array | `[]` | Additional patterns to recognize as primary keys |
+| `entity_id_parts.explicit_mappings` | object | `{}` | Entity name to property names mapping |
+
+**Strategies:**
+
+| Strategy | Behavior |
+|----------|----------|
+| `auto` | Match property names against primary key patterns, then first valid type |
+| `first_valid` | Use first String/BigInt property |
+| `explicit` | Only use explicit mappings |
+| `none` | Never auto-set entityIdParts |
+
+**Example Configuration:**
+
+```json
+{
+  "ontology": {
+    "entity_id_parts": {
+      "strategy": "auto",
+      "custom_patterns": ["asset_code", "record_id"],
+      "explicit_mappings": {
+        "Machine": ["serialNumber"],
+        "Product": ["productCode", "batchId"]
+      }
+    }
+  }
+}
+```
+
+**Default Primary Key Patterns (recognized by auto strategy):**
+- `id`, `identifier`, `pk`, `primary_key`, `primarykey`, `key`
+- `uuid`, `guid`, `oid`, `object_id`, `objectid`
+- `entity_id`, `entityid`, `record_id`, `recordid`
+- `unique_id`, `uniqueid`
+
+**Programmatic Usage:**
+
+```python
+from src.core.validators import EntityIdPartsInferrer
+
+# Auto inference with custom patterns
+inferrer = EntityIdPartsInferrer(
+    strategy="auto",
+    custom_patterns=["asset_code"],
+    explicit_mappings={"Machine": ["serialNumber"]}
+)
+
+# Apply to all entities
+updated_count = inferrer.infer_all(entity_types)
+```
+
 ### Circuit Breaker Settings
 
 Prevents cascading failures when the API is unhealthy.

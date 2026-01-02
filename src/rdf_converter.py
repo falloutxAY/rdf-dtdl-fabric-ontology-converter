@@ -41,7 +41,11 @@ try:
     from .converters.uri_utils import URIUtils
     from .converters.class_resolver import ClassResolver
     from .converters.fabric_serializer import FabricSerializer
-    from .core.validators import InputValidator
+    from .core.validators import (
+        InputValidator,
+        FabricLimitsValidator,
+        EntityIdPartsInferrer,
+    )
     from .models import (
         EntityType,
         EntityTypeProperty,
@@ -62,7 +66,11 @@ except ImportError:
     from converters.uri_utils import URIUtils
     from converters.class_resolver import ClassResolver
     from converters.fabric_serializer import FabricSerializer
-    from core.validators import InputValidator
+    from core.validators import (
+        InputValidator,
+        FabricLimitsValidator,
+        EntityIdPartsInferrer,
+    )
     from models import (
         EntityType,
         EntityTypeProperty,
@@ -846,7 +854,8 @@ def convert_to_fabric_definition(
     entity_types: List[EntityType],
     relationship_types: List[RelationshipType],
     ontology_name: str = "ImportedOntology",
-    skip_validation: bool = False
+    skip_validation: bool = False,
+    skip_fabric_limits: bool = False,
 ) -> Dict[str, Any]:
     """
     Convert parsed entity and relationship types to Fabric Ontology definition format.
@@ -856,6 +865,7 @@ def convert_to_fabric_definition(
         relationship_types: List of relationship types
         ontology_name: Name for the ontology
         skip_validation: If True, skip definition validation (not recommended)
+        skip_fabric_limits: If True, skip Fabric API limits validation
         
     Returns:
         Dictionary representing the Fabric Ontology definition
@@ -890,6 +900,30 @@ def convert_to_fabric_definition(
                 logger.info(f"Definition validation passed with {warning_count} warning(s)")
         else:
             logger.debug("Definition validation passed with no issues")
+    
+    # Validate Fabric API limits (unless explicitly skipped)
+    if not skip_fabric_limits:
+        fabric_validator = FabricLimitsValidator()
+        limit_errors = fabric_validator.validate_all(entity_types, relationship_types)
+        
+        # Log limit validation issues
+        for error in limit_errors:
+            if error.level == "warning":
+                logger.warning(f"Fabric limit warning: {error.message}")
+            else:
+                logger.error(f"Fabric limit error: {error.message}")
+        
+        # Fail on critical limit errors
+        if fabric_validator.has_errors(limit_errors):
+            critical_errors = fabric_validator.get_errors_only(limit_errors)
+            error_msg = "Fabric API limit exceeded:\n" + "\n".join(
+                f"  - {e.message}" for e in critical_errors
+            )
+            raise ValueError(error_msg)
+        
+        warnings = fabric_validator.get_warnings_only(limit_errors)
+        if warnings:
+            logger.info(f"Fabric limits check passed with {len(warnings)} warning(s)")
     
     # Delegate serialization to FabricSerializer
     return FabricSerializer.create_definition(entity_types, relationship_types, ontology_name)
