@@ -81,6 +81,29 @@ from .compliance import (
     DTDL_FEATURE_SUPPORT,
 )
 
+# Streaming engine for memory-efficient processing
+from .streaming import (
+    StreamFormat,
+    StreamConfig,
+    StreamStats,
+    StreamResult,
+    ChunkProcessor,
+    StreamReader,
+    StreamingEngine,
+    RDFChunk,
+    RDFPartialResult,
+    RDFStreamReader,
+    RDFChunkProcessor,
+    RDFStreamAdapter,
+    DTDLChunk,
+    DTDLPartialResult,
+    DTDLStreamReader,
+    DTDLChunkProcessor,
+    DTDLStreamAdapter,
+    should_use_streaming,
+    get_streaming_threshold,
+)
+
 # Re-export constants from parent module
 try:
     from ..constants import (
@@ -147,6 +170,26 @@ __all__ = [
     "DTDL_LIMITS",
     "OWL_CONSTRUCT_SUPPORT",
     "DTDL_FEATURE_SUPPORT",
+    # Streaming engine
+    "StreamFormat",
+    "StreamConfig",
+    "StreamStats",
+    "StreamResult",
+    "ChunkProcessor",
+    "StreamReader",
+    "StreamingEngine",
+    "RDFChunk",
+    "RDFPartialResult",
+    "RDFStreamReader",
+    "RDFChunkProcessor",
+    "RDFStreamAdapter",
+    "DTDLChunk",
+    "DTDLPartialResult",
+    "DTDLStreamReader",
+    "DTDLChunkProcessor",
+    "DTDLStreamAdapter",
+    "should_use_streaming",
+    "get_streaming_threshold",
     # Constants
     "ExitCode",
     "MemoryLimits",

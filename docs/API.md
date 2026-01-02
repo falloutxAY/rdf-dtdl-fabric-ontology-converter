@@ -388,6 +388,244 @@ display_prop_id = inferrer.set_display_name_property(entity)
 
 ---
 
+## Streaming Engine
+
+The streaming engine provides a unified infrastructure for memory-efficient processing of large ontology files in both RDF (TTL) and DTDL (JSON) formats. Located in `src/core/streaming.py`.
+
+### Overview
+
+```python
+from src.core.streaming import (
+    StreamingEngine,
+    StreamConfig,
+    RDFStreamReader,
+    DTDLStreamReader,
+    RDFChunkProcessor,
+    DTDLChunkProcessor,
+    RDFStreamAdapter,
+    DTDLStreamAdapter,
+    should_use_streaming,
+)
+
+# Quick check if streaming is recommended
+if should_use_streaming("large_ontology.ttl", threshold_mb=100):
+    print("Consider using streaming mode")
+```
+
+### `StreamConfig`
+
+Configuration for streaming operations.
+
+```python
+from src.core.streaming import StreamConfig, StreamFormat
+
+# Default configuration
+config = StreamConfig()
+
+# Custom configuration
+config = StreamConfig(
+    chunk_size=5000,           # Items per chunk (default: 10000)
+    memory_threshold_mb=50.0,  # When to use streaming (default: 100)
+    max_memory_usage_mb=256.0, # Memory limit (default: 512)
+    enable_progress=True,      # Enable callbacks (default: True)
+    format=StreamFormat.AUTO,  # AUTO, RDF, or DTDL
+    buffer_size_bytes=65536,   # I/O buffer size (default: 64KB)
+)
+
+# Check if streaming should be used
+if config.should_use_streaming(file_size_mb=150.0):
+    use_streaming_mode()
+```
+
+### `StreamingEngine`
+
+Main orchestrator for streaming operations.
+
+```python
+from src.core.streaming import (
+    StreamingEngine, 
+    DTDLStreamReader, 
+    DTDLChunkProcessor,
+    StreamConfig,
+)
+
+# Create engine with explicit reader/processor
+engine = StreamingEngine(
+    reader=DTDLStreamReader(),
+    processor=DTDLChunkProcessor(),
+    config=StreamConfig(chunk_size=100)
+)
+
+# Process file with progress callback
+def progress(items_processed):
+    print(f"Processed {items_processed} items")
+
+result = engine.process_file(
+    "large_models.json",
+    progress_callback=progress,
+    cancellation_token=None  # Optional CancellationToken
+)
+
+# Check results
+if result.success:
+    print(f"Interfaces found: {result.data.interface_count}")
+    print(f"Properties found: {result.data.property_count}")
+    print(result.stats.get_summary())
+else:
+    print(f"Error: {result.error_message}")
+```
+
+### `StreamResult`
+
+Container for streaming operation results.
+
+```python
+from src.core.streaming import StreamResult
+
+# StreamResult attributes:
+# - data: The processed result (format-specific)
+# - stats: StreamStats with processing statistics
+# - success: bool indicating success/failure
+# - error_message: Error description if failed
+```
+
+### `StreamStats`
+
+Statistics collected during streaming.
+
+```python
+from src.core.streaming import StreamStats
+
+stats = StreamStats()
+print(stats.chunks_processed)    # Number of chunks processed
+print(stats.items_processed)     # Total items (triples, interfaces)
+print(stats.bytes_read)          # Total bytes read
+print(stats.errors_encountered)  # Recoverable errors
+print(stats.peak_memory_mb)      # Peak memory usage
+print(stats.duration_seconds)    # Processing time
+print(stats.get_summary())       # Human-readable summary
+```
+
+### RDF Streaming
+
+```python
+from src.core.streaming import (
+    RDFStreamReader,
+    RDFChunkProcessor,
+    RDFStreamAdapter,
+    StreamingEngine,
+)
+
+# Using the streaming engine
+engine = StreamingEngine(
+    reader=RDFStreamReader(),
+    processor=RDFChunkProcessor()
+)
+result = engine.process_file("ontology.ttl")
+
+# Using the adapter (wraps existing StreamingRDFConverter)
+adapter = RDFStreamAdapter(
+    id_prefix=1000000000000,
+    batch_size=10000,
+    loose_inference=False
+)
+conversion_result = adapter.convert_streaming(
+    "large_ontology.ttl",
+    progress_callback=lambda n: print(f"Processed {n} triples")
+)
+```
+
+### DTDL Streaming
+
+```python
+from src.core.streaming import (
+    DTDLStreamReader,
+    DTDLChunkProcessor,
+    DTDLStreamAdapter,
+    StreamingEngine,
+    StreamConfig,
+)
+
+# Process single file
+engine = StreamingEngine(
+    reader=DTDLStreamReader(),
+    processor=DTDLChunkProcessor()
+)
+result = engine.process_file("models.json")
+
+# Process directory of DTDL files
+result = engine.process_file("./models/")
+
+# Using the adapter for full conversion
+adapter = DTDLStreamAdapter(
+    config=StreamConfig(chunk_size=50),
+    ontology_name="LargeOntology",
+    namespace="usertypes"
+)
+conversion_result = adapter.convert_streaming("./large_models/")
+```
+
+### Custom Streaming Implementation
+
+Extend the base classes for custom formats:
+
+```python
+from src.core.streaming import StreamReader, ChunkProcessor, StreamingEngine
+
+class MyChunk:
+    """Custom chunk type."""
+    data: list
+    
+class MyResult:
+    """Custom result type."""
+    items: list
+
+class MyStreamReader(StreamReader[MyChunk]):
+    def read_chunks(self, file_path, config):
+        # Yield chunks from file
+        yield MyChunk(data=[...]), bytes_read
+    
+    def get_total_size(self, file_path):
+        return os.path.getsize(file_path)
+    
+    def supports_format(self, file_path):
+        return file_path.endswith('.custom')
+
+class MyChunkProcessor(ChunkProcessor[MyChunk, MyResult]):
+    def process_chunk(self, chunk, chunk_index):
+        return MyResult(items=chunk.data)
+    
+    def merge_results(self, results):
+        merged = MyResult(items=[])
+        for r in results:
+            merged.items.extend(r.items)
+        return merged
+    
+    def finalize(self, result):
+        return result
+
+# Use custom implementation
+engine = StreamingEngine(
+    reader=MyStreamReader(),
+    processor=MyChunkProcessor()
+)
+```
+
+### Utility Functions
+
+```python
+from src.core.streaming import should_use_streaming, get_streaming_threshold
+
+# Check if streaming is recommended
+if should_use_streaming("large_file.json", threshold_mb=50):
+    use_streaming()
+
+# Get configured threshold
+threshold = get_streaming_threshold()  # Default: 100 MB
+```
+
+---
+
 ## RDF Converter
 
 ### `RDFToFabricConverter`

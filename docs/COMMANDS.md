@@ -278,17 +278,83 @@ python -m src.main test
 python -m src.main test --upload-test  # Also upload to Fabric
 ```
 
-## Deprecated Commands
+## Streaming Mode
 
-The following command aliases are deprecated but still work for backward compatibility:
+Streaming mode enables memory-efficient processing of large ontology files. The converter automatically suggests streaming when files exceed 100MB.
 
-| Deprecated | Use Instead |
-|------------|-------------|
-| `validate` | `rdf-validate` |
-| `convert` | `rdf-convert` |
-| `upload` | `rdf-upload` |
-| `export` | `rdf-export` |
-| `dtdl-import` | `dtdl-upload` |
+### When to Use Streaming
+
+- Files larger than 100MB
+- Systems with limited memory
+- Processing multiple large files
+- Avoiding out-of-memory errors
+
+### Streaming for RDF Files
+
+```bash
+# Convert large TTL file with streaming
+python -m src.main rdf-convert large_ontology.ttl --streaming
+
+# Upload with streaming mode
+python -m src.main rdf-upload large_ontology.ttl --streaming
+
+# Force memory checks off (use with caution)
+python -m src.main rdf-convert huge_ontology.ttl --force-memory
+```
+
+### Streaming Architecture
+
+The converter uses a common streaming engine (`src/core/streaming.py`) that supports both RDF and DTDL formats:
+
+| Component | Description |
+|-----------|-------------|
+| `StreamConfig` | Configuration for chunk sizes and memory thresholds |
+| `StreamReader` | Format-specific file readers (RDF, DTDL) |
+| `ChunkProcessor` | Format-specific chunk processors |
+| `StreamingEngine` | Main orchestrator for streaming operations |
+
+### Streaming Features
+
+- **Chunked Processing**: Files are processed in configurable chunks (default: 10,000 items)
+- **Progress Callbacks**: Real-time progress reporting during conversion
+- **Memory Monitoring**: Automatic memory pressure detection
+- **Cancellation Support**: Operations can be cancelled mid-stream
+- **Statistics Tracking**: Detailed processing statistics and timing
+
+### Programmatic Streaming
+
+```python
+from src.core.streaming import (
+    StreamingEngine,
+    DTDLStreamReader,
+    DTDLChunkProcessor,
+    StreamConfig,
+)
+
+# Configure streaming
+config = StreamConfig(
+    chunk_size=5000,           # Process 5000 items per chunk
+    memory_threshold_mb=50,    # Suggest streaming above 50MB
+    enable_progress=True,
+)
+
+# Create and run streaming engine
+engine = StreamingEngine(
+    reader=DTDLStreamReader(),
+    processor=DTDLChunkProcessor(),
+    config=config
+)
+
+result = engine.process_file(
+    "./large_models/",
+    progress_callback=lambda n: print(f"Processed: {n}")
+)
+
+print(result.stats.get_summary())
+```
+
+See [API.md](API.md#streaming-engine) for complete API documentation.
+
 
 Using deprecated commands will show a warning message.
 
