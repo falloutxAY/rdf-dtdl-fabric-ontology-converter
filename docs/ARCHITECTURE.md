@@ -329,6 +329,13 @@ src/
 ├── main.py                    # Entry point
 ├── constants.py               # Centralized constants
 │
+├── formats/                   # NEW: Format-specific packages (recommended entry point)
+│   ├── __init__.py            # Package init with format imports
+│   ├── rdf/                   # RDF/OWL/TTL format support
+│   │   └── __init__.py        # Re-exports from rdf_converter, converters, etc.
+│   └── dtdl/                  # DTDL v2/v3/v4 format support
+│       └── __init__.py        # Re-exports from dtdl module
+│
 ├── models/                    # Shared data models
 │   ├── __init__.py
 │   ├── base.py                # Abstract converter interface
@@ -340,15 +347,20 @@ src/
 │   ├── rate_limiter.py        # Token bucket rate limiting
 │   ├── circuit_breaker.py     # Fault tolerance
 │   ├── cancellation.py        # Graceful shutdown
-│   └── memory.py              # Memory management
+│   ├── memory.py              # Memory management
+│   ├── streaming.py           # Common streaming engine for large files
+│   ├── validators.py          # Input validation, SSRF protection
+│   └── compliance.py          # DTDL/RDF compliance validation
 │
-├── converters/                # RDF conversion utilities
+├── converters/                # RDF conversion components (used by formats.rdf)
 │   ├── type_mapper.py         # XSD → Fabric type mapping
 │   ├── uri_utils.py           # URI resolution
 │   ├── class_resolver.py      # OWL class handling
+│   ├── rdf_parser.py          # TTL parsing with memory management
+│   ├── property_extractor.py  # Class/property extraction
 │   └── fabric_serializer.py   # JSON serialization
 │
-├── dtdl/                      # DTDL support
+├── dtdl/                      # DTDL module (used by formats.dtdl)
 │   ├── cli.py                 # DTDL-specific commands
 │   ├── dtdl_parser.py         # Parse DTDL JSON
 │   ├── dtdl_validator.py      # Validate DTDL structure
@@ -357,17 +369,36 @@ src/
 │   └── dtdl_type_mapper.py    # DTDL type mapping
 │
 ├── cli/                       # Command-line interface
-│   ├── commands.py            # Command implementations
+│   ├── commands/              # Modular command implementations
+│   │   ├── base.py            # BaseCommand ABC
+│   │   ├── common.py          # List, Get, Delete, Test, Compare
+│   │   ├── rdf.py             # RDF commands with batch support
+│   │   └── dtdl.py            # DTDL commands
 │   ├── helpers.py             # CLI utilities
 │   └── parsers.py             # Argument parsing
 │
-├── rdf_converter.py           # RDF → Fabric converter (2514 lines)
-├── fabric_client.py           # Fabric API client (1324 lines)
+├── rdf_converter.py           # RDF → Fabric converter (legacy, use formats.rdf)
+├── fabric_client.py           # Fabric API client
 ├── preflight_validator.py     # Pre-conversion validation
 └── fabric_to_ttl.py           # Fabric → RDF export
 ```
 
-**Note:** Large files (`rdf_converter.py`, `fabric_client.py`, `cli/commands.py`) are candidates for future refactoring.
+### Recommended Import Patterns
+
+**New format-based imports (recommended):**
+```python
+# RDF format
+from src.formats.rdf import RDFToFabricConverter, PreflightValidator
+
+# DTDL format  
+from src.formats.dtdl import DTDLParser, DTDLToFabricConverter
+```
+
+**Legacy imports (still supported for backward compatibility):**
+```python
+from src import RDFToFabricConverter
+from src.dtdl import DTDLParser
+```
 
 ---
 

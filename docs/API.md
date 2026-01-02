@@ -4,6 +4,31 @@ This document provides detailed API documentation for the RDF/DTDL to Microsoft 
 
 ---
 
+## Package Structure
+
+The converter is organized into format-specific packages for cleaner imports:
+
+```python
+# Recommended: Format-based imports
+from src.formats.rdf import RDFToFabricConverter, PreflightValidator
+from src.formats.dtdl import DTDLParser, DTDLToFabricConverter
+
+# Legacy imports (still supported)
+from src import RDFToFabricConverter
+from src.dtdl import DTDLParser
+```
+
+### Format Packages
+
+| Package | Description |
+|---------|-------------|
+| `src.formats.rdf` | RDF/OWL/TTL format support |
+| `src.formats.dtdl` | DTDL v2/v3/v4 format support |
+| `src.core` | Shared infrastructure (streaming, validators, etc.) |
+| `src.models` | Shared data models (EntityType, etc.) |
+
+---
+
 ## Core Modules
 
 ### `src.models` — Shared Data Models

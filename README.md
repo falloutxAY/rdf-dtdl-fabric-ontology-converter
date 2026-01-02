@@ -386,24 +386,37 @@ python -m pytest tests/ -v
 rdf-fabric-ontology-converter/
 ├── src/
 │   ├── main.py                   # CLI entry point
+│   ├── formats/                  # NEW: Format-specific packages (recommended imports)
+│   │   ├── rdf/                  # RDF/OWL/TTL format support
+│   │   └── dtdl/                 # DTDL v2/v3/v4 format support
 │   ├── cli/                      # Command handlers & parsers
-│   ├── converters/               # Type mapping & serialization
-│   ├── core/                     # Rate limiter, circuit breaker, cancellation
+│   │   └── commands/             # Modular command implementations
+│   ├── converters/               # RDF type mapping & extraction components
+│   ├── core/                     # Rate limiter, circuit breaker, streaming, validators
 │   ├── models/                   # Shared data models
-│   ├── dtdl/                     # DTDL import support
-│   ├── rdf_converter.py          # RDF/TTL conversion
+│   ├── dtdl/                     # DTDL module (parser, validator, converter)
+│   ├── rdf_converter.py          # RDF/TTL conversion (legacy entry point)
 │   ├── fabric_client.py          # Fabric API client
 │   └── preflight_validator.py    # Pre-upload validation
-├── tests/                        # 354 passing tests
-│   ├── test_converter.py
-│   ├── test_resilience.py
-│   ├── test_fabric_client.py
-│   ├── test_validation.py
-│   └── integration/
+├── tests/                        # 575+ passing tests
+│   ├── fixtures/                 # Centralized test fixtures
+│   └── integration/              # Integration tests
 ├── samples/                      # Example TTL & DTDL files
 ├── docs/                         # Full documentation
 ├── config.sample.json            # Configuration template
 └── pyproject.toml                # Project metadata and dependencies
+```
+
+### Import Patterns
+
+```python
+# Recommended: Format-based imports
+from src.formats.rdf import RDFToFabricConverter, PreflightValidator
+from src.formats.dtdl import DTDLParser, DTDLToFabricConverter
+
+# Legacy imports (still supported)
+from src import RDFToFabricConverter
+from src.dtdl import DTDLParser
 ```
 
 For detailed architecture, see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
