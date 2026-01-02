@@ -52,7 +52,7 @@ class ListCommand(BaseCommand):
     
     def execute(self, args: argparse.Namespace) -> int:
         """Execute the list command."""
-        from fabric_client import FabricConfig, FabricOntologyClient, FabricAPIError
+        from core import FabricConfig, FabricOntologyClient, FabricAPIError
         
         config_path = args.config or get_default_config_path()
         config_data = load_config(config_path)
@@ -93,7 +93,7 @@ class GetCommand(BaseCommand):
     
     def execute(self, args: argparse.Namespace) -> int:
         """Execute the get command."""
-        from fabric_client import FabricConfig, FabricOntologyClient, FabricAPIError
+        from core import FabricConfig, FabricOntologyClient, FabricAPIError
         
         config_path = args.config or get_default_config_path()
         config_data = load_config(config_path)
@@ -127,7 +127,7 @@ class DeleteCommand(BaseCommand):
     
     def execute(self, args: argparse.Namespace) -> int:
         """Execute the delete command."""
-        from fabric_client import FabricConfig, FabricOntologyClient, FabricAPIError
+        from core import FabricConfig, FabricOntologyClient, FabricAPIError
         
         config_path = args.config or get_default_config_path()
         config_data = load_config(config_path)
@@ -159,8 +159,8 @@ class TestCommand(BaseCommand):
     
     def execute(self, args: argparse.Namespace) -> int:
         """Execute the test command."""
-        from rdf_converter import InputValidator, parse_ttl_content
-        from fabric_client import FabricConfig, FabricOntologyClient, FabricAPIError
+        from rdf import InputValidator, parse_ttl_content
+        from core import FabricConfig, FabricOntologyClient, FabricAPIError
         
         config_path = args.config or get_default_config_path()
         if os.path.exists(config_path):
@@ -247,8 +247,7 @@ class CompareCommand(BaseCommand):
     
     def execute(self, args: argparse.Namespace) -> int:
         """Execute the compare command."""
-        from rdf_converter import InputValidator
-        from fabric_to_ttl import compare_ontologies
+        from rdf import InputValidator, compare_ontologies
         
         self.setup_logging_from_config()
         

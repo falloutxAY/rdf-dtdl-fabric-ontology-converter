@@ -159,14 +159,14 @@ class BaseCommand(ABC):
     def get_validator(self) -> IValidator:
         """Get or create validator instance."""
         if self._validator is None:
-            from preflight_validator import PreflightValidator
+            from rdf import PreflightValidator
             self._validator = PreflightValidator()
         return self._validator
     
     def get_client(self) -> IFabricClient:
         """Get or create Fabric client instance."""
         if self._client is None:
-            from fabric_client import FabricConfig, FabricOntologyClient
+            from core import FabricConfig, FabricOntologyClient
             fabric_config = FabricConfig.from_dict(self.config)
             self._client = FabricOntologyClient(fabric_config)
         return self._client

@@ -1,22 +1,31 @@
 """
 Core utilities and cross-cutting concerns for the RDF/DTDL Fabric Ontology Converter.
 
-This module provides shared infrastructure components used across all format converters
-and the Fabric client, including:
+This module provides shared infrastructure components used across all format converters,
+including:
 
+- Fabric API client (FabricConfig, FabricOntologyClient, FabricAPIError)
 - Rate limiting (TokenBucketRateLimiter, NoOpRateLimiter)
 - Circuit breaker pattern (CircuitBreaker, CircuitState, CircuitBreakerOpenError)
 - Cancellation handling (CancellationToken, CancellationTokenSource, setup_cancellation_handler)
 - Memory management (MemoryManager)
 - Input validation (InputValidator)
 - Configuration constants (ExitCode, MemoryLimits, APIConfig, etc.)
+- Authentication helpers (TokenManager, CredentialFactory)
+- HTTP client utilities (RequestHandler, ResponseHandler)
+- Long-running operation handling (LROHandler)
 
 Usage:
+    from core import FabricConfig, FabricOntologyClient, FabricAPIError
     from core import CircuitBreaker, CancellationToken, MemoryManager, InputValidator
     from core import ExitCode, APIConfig
     from core.rate_limiter import TokenBucketRateLimiter
     from core.cancellation import setup_cancellation_handler
     from core.validators import InputValidator
+    from core.auth import TokenManager, CredentialFactory
+    from core.http_client import RequestHandler, ResponseHandler
+    from core.lro_handler import LROHandler
+    from core.fabric_client import FabricOntologyClient
 """
 
 # Rate limiting
@@ -52,6 +61,39 @@ from .cancellation import (
 
 # Memory management
 from .memory import MemoryManager
+
+# Authentication helpers
+from .auth import (
+    TokenManager,
+    CredentialFactory,
+    AuthenticationError,
+    FABRIC_SCOPE,
+)
+
+# HTTP client utilities
+from .http_client import (
+    RequestHandler,
+    ResponseHandler,
+    TransientAPIError,
+    FabricAPIError,
+    HttpMethod,
+    is_transient_error,
+    get_retry_wait_time,
+    sanitize_display_name,
+)
+
+# Long-running operation handling
+from .lro_handler import LROHandler
+
+# Fabric API client
+from .fabric_client import (
+    FabricConfig,
+    FabricOntologyClient,
+    FabricAPIError,
+    TransientAPIError as FabricTransientAPIError,
+    RateLimitConfig,
+    CircuitBreakerSettings,
+)
 
 # Input validation and Fabric limits
 from .validators import (
@@ -148,6 +190,29 @@ __all__ = [
     "get_global_token",
     # Memory management
     "MemoryManager",
+    # Authentication
+    "TokenManager",
+    "CredentialFactory",
+    "AuthenticationError",
+    "FABRIC_SCOPE",
+    # HTTP client
+    "RequestHandler",
+    "ResponseHandler",
+    "TransientAPIError",
+    "FabricAPIError",
+    "HttpMethod",
+    "is_transient_error",
+    "get_retry_wait_time",
+    "sanitize_display_name",
+    # LRO handling
+    "LROHandler",
+    # Fabric API client
+    "FabricConfig",
+    "FabricOntologyClient",
+    "FabricAPIError",
+    "FabricTransientAPIError",
+    "RateLimitConfig",
+    "CircuitBreakerSettings",
     # Input validation and Fabric limits
     "InputValidator",
     "URLValidator",

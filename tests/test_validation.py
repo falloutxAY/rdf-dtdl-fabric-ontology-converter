@@ -25,7 +25,7 @@ from unittest.mock import Mock, patch, MagicMock
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from preflight_validator import (
+from rdf import (
     PreflightValidator,
     ValidationReport,
     ValidationIssue,
@@ -34,9 +34,11 @@ from preflight_validator import (
     validate_ttl_content,
     validate_ttl_file,
     generate_import_log,
+    FabricToTTLConverter,
+    compare_ontologies,
+    round_trip_test,
+    parse_ttl_content,
 )
-from fabric_to_ttl import FabricToTTLConverter, compare_ontologies, round_trip_test
-from rdf_converter import parse_ttl_content
 
 
 # =============================================================================
@@ -1008,7 +1010,7 @@ class TestConvertCommand:
     
     def test_convert_ttl_to_json(self, sample_ttl, tmp_path):
         """Test converting TTL to JSON definition"""
-        from rdf_converter import parse_ttl_file
+        from rdf import parse_ttl_file
         
         output_file = tmp_path / "output.json"
         
@@ -1053,7 +1055,7 @@ class TestRobustness:
         ttl_file = tmp_path / "large.ttl"
         ttl_file.write_text(ttl_content)
         
-        from rdf_converter import parse_ttl_file
+        from rdf import parse_ttl_file
         
         definition, name = parse_ttl_file(str(ttl_file))
         
@@ -1075,7 +1077,7 @@ class TestRobustness:
         ttl_file = tmp_path / "unicode.ttl"
         ttl_file.write_text(ttl_content, encoding='utf-8')
         
-        from rdf_converter import parse_ttl_file
+        from rdf import parse_ttl_file
         
         definition, name = parse_ttl_file(str(ttl_file))
         assert "parts" in definition
@@ -1094,7 +1096,7 @@ class TestRobustness:
         ttl_file = tmp_path / "special.ttl"
         ttl_file.write_text(ttl_content)
         
-        from rdf_converter import parse_ttl_file
+        from rdf import parse_ttl_file
         import base64
         
         definition, name = parse_ttl_file(str(ttl_file))
@@ -1117,7 +1119,7 @@ class TestThreadSafeTokenCaching:
     
     def test_concurrent_token_acquisition(self):
         """Test that concurrent token requests are handled thread-safely"""
-        from fabric_client import FabricOntologyClient, FabricConfig
+        from core import FabricOntologyClient, FabricConfig
         
         config = FabricConfig(workspace_id="12345678-1234-1234-1234-123456789012")
         client = FabricOntologyClient(config)
@@ -1270,7 +1272,7 @@ class TestEndToEnd:
         if not sample_file.exists():
             pytest.skip("Sample file not found")
         
-        from rdf_converter import parse_ttl_file
+        from rdf import parse_ttl_file
         import base64
         
         definition, name = parse_ttl_file(str(sample_file))
@@ -1295,7 +1297,7 @@ class TestEndToEnd:
     
     def test_multiple_files_sequentially(self, samples_dir):
         """Test parsing multiple files in sequence"""
-        from rdf_converter import parse_ttl_file
+        from rdf import parse_ttl_file
         
         ttl_files = [
             "sample_supply_chain_ontology.ttl",

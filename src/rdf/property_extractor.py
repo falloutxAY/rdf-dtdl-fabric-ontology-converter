@@ -23,9 +23,9 @@ try:
     from .uri_utils import URIUtils
     from .class_resolver import ClassResolver
 except ImportError:
-    from converters.type_mapper import TypeMapper, XSD_TO_FABRIC_TYPE
-    from converters.uri_utils import URIUtils
-    from converters.class_resolver import ClassResolver
+    from rdf.type_mapper import TypeMapper, XSD_TO_FABRIC_TYPE
+    from rdf.uri_utils import URIUtils
+    from rdf.class_resolver import ClassResolver
 
 # Import models
 try:

@@ -19,6 +19,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 - New DTDL v4 test suite with 13 comprehensive tests
 
 ### Changed
+- **Package Reorganization**: Consolidated folder structure for consistency
+  - RDF components moved from `src/converters/` to `src/rdf/` (parallel to `src/dtdl/`)
+  - `preflight_validator.py` and `fabric_to_ttl.py` moved into `src/rdf/`
+  - `fabric_client.py` moved into `src/core/` (shared infrastructure)
+  - Removed duplicate `cancellation.py`, `circuit_breaker.py`, `rate_limiter.py` from `src/` root
+  - Removed redundant `src/formats/` package
+- Updated import paths throughout codebase to use new package structure
 - RDF and DTDL converters now import shared models to avoid duplication.
 - `DTDLPrimitiveSchema` enum now includes all v4 primitive types including `scaledDecimal`
 - Type mapper updated to handle `DTDLScaledDecimal` schema type

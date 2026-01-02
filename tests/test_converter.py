@@ -8,7 +8,7 @@ Or with coverage: python -m pytest tests/ --cov=src --cov-report=html
 import pytest
 import json
 from pathlib import Path
-from rdf_converter import (
+from rdf import (
     RDFToFabricConverter, 
     EntityType, 
     RelationshipType,
@@ -1428,7 +1428,7 @@ class TestConversionResult:
     
     def test_skipped_item_creation(self):
         """Test SkippedItem dataclass creation"""
-        from src.rdf_converter import SkippedItem
+        from src.rdf import SkippedItem
         
         item = SkippedItem(
             item_type="relationship",
@@ -1444,7 +1444,7 @@ class TestConversionResult:
     
     def test_skipped_item_to_dict(self):
         """Test SkippedItem serialization"""
-        from src.rdf_converter import SkippedItem
+        from src.rdf import SkippedItem
         
         item = SkippedItem(
             item_type="relationship",
@@ -1461,7 +1461,7 @@ class TestConversionResult:
     
     def test_conversion_result_empty(self):
         """Test ConversionResult with no data"""
-        from src.rdf_converter import ConversionResult
+        from src.rdf import ConversionResult
         
         result = ConversionResult(
             entity_types=[],
@@ -1477,7 +1477,7 @@ class TestConversionResult:
     
     def test_conversion_result_success_rate_calculation(self):
         """Test success rate calculation with mock entity types"""
-        from src.rdf_converter import ConversionResult, SkippedItem, EntityType
+        from src.rdf import ConversionResult, SkippedItem, EntityType
         
         # Create 5 EntityType objects and 3 RelationshipType-like dicts
         entity_types = [EntityType(id=f"id_{i}", name=f"Entity{i}") for i in range(5)]
@@ -1502,7 +1502,7 @@ class TestConversionResult:
     
     def test_conversion_result_skipped_by_type_returns_counts(self):
         """Test grouping skipped items by type returns counts"""
-        from src.rdf_converter import ConversionResult, SkippedItem
+        from src.rdf import ConversionResult, SkippedItem
         
         skipped = [
             SkippedItem("relationship", "prop1", "Missing domain", "http://ex.org/p1"),
@@ -1525,7 +1525,7 @@ class TestConversionResult:
     
     def test_conversion_result_get_summary(self):
         """Test summary generation"""
-        from src.rdf_converter import ConversionResult, SkippedItem, EntityType, RelationshipType, RelationshipEnd
+        from src.rdf import ConversionResult, SkippedItem, EntityType, RelationshipType, RelationshipEnd
         
         skipped = [
             SkippedItem("relationship", "prop1", "Missing domain", "http://ex.org/p1"),
@@ -1561,7 +1561,7 @@ class TestConversionResult:
     
     def test_conversion_result_to_dict(self):
         """Test serialization to dictionary"""
-        from src.rdf_converter import ConversionResult, SkippedItem, EntityType
+        from src.rdf import ConversionResult, SkippedItem, EntityType
         
         skipped = [
             SkippedItem("relationship", "prop1", "Missing domain", "http://ex.org/p1"),
@@ -1593,7 +1593,7 @@ class TestConversionResult:
     
     def test_parse_ttl_with_result_function(self):
         """Test parse_ttl_with_result returns ConversionResult"""
-        from src.rdf_converter import parse_ttl_with_result, ConversionResult
+        from src.rdf import parse_ttl_with_result, ConversionResult
         
         # parse_ttl_with_result expects TTL content, not file path
         ttl_content = """
@@ -1613,7 +1613,7 @@ class TestConversionResult:
     
     def test_parse_ttl_file_with_result_function(self, tmp_path):
         """Test parse_ttl_file_with_result returns tuple with ConversionResult"""
-        from src.rdf_converter import parse_ttl_file_with_result, ConversionResult
+        from src.rdf import parse_ttl_file_with_result, ConversionResult
         
         # Create a simple TTL file
         ttl_content = """
@@ -1637,7 +1637,7 @@ class TestConversionResult:
     
     def test_converter_tracks_skipped_items(self):
         """Test that converter tracks skipped items during parsing"""
-        from src.rdf_converter import parse_ttl_with_result
+        from src.rdf import parse_ttl_with_result
         
         # Create TTL with an object property that references non-existent classes
         ttl_content = """
@@ -1667,7 +1667,7 @@ class TestConversionResult:
     
     def test_converter_state_reset_between_parses(self):
         """Test that converter resets state between parse calls"""
-        from src.rdf_converter import RDFToFabricConverter
+        from src.rdf import RDFToFabricConverter
         
         converter = RDFToFabricConverter()
         
@@ -1700,7 +1700,7 @@ class TestConversionResult:
     
     def test_conversion_result_with_warnings(self):
         """Test ConversionResult with warnings"""
-        from src.rdf_converter import ConversionResult, EntityType
+        from src.rdf import ConversionResult, EntityType
         
         entity_types = [EntityType(id="1", name="Entity1")]
         

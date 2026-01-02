@@ -6,26 +6,28 @@ This document provides detailed API documentation for the RDF/DTDL to Microsoft 
 
 ## Package Structure
 
-The converter is organized into format-specific packages for cleaner imports:
+The converter is organized into format-specific packages:
 
 ```python
-# Recommended: Format-based imports
-from src.formats.rdf import RDFToFabricConverter, PreflightValidator
-from src.formats.dtdl import DTDLParser, DTDLToFabricConverter
+# Format-based imports (recommended)
+from rdf import RDFToFabricConverter, PreflightValidator, parse_ttl_content
+from dtdl import DTDLParser, DTDLValidator
+from core import FabricConfig, FabricOntologyClient, CircuitBreaker
 
-# Legacy imports (still supported)
-from src import RDFToFabricConverter
+# Package imports
+from src.rdf import RDFToFabricConverter
 from src.dtdl import DTDLParser
+from src.core import FabricConfig
 ```
 
-### Format Packages
+### Package Overview
 
 | Package | Description |
 |---------|-------------|
-| `src.formats.rdf` | RDF/OWL/TTL format support |
-| `src.formats.dtdl` | DTDL v2/v3/v4 format support |
-| `src.core` | Shared infrastructure (streaming, validators, etc.) |
-| `src.models` | Shared data models (EntityType, etc.) |
+| `src.rdf` | RDF/OWL/TTL format support (converter, validator, exporter) |
+| `src.dtdl` | DTDL v2/v3/v4 format support (parser, validator, converter) |
+| `src.core` | Shared infrastructure (Fabric client, rate limiter, circuit breaker, cancellation) |
+| `src.models` | Shared data models (EntityType, RelationshipType, ConversionResult) |
 
 ---
 
@@ -920,14 +922,14 @@ client.delete_ontology(ontology_id)
 
 ## RDF Converter Components
 
-The RDF conversion functionality has been modularized for better maintainability. The following components are available in `src/converters/`:
+The RDF conversion functionality has been modularized for better maintainability. The following components are available in `src/rdf/`:
 
 ### `MemoryManager`
 
 Manages memory usage during RDF parsing to prevent out-of-memory crashes.
 
 ```python
-from src.converters import MemoryManager
+from rdf import MemoryManager
 
 # Check if enough memory is available to parse a file
 can_proceed, message = MemoryManager.check_memory_available(
@@ -953,7 +955,7 @@ MemoryManager.log_memory_status("After parsing")
 Handles TTL/RDF parsing with memory safety checks.
 
 ```python
-from src.converters import RDFGraphParser
+from rdf import RDFGraphParser
 
 # Parse TTL content with memory safety
 graph, triple_count, size_mb = RDFGraphParser.parse_ttl_content(
@@ -973,7 +975,7 @@ graph, triple_count, size_mb = RDFGraphParser.parse_ttl_file(
 Extracts OWL/RDFS classes as entity types.
 
 ```python
-from src.converters import ClassExtractor
+from rdf import ClassExtractor
 
 entity_types, uri_to_id = ClassExtractor.extract_classes(
     graph,
@@ -987,7 +989,7 @@ entity_types, uri_to_id = ClassExtractor.extract_classes(
 Extracts data properties and assigns them to entity types.
 
 ```python
-from src.converters import DataPropertyExtractor
+from rdf import DataPropertyExtractor
 
 property_to_domain, uri_to_id = DataPropertyExtractor.extract_data_properties(
     graph,
@@ -1002,7 +1004,7 @@ property_to_domain, uri_to_id = DataPropertyExtractor.extract_data_properties(
 Extracts object properties as relationship types.
 
 ```python
-from src.converters import ObjectPropertyExtractor
+from rdf import ObjectPropertyExtractor
 
 relationship_types, uri_to_id = ObjectPropertyExtractor.extract_object_properties(
     graph,
@@ -1019,7 +1021,7 @@ relationship_types, uri_to_id = ObjectPropertyExtractor.extract_object_propertie
 Sets entity ID parts and display name properties for entity types.
 
 ```python
-from src.converters import EntityIdentifierSetter
+from rdf import EntityIdentifierSetter
 
 # Modifies entity_types in place
 EntityIdentifierSetter.set_identifiers(entity_types)
@@ -1028,7 +1030,7 @@ EntityIdentifierSetter.set_identifiers(entity_types)
 ### Other Converter Utilities
 
 ```python
-from src.converters import TypeMapper, URIUtils, ClassResolver, FabricSerializer
+from rdf import TypeMapper, URIUtils, ClassResolver, FabricSerializer
 
 # Type mapping
 fabric_type = TypeMapper.get_fabric_type("http://www.w3.org/2001/XMLSchema#string")

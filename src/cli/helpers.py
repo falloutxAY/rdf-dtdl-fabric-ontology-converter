@@ -338,7 +338,7 @@ def load_config(config_path: str, strict_security: bool = False) -> Dict[str, An
         IOError: If there's an error reading the file.
     """
     # Import InputValidator here to avoid circular imports
-    from rdf_converter import InputValidator
+    from rdf import InputValidator
     
     if not config_path:
         raise ValueError("config_path cannot be empty")

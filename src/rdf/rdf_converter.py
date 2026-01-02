@@ -30,29 +30,29 @@ from rdflib import Graph, RDF, RDFS, OWL, URIRef
 
 # Import refactored components - try relative first, then absolute for direct execution
 try:
-    from .converters.rdf_parser import MemoryManager, RDFGraphParser
-    from .converters.property_extractor import (
+    from .rdf_parser import MemoryManager, RDFGraphParser
+    from .property_extractor import (
         ClassExtractor,
         DataPropertyExtractor,
         ObjectPropertyExtractor,
         EntityIdentifierSetter,
     )
-    from .converters.type_mapper import TypeMapper, XSD_TO_FABRIC_TYPE
-    from .converters.uri_utils import URIUtils
-    from .converters.class_resolver import ClassResolver
-    from .converters.fabric_serializer import FabricSerializer
-    from .core.validators import (
+    from .type_mapper import TypeMapper, XSD_TO_FABRIC_TYPE
+    from .uri_utils import URIUtils
+    from .class_resolver import ClassResolver
+    from .fabric_serializer import FabricSerializer
+    from ..core.validators import (
         InputValidator,
         FabricLimitsValidator,
         EntityIdPartsInferrer,
     )
-    from .core.compliance import (
+    from ..core.compliance import (
         RDFOWLComplianceValidator,
         FabricComplianceChecker,
         ConversionReportGenerator,
         ConversionReport,
     )
-    from .models import (
+    from ..models import (
         EntityType,
         EntityTypeProperty,
         RelationshipType,
@@ -61,17 +61,17 @@ try:
         SkippedItem,
     )
 except ImportError:
-    from converters.rdf_parser import MemoryManager, RDFGraphParser
-    from converters.property_extractor import (
+    from rdf.rdf_parser import MemoryManager, RDFGraphParser
+    from rdf.property_extractor import (
         ClassExtractor,
         DataPropertyExtractor,
         ObjectPropertyExtractor,
         EntityIdentifierSetter,
     )
-    from converters.type_mapper import TypeMapper, XSD_TO_FABRIC_TYPE
-    from converters.uri_utils import URIUtils
-    from converters.class_resolver import ClassResolver
-    from converters.fabric_serializer import FabricSerializer
+    from rdf.type_mapper import TypeMapper, XSD_TO_FABRIC_TYPE
+    from rdf.uri_utils import URIUtils
+    from rdf.class_resolver import ClassResolver
+    from rdf.fabric_serializer import FabricSerializer
     from core.validators import (
         InputValidator,
         FabricLimitsValidator,

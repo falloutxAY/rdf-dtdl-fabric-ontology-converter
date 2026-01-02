@@ -8,7 +8,7 @@ import json
 import pytest
 from pathlib import Path
 
-from src.rdf_converter import parse_ttl_with_result
+from src.rdf import parse_ttl_with_result
 
 
 class TestRDFConversionPipeline:

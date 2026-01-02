@@ -182,10 +182,10 @@ def upload_command(args: argparse.Namespace) -> int:
     """
     # Import Fabric client from parent module
     try:
-        from ..fabric_client import FabricOntologyClient
+        from ..core.fabric_client import FabricOntologyClient
     except ImportError:
         try:
-            from fabric_client import FabricOntologyClient
+            from core import FabricOntologyClient
         except ImportError:
             logger.error("Could not import FabricOntologyClient. Ensure fabric_client.py is available.")
             return 1
@@ -311,10 +311,10 @@ def import_command(args: argparse.Namespace) -> int:
         logger.info("Step 4: Uploading to Fabric...")
         
         try:
-            from ..fabric_client import FabricOntologyClient, FabricConfig
+            from ..core.fabric_client import FabricOntologyClient, FabricConfig
         except ImportError:
             try:
-                from fabric_client import FabricOntologyClient, FabricConfig
+                from core import FabricOntologyClient, FabricConfig
             except ImportError:
                 logger.error("Could not import FabricOntologyClient")
                 return 1

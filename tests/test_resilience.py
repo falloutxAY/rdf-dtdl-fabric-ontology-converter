@@ -23,16 +23,15 @@ import sys
 import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
-from rate_limiter import TokenBucketRateLimiter, NoOpRateLimiter
-from circuit_breaker import (
+from core import (
+    TokenBucketRateLimiter,
+    NoOpRateLimiter,
     CircuitBreaker,
     CircuitBreakerConfig,
     CircuitBreakerOpenError,
     CircuitBreakerMetrics,
     CircuitState,
     CircuitBreakerRegistry,
-)
-from cancellation import (
     CancellationToken,
     CancellationTokenSource,
     OperationCancelledException,
@@ -355,7 +354,7 @@ class TestRateLimitConfigIntegration:
     
     def test_rate_limit_config_from_dict_default(self):
         """Test RateLimitConfig default values."""
-        from fabric_client import RateLimitConfig
+        from core import RateLimitConfig
         
         config = RateLimitConfig.from_dict(None)
         
@@ -365,7 +364,7 @@ class TestRateLimitConfigIntegration:
     
     def test_rate_limit_config_from_dict_custom(self):
         """Test RateLimitConfig with custom values."""
-        from fabric_client import RateLimitConfig
+        from core import RateLimitConfig
         
         config = RateLimitConfig.from_dict({
             'enabled': False,
@@ -379,7 +378,7 @@ class TestRateLimitConfigIntegration:
     
     def test_fabric_config_includes_rate_limit(self):
         """Test that FabricConfig includes rate limit settings."""
-        from fabric_client import FabricConfig
+        from core import FabricConfig
         
         config = FabricConfig.from_dict({
             'fabric': {
@@ -398,7 +397,7 @@ class TestRateLimitConfigIntegration:
     
     def test_fabric_config_default_rate_limit(self):
         """Test FabricConfig with default rate limit."""
-        from fabric_client import FabricConfig
+        from core import FabricConfig
         
         config = FabricConfig.from_dict({
             'fabric': {
@@ -411,7 +410,7 @@ class TestRateLimitConfigIntegration:
     
     def test_client_creates_rate_limiter_enabled(self):
         """Test client creates rate limiter when enabled."""
-        from fabric_client import FabricConfig, FabricOntologyClient
+        from core import FabricConfig, FabricOntologyClient
         
         config = FabricConfig(
             workspace_id='12345678-1234-1234-1234-123456789012'
@@ -426,7 +425,7 @@ class TestRateLimitConfigIntegration:
     
     def test_client_creates_noop_limiter_disabled(self):
         """Test client creates NoOpRateLimiter when disabled."""
-        from fabric_client import FabricConfig, FabricOntologyClient, RateLimitConfig
+        from core import FabricConfig, FabricOntologyClient, RateLimitConfig
         
         config = FabricConfig(
             workspace_id='12345678-1234-1234-1234-123456789012',
@@ -440,7 +439,7 @@ class TestRateLimitConfigIntegration:
     
     def test_client_get_rate_limit_statistics(self):
         """Test getting rate limit statistics from client."""
-        from fabric_client import FabricConfig, FabricOntologyClient
+        from core import FabricConfig, FabricOntologyClient
         
         config = FabricConfig(
             workspace_id='12345678-1234-1234-1234-123456789012'
@@ -463,7 +462,7 @@ class TestRateLimitRequestIntegration:
     
     def test_make_request_acquires_token(self):
         """Test that _make_request acquires rate limit token."""
-        from fabric_client import FabricConfig, FabricOntologyClient
+        from core import FabricConfig, FabricOntologyClient
         
         config = FabricConfig(
             workspace_id='12345678-1234-1234-1234-123456789012'
@@ -472,7 +471,7 @@ class TestRateLimitRequestIntegration:
         with patch.object(FabricOntologyClient, '_get_credential'):
             client = FabricOntologyClient(config)
         
-        with patch('fabric_client.requests.request') as mock_request:
+        with patch('core.fabric_client.requests.request') as mock_request:
             mock_response = MagicMock()
             mock_response.status_code = 200
             mock_request.return_value = mock_response
@@ -992,10 +991,10 @@ class TestCircuitBreakerOpenError:
 class TestFabricClientCircuitBreakerIntegration:
     """Tests for circuit breaker integration with FabricOntologyClient."""
     
-    @patch('fabric_client.requests.request')
+    @patch('core.fabric_client.requests.request')
     def test_client_initializes_circuit_breaker(self, mock_request):
         """Test that FabricOntologyClient initializes circuit breaker from config."""
-        from fabric_client import FabricConfig, FabricOntologyClient, CircuitBreakerSettings
+        from core import FabricConfig, FabricOntologyClient, CircuitBreakerSettings
         
         config = FabricConfig(
             workspace_id="12345678-1234-1234-1234-123456789012",
@@ -1013,10 +1012,10 @@ class TestFabricClientCircuitBreakerIntegration:
         assert client.circuit_breaker.config.failure_threshold == 3
         assert client.circuit_breaker.config.recovery_timeout == 30.0
     
-    @patch('fabric_client.requests.request')
+    @patch('core.fabric_client.requests.request')
     def test_client_without_circuit_breaker(self, mock_request):
         """Test that FabricOntologyClient works without circuit breaker."""
-        from fabric_client import FabricConfig, FabricOntologyClient, CircuitBreakerSettings
+        from core import FabricConfig, FabricOntologyClient, CircuitBreakerSettings
         
         config = FabricConfig(
             workspace_id="12345678-1234-1234-1234-123456789012",
@@ -1028,7 +1027,7 @@ class TestFabricClientCircuitBreakerIntegration:
     
     def test_circuit_breaker_status_method(self):
         """Test get_circuit_breaker_status method."""
-        from fabric_client import FabricConfig, FabricOntologyClient, CircuitBreakerSettings
+        from core import FabricConfig, FabricOntologyClient, CircuitBreakerSettings
         
         config = FabricConfig(
             workspace_id="12345678-1234-1234-1234-123456789012",
@@ -1044,7 +1043,7 @@ class TestFabricClientCircuitBreakerIntegration:
     
     def test_circuit_breaker_disabled_status(self):
         """Test status when circuit breaker is disabled."""
-        from fabric_client import FabricConfig, FabricOntologyClient, CircuitBreakerSettings
+        from core import FabricConfig, FabricOntologyClient, CircuitBreakerSettings
         
         config = FabricConfig(
             workspace_id="12345678-1234-1234-1234-123456789012",
@@ -1058,7 +1057,7 @@ class TestFabricClientCircuitBreakerIntegration:
     
     def test_reset_circuit_breaker_method(self):
         """Test reset_circuit_breaker method."""
-        from fabric_client import FabricConfig, FabricOntologyClient, CircuitBreakerSettings
+        from core import FabricConfig, FabricOntologyClient, CircuitBreakerSettings
         
         config = FabricConfig(
             workspace_id="12345678-1234-1234-1234-123456789012",
@@ -1088,7 +1087,7 @@ class TestCircuitBreakerConfigFromDict:
     
     def test_from_dict_with_all_values(self):
         """Test creating settings from dict with all values."""
-        from fabric_client import CircuitBreakerSettings
+        from core import CircuitBreakerSettings
         
         settings = CircuitBreakerSettings.from_dict({
             'enabled': True,
@@ -1104,7 +1103,7 @@ class TestCircuitBreakerConfigFromDict:
     
     def test_from_dict_with_defaults(self):
         """Test creating settings from empty dict uses defaults."""
-        from fabric_client import CircuitBreakerSettings
+        from core import CircuitBreakerSettings
         
         settings = CircuitBreakerSettings.from_dict({})
         
@@ -1115,7 +1114,7 @@ class TestCircuitBreakerConfigFromDict:
     
     def test_from_dict_with_none(self):
         """Test creating settings from None uses defaults."""
-        from fabric_client import CircuitBreakerSettings
+        from core import CircuitBreakerSettings
         
         settings = CircuitBreakerSettings.from_dict(None)
         
@@ -1445,7 +1444,7 @@ class TestFabricClientCancellation:
     
     def test_create_ontology_checks_cancellation(self):
         """Test that create_ontology checks cancellation token."""
-        from fabric_client import FabricConfig, FabricOntologyClient
+        from core import FabricConfig, FabricOntologyClient
         
         config = FabricConfig(
             workspace_id="12345678-1234-1234-1234-123456789012",
@@ -1453,7 +1452,7 @@ class TestFabricClientCancellation:
             use_interactive_auth=False
         )
         
-        with patch('fabric_client.DefaultAzureCredential'):
+        with patch('core.fabric_client.DefaultAzureCredential'):
             client = FabricOntologyClient(config)
             client._access_token = "mock-token"
             client._token_expires = time.time() + 3600
@@ -1470,7 +1469,7 @@ class TestFabricClientCancellation:
     
     def test_update_ontology_definition_checks_cancellation(self):
         """Test that update_ontology_definition checks cancellation token."""
-        from fabric_client import FabricConfig, FabricOntologyClient
+        from core import FabricConfig, FabricOntologyClient
         
         config = FabricConfig(
             workspace_id="12345678-1234-1234-1234-123456789012",
@@ -1478,7 +1477,7 @@ class TestFabricClientCancellation:
             use_interactive_auth=False
         )
         
-        with patch('fabric_client.DefaultAzureCredential'):
+        with patch('core.fabric_client.DefaultAzureCredential'):
             client = FabricOntologyClient(config)
             client._access_token = "mock-token"
             client._token_expires = time.time() + 3600
@@ -1495,7 +1494,7 @@ class TestFabricClientCancellation:
     
     def test_create_or_update_checks_cancellation(self):
         """Test that create_or_update_ontology checks cancellation token."""
-        from fabric_client import FabricConfig, FabricOntologyClient
+        from core import FabricConfig, FabricOntologyClient
         
         config = FabricConfig(
             workspace_id="12345678-1234-1234-1234-123456789012",
@@ -1503,7 +1502,7 @@ class TestFabricClientCancellation:
             use_interactive_auth=False
         )
         
-        with patch('fabric_client.DefaultAzureCredential'):
+        with patch('core.fabric_client.DefaultAzureCredential'):
             client = FabricOntologyClient(config)
             client._access_token = "mock-token"
             client._token_expires = time.time() + 3600
@@ -1520,7 +1519,7 @@ class TestFabricClientCancellation:
     
     def test_wait_for_operation_checks_cancellation_immediately(self):
         """Test that _wait_for_operation checks cancellation immediately."""
-        from fabric_client import FabricConfig, FabricOntologyClient
+        from core import FabricConfig, FabricOntologyClient
         
         config = FabricConfig(
             workspace_id="12345678-1234-1234-1234-123456789012",
@@ -1528,7 +1527,7 @@ class TestFabricClientCancellation:
             use_interactive_auth=False
         )
         
-        with patch('fabric_client.DefaultAzureCredential'):
+        with patch('core.fabric_client.DefaultAzureCredential'):
             client = FabricOntologyClient(config)
             client._access_token = "mock-token"
             client._token_expires = time.time() + 3600

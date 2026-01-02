@@ -116,8 +116,7 @@ class ValidateCommand(BaseCommand):
     
     def execute(self, args: argparse.Namespace) -> int:
         """Execute the validate command."""
-        from rdf_converter import InputValidator
-        from preflight_validator import validate_ttl_content
+        from rdf import InputValidator, validate_ttl_content
         
         self.setup_logging_from_config()
         
@@ -135,8 +134,7 @@ class ValidateCommand(BaseCommand):
     
     def _execute_single_validate(self, args: argparse.Namespace) -> int:
         """Execute validation for a single file."""
-        from rdf_converter import InputValidator
-        from preflight_validator import validate_ttl_content
+        from rdf import InputValidator, validate_ttl_content
         
         ttl_file = args.ttl_file
         
@@ -212,8 +210,7 @@ class ValidateCommand(BaseCommand):
     
     def _execute_batch_validate(self, args: argparse.Namespace, directory: Path) -> int:
         """Execute validation for all TTL files in a directory."""
-        from rdf_converter import InputValidator
-        from preflight_validator import validate_ttl_content
+        from rdf import InputValidator, validate_ttl_content
         
         recursive = getattr(args, 'recursive', False)
         ttl_files = find_ttl_files(directory, recursive=recursive)
@@ -315,13 +312,12 @@ class UploadCommand(BaseCommand):
     
     def execute(self, args: argparse.Namespace) -> int:
         """Execute the upload command."""
-        from rdf_converter import (
+        from rdf import (
             InputValidator, parse_ttl_with_result, parse_ttl_streaming,
-            StreamingRDFConverter
+            StreamingRDFConverter, validate_ttl_content, generate_import_log, IssueSeverity
         )
-        from fabric_client import FabricConfig, FabricOntologyClient, FabricAPIError
-        from preflight_validator import validate_ttl_content, generate_import_log, IssueSeverity
-        from cancellation import (
+        from core import FabricConfig, FabricOntologyClient, FabricAPIError
+        from core import (
             setup_cancellation_handler, restore_default_handler,
             OperationCancelledException
         )
@@ -340,13 +336,12 @@ class UploadCommand(BaseCommand):
     
     def _execute_single_upload(self, args: argparse.Namespace) -> int:
         """Execute upload for a single file."""
-        from rdf_converter import (
+        from rdf import (
             InputValidator, parse_ttl_with_result, parse_ttl_streaming,
-            StreamingRDFConverter
+            StreamingRDFConverter, validate_ttl_content, generate_import_log, IssueSeverity
         )
-        from fabric_client import FabricConfig, FabricOntologyClient, FabricAPIError
-        from preflight_validator import validate_ttl_content, generate_import_log, IssueSeverity
-        from cancellation import (
+        from core import FabricConfig, FabricOntologyClient, FabricAPIError
+        from core import (
             setup_cancellation_handler, restore_default_handler,
             OperationCancelledException
         )
@@ -548,8 +543,8 @@ class UploadCommand(BaseCommand):
     
     def _execute_batch_upload(self, args: argparse.Namespace, directory: Path) -> int:
         """Execute upload for all TTL files in a directory."""
-        from rdf_converter import InputValidator, parse_ttl_with_result
-        from fabric_client import FabricConfig, FabricOntologyClient, FabricAPIError
+        from rdf import InputValidator, parse_ttl_with_result
+        from core import FabricConfig, FabricOntologyClient, FabricAPIError
         
         # Load configuration first
         config_path = args.config or get_default_config_path()
@@ -624,7 +619,7 @@ class UploadCommand(BaseCommand):
         self, ttl_content: str, ttl_file: str, args: Any, validated_path: Path
     ) -> Any:
         """Run pre-flight validation."""
-        from preflight_validator import validate_ttl_content, IssueSeverity
+        from rdf import validate_ttl_content, IssueSeverity
         
         print_header("PRE-FLIGHT VALIDATION")
         
@@ -674,7 +669,7 @@ class UploadCommand(BaseCommand):
         force_memory: bool, use_streaming: bool, cancellation_token: Any
     ) -> tuple:
         """Convert TTL to Fabric format."""
-        from rdf_converter import parse_ttl_with_result, parse_ttl_streaming
+        from rdf import parse_ttl_with_result, parse_ttl_streaming
         
         if use_streaming:
             print(f"Using streaming mode for conversion...")
@@ -713,7 +708,7 @@ class ConvertCommand(BaseCommand):
     
     def execute(self, args: argparse.Namespace) -> int:
         """Execute the convert command."""
-        from rdf_converter import (
+        from rdf import (
             InputValidator, parse_ttl_with_result, parse_ttl_streaming,
             StreamingRDFConverter
         )
@@ -734,7 +729,7 @@ class ConvertCommand(BaseCommand):
     
     def _execute_single_convert(self, args: argparse.Namespace) -> int:
         """Execute conversion for a single file."""
-        from rdf_converter import (
+        from rdf import (
             InputValidator, parse_ttl_with_result, parse_ttl_streaming,
             StreamingRDFConverter
         )
@@ -877,7 +872,7 @@ class ConvertCommand(BaseCommand):
     
     def _execute_batch_convert(self, args: argparse.Namespace, directory: Path) -> int:
         """Execute conversion for all TTL files in a directory."""
-        from rdf_converter import InputValidator, parse_ttl_with_result
+        from rdf import InputValidator, parse_ttl_with_result
         
         recursive = getattr(args, 'recursive', False)
         ttl_files = find_ttl_files(directory, recursive=recursive)
@@ -936,9 +931,8 @@ class ExportCommand(BaseCommand):
     
     def execute(self, args: argparse.Namespace) -> int:
         """Execute the export command."""
-        from rdf_converter import InputValidator
-        from fabric_client import FabricConfig, FabricOntologyClient, FabricAPIError
-        from fabric_to_ttl import FabricToTTLConverter
+        from rdf import InputValidator, FabricToTTLConverter
+        from core import FabricConfig, FabricOntologyClient, FabricAPIError
         
         config_path = args.config or get_default_config_path()
         

@@ -29,9 +29,6 @@ Usage:
     python -m src.main test [--config <config.json>]
     python -m src.main compare <ttl_file1> <ttl_file2>
 
-Note: Legacy command names (validate, upload, convert, export, dtdl-import) 
-      are deprecated but still work for backward compatibility.
-
 Architecture:
     This module provides the main entry point and delegates to the cli/ module
     which implements clean separation of concerns:
@@ -41,7 +38,6 @@ Architecture:
 """
 
 import sys
-import warnings
 
 # Use try/except for imports to support both module and direct execution
 try:
@@ -62,7 +58,6 @@ try:
         DTDLConvertCommand,
         DTDLImportCommand,
     )
-    from .cli.parsers import DEPRECATED_COMMANDS
 except ImportError:
     # When running directly: python src/main.py (from project root)
     from cli import (
@@ -81,22 +76,15 @@ except ImportError:
         DTDLConvertCommand,
         DTDLImportCommand,
     )
-    from cli.parsers import DEPRECATED_COMMANDS
 
 
 # Command mapping from command name to Command class
 COMMAND_MAP = {
-    # RDF/TTL commands (new names with rdf- prefix)
+    # RDF/TTL commands
     'rdf-validate': ValidateCommand,
     'rdf-upload': UploadCommand,
     'rdf-convert': ConvertCommand,
     'rdf-export': ExportCommand,
-    
-    # Deprecated aliases for backward compatibility
-    'validate': ValidateCommand,
-    'upload': UploadCommand,
-    'convert': ConvertCommand,
-    'export': ExportCommand,
     
     # Common commands (no prefix needed)
     'list': ListCommand,
@@ -109,9 +97,6 @@ COMMAND_MAP = {
     'dtdl-validate': DTDLValidateCommand,
     'dtdl-convert': DTDLConvertCommand,
     'dtdl-upload': DTDLImportCommand,
-    
-    # Deprecated alias
-    'dtdl-import': DTDLImportCommand,
 }
 
 
@@ -129,17 +114,6 @@ def main():
     if not args.command:
         parser.print_help()
         sys.exit(1)
-    
-    # Check for deprecated command names and warn users
-    if args.command in DEPRECATED_COMMANDS:
-        new_command = DEPRECATED_COMMANDS[args.command]
-        warnings.warn(
-            f"Command '{args.command}' is deprecated and will be removed in a future version. "
-            f"Use '{new_command}' instead.",
-            DeprecationWarning,
-            stacklevel=2
-        )
-        print(f"⚠️  Warning: '{args.command}' is deprecated. Please use '{new_command}' instead.")
     
     # Get the command class and instantiate it
     command_class = COMMAND_MAP.get(args.command)

@@ -502,7 +502,7 @@ class TestFabricLimitsIntegration:
     
     def test_rdf_conversion_validates_limits(self):
         """Test RDF conversion includes Fabric limits validation."""
-        from rdf_converter import convert_to_fabric_definition
+        from rdf import convert_to_fabric_definition
         
         # Create entities that would exceed limits
         entities = [
@@ -523,7 +523,7 @@ class TestFabricLimitsIntegration:
     
     def test_rdf_conversion_skip_limits(self):
         """Test RDF conversion can skip Fabric limits validation."""
-        from rdf_converter import convert_to_fabric_definition
+        from rdf import convert_to_fabric_definition
         
         entities = [
             EntityType(

@@ -137,14 +137,24 @@ For the complete command reference, see [docs/COMMANDS.md](docs/COMMANDS.md).
 ```
 src/
 ├── main.py                   # CLI entry point
-├── formats/                  # Format-specific packages
-│   ├── rdf/                  # RDF/OWL/TTL support
-│   └── dtdl/                 # DTDL v2/v3/v4 support
-├── cli/                      # Command handlers & parsers
-├── converters/               # Type mapping & extraction
-├── core/                     # Resilience, streaming, validation
+├── rdf/                      # RDF/OWL/TTL format support
+│   ├── rdf_converter.py      # Main RDF → Fabric converter
+│   ├── preflight_validator.py# Pre-conversion validation
+│   ├── fabric_to_ttl.py      # Fabric → TTL export
+│   └── ...                   # Type mapping, parsing, serialization
+├── dtdl/                     # DTDL v2/v3/v4 format support
+│   ├── dtdl_converter.py     # DTDL → Fabric converter
+│   ├── dtdl_parser.py        # DTDL JSON parsing
+│   └── dtdl_validator.py     # DTDL validation
+├── core/                     # Shared infrastructure
+│   ├── fabric_client.py      # Fabric API client
+│   ├── rate_limiter.py       # Token bucket rate limiting
+│   ├── circuit_breaker.py    # Fault tolerance
+│   ├── cancellation.py       # Graceful shutdown
+│   ├── validators.py         # Input validation, SSRF protection
+│   └── streaming.py          # Memory-efficient processing
 ├── models/                   # Shared data models
-└── dtdl/                     # DTDL modules (legacy path)
+└── cli/                      # Command handlers & parsers
 ```
 
 For detailed architecture, see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).

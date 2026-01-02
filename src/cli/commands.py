@@ -147,14 +147,14 @@ class BaseCommand(ABC):
     def get_validator(self) -> IValidator:
         """Get or create validator instance."""
         if self._validator is None:
-            from preflight_validator import PreflightValidator
+            from rdf import PreflightValidator
             self._validator = PreflightValidator()
         return self._validator
     
     def get_client(self) -> IFabricClient:
         """Get or create Fabric client instance."""
         if self._client is None:
-            from fabric_client import FabricConfig, FabricOntologyClient
+            from core import FabricConfig, FabricOntologyClient
             fabric_config = FabricConfig.from_dict(self.config)
             self._client = FabricOntologyClient(fabric_config)
         return self._client
@@ -205,8 +205,7 @@ class ValidateCommand(BaseCommand):
     
     def execute(self, args: argparse.Namespace) -> int:
         """Execute the validate command."""
-        from rdf_converter import InputValidator
-        from preflight_validator import validate_ttl_content
+        from rdf import InputValidator, validate_ttl_content
         
         self.setup_logging_from_config()
         
@@ -318,13 +317,12 @@ class UploadCommand(BaseCommand):
     
     def execute(self, args: argparse.Namespace) -> int:
         """Execute the upload command."""
-        from rdf_converter import (
+        from rdf import (
             InputValidator, parse_ttl_with_result, parse_ttl_streaming,
-            StreamingRDFConverter
+            StreamingRDFConverter, validate_ttl_content, generate_import_log, IssueSeverity
         )
-        from fabric_client import FabricConfig, FabricOntologyClient, FabricAPIError
-        from preflight_validator import validate_ttl_content, generate_import_log, IssueSeverity
-        from cancellation import (
+        from core import FabricConfig, FabricOntologyClient, FabricAPIError
+        from core import (
             setup_cancellation_handler, restore_default_handler,
             OperationCancelledException
         )
@@ -528,7 +526,7 @@ class UploadCommand(BaseCommand):
         self, ttl_content: str, ttl_file: str, args: Any, validated_path: Path
     ) -> Any:
         """Run pre-flight validation."""
-        from preflight_validator import validate_ttl_content, IssueSeverity
+        from rdf import validate_ttl_content, IssueSeverity
         
         print_header("PRE-FLIGHT VALIDATION")
         
@@ -578,7 +576,7 @@ class UploadCommand(BaseCommand):
         force_memory: bool, use_streaming: bool, cancellation_token: Any
     ) -> tuple:
         """Convert TTL to Fabric format."""
-        from rdf_converter import parse_ttl_with_result, parse_ttl_streaming
+        from rdf import parse_ttl_with_result, parse_ttl_streaming
         
         if use_streaming:
             print(f"Using streaming mode for conversion...")
@@ -617,7 +615,7 @@ class ListCommand(BaseCommand):
     
     def execute(self, args: argparse.Namespace) -> int:
         """Execute the list command."""
-        from fabric_client import FabricConfig, FabricOntologyClient, FabricAPIError
+        from core import FabricConfig, FabricOntologyClient, FabricAPIError
         
         config_path = args.config or get_default_config_path()
         config_data = load_config(config_path)
@@ -658,7 +656,7 @@ class GetCommand(BaseCommand):
     
     def execute(self, args: argparse.Namespace) -> int:
         """Execute the get command."""
-        from fabric_client import FabricConfig, FabricOntologyClient, FabricAPIError
+        from core import FabricConfig, FabricOntologyClient, FabricAPIError
         
         config_path = args.config or get_default_config_path()
         config_data = load_config(config_path)
@@ -692,7 +690,7 @@ class DeleteCommand(BaseCommand):
     
     def execute(self, args: argparse.Namespace) -> int:
         """Execute the delete command."""
-        from fabric_client import FabricConfig, FabricOntologyClient, FabricAPIError
+        from core import FabricConfig, FabricOntologyClient, FabricAPIError
         
         config_path = args.config or get_default_config_path()
         config_data = load_config(config_path)
@@ -724,8 +722,8 @@ class TestCommand(BaseCommand):
     
     def execute(self, args: argparse.Namespace) -> int:
         """Execute the test command."""
-        from rdf_converter import InputValidator, parse_ttl_content
-        from fabric_client import FabricConfig, FabricOntologyClient, FabricAPIError
+        from rdf import InputValidator, parse_ttl_content
+        from core import FabricConfig, FabricOntologyClient, FabricAPIError
         
         config_path = args.config or get_default_config_path()
         if os.path.exists(config_path):
@@ -812,7 +810,7 @@ class ConvertCommand(BaseCommand):
     
     def execute(self, args: argparse.Namespace) -> int:
         """Execute the convert command."""
-        from rdf_converter import (
+        from rdf import (
             InputValidator, parse_ttl_with_result, parse_ttl_streaming,
             StreamingRDFConverter
         )
@@ -961,9 +959,8 @@ class ExportCommand(BaseCommand):
     
     def execute(self, args: argparse.Namespace) -> int:
         """Execute the export command."""
-        from rdf_converter import InputValidator
-        from fabric_client import FabricConfig, FabricOntologyClient, FabricAPIError
-        from fabric_to_ttl import FabricToTTLConverter
+        from rdf import InputValidator, FabricToTTLConverter
+        from core import FabricConfig, FabricOntologyClient, FabricAPIError
         
         config_path = args.config or get_default_config_path()
         
@@ -1052,8 +1049,7 @@ class CompareCommand(BaseCommand):
     
     def execute(self, args: argparse.Namespace) -> int:
         """Execute the compare command."""
-        from rdf_converter import InputValidator
-        from fabric_to_ttl import compare_ontologies
+        from rdf import InputValidator, compare_ontologies
         
         self.setup_logging_from_config()
         
@@ -1370,7 +1366,7 @@ class DTDLImportCommand(BaseCommand):
             print("\nStep 4: Uploading to Fabric...")
             
             try:
-                from fabric_client import FabricOntologyClient, FabricConfig
+                from core import FabricOntologyClient, FabricConfig
             except ImportError:
                 print("  ✗ Could not import FabricOntologyClient")
                 return 1

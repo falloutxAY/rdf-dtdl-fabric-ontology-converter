@@ -99,11 +99,11 @@ class DTDLValidateCommand(BaseCommand):
             "interfaces_parsed": len(result.interfaces),
             "parse_errors": result.errors,
             "validation_errors": [
-                {"level": e.level.value, "element_id": e.element_id, "message": e.message}
+                {"level": e.level.value, "dtmi": e.dtmi, "message": e.message}
                 for e in validation_result.errors
             ],
             "validation_warnings": [
-                {"level": w.level.value, "element_id": w.element_id, "message": w.message}
+                {"level": w.level.value, "dtmi": w.dtmi, "message": w.message}
                 for w in validation_result.warnings
             ],
             "is_valid": len(validation_result.errors) == 0,
@@ -124,13 +124,13 @@ class DTDLValidateCommand(BaseCommand):
         if validation_result.errors:
             print(f"Found {len(validation_result.errors)} validation errors:")
             for error in validation_result.errors[:10]:
-                print(f"  - [{error.level.value}] {error.element_id}: {error.message}")
+                print(f"  - [{error.level.value}] {error.dtmi or 'unknown'}: {error.message}")
             exit_code = 1
         else:
             if validation_result.warnings:
                 print(f"Found {len(validation_result.warnings)} warnings:")
                 for warning in validation_result.warnings[:10]:
-                    print(f"  - {warning.element_id}: {warning.message}")
+                    print(f"  - {warning.dtmi or 'unknown'}: {warning.message}")
             
             print("✓ Validation successful!")
             exit_code = 0
@@ -317,7 +317,7 @@ class DTDLImportCommand(BaseCommand):
             print("\nStep 4: Uploading to Fabric...")
             
             try:
-                from fabric_client import FabricOntologyClient, FabricConfig
+                from core import FabricOntologyClient, FabricConfig
             except ImportError:
                 print("  ✗ Could not import FabricOntologyClient")
                 return 1

@@ -7,7 +7,6 @@ This document provides a comprehensive reference for all CLI commands available 
 - **RDF commands**: Use `rdf-` prefix (e.g., `rdf-validate`, `rdf-convert`)
 - **DTDL commands**: Use `dtdl-` prefix (e.g., `dtdl-validate`, `dtdl-convert`)
 - **Common commands**: No prefix (e.g., `list`, `get`, `delete`)
-- **Legacy aliases**: Old command names without prefixes are deprecated but still work
 
 ## Feature Comparison Matrix
 
@@ -354,9 +353,6 @@ print(result.stats.get_summary())
 ```
 
 See [API.md](API.md#streaming-engine) for complete API documentation.
-
-
-Using deprecated commands will show a warning message.
 
 ## Exit Codes
 

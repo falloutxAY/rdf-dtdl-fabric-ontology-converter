@@ -304,7 +304,7 @@ When converting DTDL to Fabric Ontology, **some information may be lost or trans
 Use the compliance report feature to understand exactly what will be preserved, limited, or lost:
 
 ```python
-from src.formats.dtdl import DTDLToFabricConverter
+from dtdl import DTDLToFabricConverter
 
 converter = DTDLToFabricConverter()
 result, report = converter.convert_with_compliance_report(interfaces)
@@ -326,7 +326,6 @@ if report:
 
 ## Related Resources
 
-- [Azure Digital Twins Documentation](https://learn.microsoft.com/azure/digital-twins/)
 - [DTDL Language Specification](https://github.com/Azure/opendigitaltwins-dtdl)
 - [RealEstateCore DTDL](https://github.com/Azure/opendigitaltwins-building) - Example large DTDL ontology
 - [Microsoft Fabric Ontology REST API](https://learn.microsoft.com/rest/api/fabric/ontology/items)

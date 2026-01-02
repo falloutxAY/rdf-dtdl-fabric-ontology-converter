@@ -26,14 +26,14 @@ from typing import Dict, Any
 import sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
-from fabric_client import (
+from core import (
     FabricOntologyClient,
     FabricConfig,
     FabricAPIError,
-    TransientAPIError,
     RateLimitConfig,
 )
-from rdf_converter import (
+from core.fabric_client import TransientAPIError
+from rdf import (
     StreamingRDFConverter,
     RDFToFabricConverter,
     parse_ttl_streaming,
@@ -1180,7 +1180,7 @@ class TestCancellationSupport:
     
     def test_cancellation_token_checked(self, large_ttl_file):
         """Test that cancellation token is checked during parsing."""
-        from cancellation import CancellationToken
+        from core import CancellationToken
         
         token = CancellationToken()
         check_count = [0]
@@ -1198,7 +1198,7 @@ class TestCancellationSupport:
     
     def test_pre_cancelled_token_raises(self, large_ttl_file):
         """Test that pre-cancelled token raises immediately."""
-        from cancellation import CancellationToken, OperationCancelledException
+        from core import CancellationToken, OperationCancelledException
         
         token = CancellationToken()
         token.cancel()

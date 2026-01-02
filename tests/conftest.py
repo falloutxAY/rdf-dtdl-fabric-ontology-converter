@@ -254,7 +254,7 @@ def temp_config_file(tmp_path, sample_config):
 @pytest.fixture
 def rdf_converter():
     """Create an RDFToFabricConverter instance."""
-    from rdf_converter import RDFToFabricConverter
+    from rdf import RDFToFabricConverter
     return RDFToFabricConverter()
 
 

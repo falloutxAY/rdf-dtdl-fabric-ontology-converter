@@ -939,9 +939,9 @@ class RDFStreamAdapter:
         """
         # Import here to avoid circular imports
         try:
-            from ..rdf_converter import StreamingRDFConverter
+            from ..rdf import StreamingRDFConverter
         except ImportError:
-            from rdf_converter import StreamingRDFConverter
+            from rdf import StreamingRDFConverter
         
         converter = StreamingRDFConverter(
             id_prefix=self.id_prefix,

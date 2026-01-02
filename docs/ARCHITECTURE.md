@@ -95,7 +95,11 @@ The converter follows a layered architecture with clear separation of concerns:
 **Responsibility:** User interface and command dispatch
 
 **Components:**
-- `commands.py` - Command implementations (1382 lines, consider splitting)
+- `commands/` - Modular command implementations:
+  - `base.py` - BaseCommand ABC and protocol interfaces
+  - `common.py` - Common commands (list, get, delete, test, compare)
+  - `rdf.py` - RDF/TTL commands (validate, upload, convert, export)
+  - `dtdl.py` - DTDL commands (validate, convert, upload)
 - `helpers.py` - Utility functions for CLI operations
 - `parsers.py` - Argument parsing and validation
 
@@ -107,30 +111,30 @@ The converter follows a layered architecture with clear separation of concerns:
 
 ### 2. Converter Layer
 
-#### 2.1 RDF Pipeline (`src/` and `src/converters/`)
+#### 2.1 RDF Pipeline (`src/rdf/`)
 
-**PreflightValidator** (`preflight_validator.py`)
+**PreflightValidator** (`rdf/preflight_validator.py`)
 - Scans TTL files before conversion
 - Detects unsupported OWL constructs (restrictions, property chains)
 - Validates file size and estimates memory requirements
 - Generates detailed validation reports
 
-**RDFToFabricConverter** (`rdf_converter.py`) - Facade/Orchestrator
+**RDFToFabricConverter** (`rdf/rdf_converter.py`) - Facade/Orchestrator
 - Main entry point for RDF to Fabric conversion
 - Uses composition pattern delegating to extracted components:
-  - `converters/rdf_parser.py` - TTL parsing with memory management
-  - `converters/property_extractor.py` - Class/property extraction
-  - `converters/type_mapper.py` - XSD to Fabric type mapping
-  - `converters/uri_utils.py` - URI parsing and name extraction
-  - `converters/class_resolver.py` - OWL class expression resolution
-  - `converters/fabric_serializer.py` - Fabric API JSON serialization
+  - `rdf/rdf_parser.py` - TTL parsing with memory management
+  - `rdf/property_extractor.py` - Class/property extraction
+  - `rdf/type_mapper.py` - XSD to Fabric type mapping
+  - `rdf/uri_utils.py` - URI parsing and name extraction
+  - `rdf/class_resolver.py` - OWL class expression resolution
+  - `rdf/fabric_serializer.py` - Fabric API JSON serialization
 - Handles OWL/RDFS constructs:
   - `owl:Class` → EntityType
   - `owl:DatatypeProperty` → EntityTypeProperty
   - `owl:ObjectProperty` → RelationshipType
   - `rdfs:subClassOf` → inheritance
 
-**RDF Converter Components** (`src/converters/`)
+**RDF Converter Components** (`src/rdf/`)
 - `rdf_parser.py` - MemoryManager and RDFGraphParser for TTL parsing
 - `property_extractor.py` - ClassExtractor, DataPropertyExtractor, ObjectPropertyExtractor
 - `type_mapper.py` - TypeMapper for XSD to Fabric type mapping
@@ -138,7 +142,7 @@ The converter follows a layered architecture with clear separation of concerns:
 - `class_resolver.py` - ClassResolver for OWL class expression resolution
 - `fabric_serializer.py` - FabricSerializer for Fabric API JSON creation
 
-**FabricToTTLExporter** (`fabric_to_ttl.py`)
+**FabricToTTLExporter** (`rdf/fabric_to_ttl.py`)
 - Reverse conversion: Fabric → TTL
 - Preserves class hierarchy
 - Generates valid RDF/OWL syntax
@@ -208,7 +212,27 @@ The converter follows a layered architecture with clear separation of concerns:
 - File size × 3.5 multiplier for RDF parsing
 - Warning messages for large files
 
-### 5. Fabric Client (`fabric_client.py`)
+**Authentication** (`auth.py`)
+- `CredentialFactory` - Creates Azure credentials (service principal, browser, managed identity)
+- `TokenManager` - Thread-safe token caching with automatic refresh
+
+**HTTP Client** (`http_client.py`)
+- `RequestHandler` - Centralized HTTP request handling with rate limiting
+- `ResponseHandler` - Response parsing and error handling
+- `TransientAPIError` / `FabricAPIError` - Exception classes for API errors
+- Helper functions: `is_transient_error`, `get_retry_wait_time`, `sanitize_display_name`
+
+**LRO Handler** (`lro_handler.py`)
+- `LROHandler` - Long-running operation polling with progress reporting
+- Supports cancellation tokens
+- Handles result fetching from operation URLs
+
+**Streaming Engine** (`streaming.py`)
+- `StreamingEngine` - Memory-efficient processing for large files
+- Format adapters for RDF and DTDL
+- Auto-detection based on file extension
+
+### 5. Fabric Client (`core/fabric_client.py`)
 
 **Responsibilities:**
 - Authentication (interactive, service principal, managed identity)
@@ -329,38 +353,20 @@ src/
 ├── main.py                    # Entry point
 ├── constants.py               # Centralized constants
 │
-├── formats/                   # NEW: Format-specific packages (recommended entry point)
-│   ├── __init__.py            # Package init with format imports
-│   ├── rdf/                   # RDF/OWL/TTL format support
-│   │   └── __init__.py        # Re-exports from rdf_converter, converters, etc.
-│   └── dtdl/                  # DTDL v2/v3/v4 format support
-│       └── __init__.py        # Re-exports from dtdl module
-│
-├── models/                    # Shared data models
-│   ├── __init__.py
-│   ├── base.py                # Abstract converter interface
-│   ├── fabric_types.py        # EntityType, RelationshipType
-│   └── conversion.py          # ConversionResult, ValidationResult
-│
-├── core/                      # Cross-cutting concerns
-│   ├── __init__.py
-│   ├── rate_limiter.py        # Token bucket rate limiting
-│   ├── circuit_breaker.py     # Fault tolerance
-│   ├── cancellation.py        # Graceful shutdown
-│   ├── memory.py              # Memory management
-│   ├── streaming.py           # Common streaming engine for large files
-│   ├── validators.py          # Input validation, SSRF protection
-│   └── compliance.py          # DTDL/RDF compliance validation
-│
-├── converters/                # RDF conversion components (used by formats.rdf)
+├── rdf/                       # RDF/OWL/TTL format support
+│   ├── __init__.py            # Package exports
+│   ├── rdf_converter.py       # Main RDF → Fabric converter
+│   ├── preflight_validator.py # Pre-conversion validation
+│   ├── fabric_to_ttl.py       # Fabric → TTL export
+│   ├── rdf_parser.py          # TTL parsing with memory management
+│   ├── property_extractor.py  # Class/property extraction
 │   ├── type_mapper.py         # XSD → Fabric type mapping
 │   ├── uri_utils.py           # URI resolution
 │   ├── class_resolver.py      # OWL class handling
-│   ├── rdf_parser.py          # TTL parsing with memory management
-│   ├── property_extractor.py  # Class/property extraction
 │   └── fabric_serializer.py   # JSON serialization
 │
-├── dtdl/                      # DTDL module (used by formats.dtdl)
+├── dtdl/                      # DTDL v2/v3/v4 format support
+│   ├── __init__.py            # Package exports
 │   ├── cli.py                 # DTDL-specific commands
 │   ├── dtdl_parser.py         # Parse DTDL JSON
 │   ├── dtdl_validator.py      # Validate DTDL structure
@@ -368,36 +374,55 @@ src/
 │   ├── dtdl_models.py         # DTDL data structures
 │   └── dtdl_type_mapper.py    # DTDL type mapping
 │
-├── cli/                       # Command-line interface
-│   ├── commands/              # Modular command implementations
-│   │   ├── base.py            # BaseCommand ABC
-│   │   ├── common.py          # List, Get, Delete, Test, Compare
-│   │   ├── rdf.py             # RDF commands with batch support
-│   │   └── dtdl.py            # DTDL commands
-│   ├── helpers.py             # CLI utilities
-│   └── parsers.py             # Argument parsing
+├── core/                      # Shared infrastructure
+│   ├── __init__.py            # Package exports
+│   ├── fabric_client.py       # Fabric API client
+│   ├── rate_limiter.py        # Token bucket rate limiting
+│   ├── circuit_breaker.py     # Fault tolerance
+│   ├── cancellation.py        # Graceful shutdown
+│   ├── memory.py              # Memory management
+│   ├── streaming.py           # Memory-efficient processing
+│   ├── validators.py          # Input validation, SSRF protection
+│   ├── compliance.py          # DTDL/RDF compliance validation
+│   ├── auth.py                # Azure authentication helpers
+│   ├── http_client.py         # HTTP utilities
+│   └── lro_handler.py         # Long-running operation handling
 │
-├── rdf_converter.py           # RDF → Fabric converter (legacy, use formats.rdf)
-├── fabric_client.py           # Fabric API client
-├── preflight_validator.py     # Pre-conversion validation
-└── fabric_to_ttl.py           # Fabric → RDF export
+├── models/                    # Shared data models
+│   ├── __init__.py
+│   ├── base.py                # Abstract converter interface
+│   ├── fabric_types.py        # EntityType, RelationshipType
+│   └── conversion.py          # ConversionResult, ValidationResult
+│
+└── cli/                       # Command-line interface
+    ├── commands/              # Modular command implementations
+    │   ├── base.py            # BaseCommand ABC
+    │   ├── common.py          # List, Get, Delete, Test, Compare
+    │   ├── rdf.py             # RDF commands with batch support
+    │   └── dtdl.py            # DTDL commands
+    ├── helpers.py             # CLI utilities
+    └── parsers.py             # Argument parsing
 ```
 
 ### Recommended Import Patterns
 
-**New format-based imports (recommended):**
+**Format-based imports:**
 ```python
 # RDF format
-from src.formats.rdf import RDFToFabricConverter, PreflightValidator
+from rdf import RDFToFabricConverter, PreflightValidator, parse_ttl_content
 
 # DTDL format  
-from src.formats.dtdl import DTDLParser, DTDLToFabricConverter
+from dtdl import DTDLParser, DTDLValidator
+
+# Core infrastructure
+from core import FabricConfig, FabricOntologyClient, CircuitBreaker, CancellationToken
 ```
 
-**Legacy imports (still supported for backward compatibility):**
+**Package-level imports:**
 ```python
 from src import RDFToFabricConverter
-from src.dtdl import DTDLParser
+from src.rdf import parse_ttl_content
+from src.core import FabricConfig
 ```
 
 ---
@@ -493,7 +518,7 @@ token.register_callback(close_connections)
 
 1. **Create converter module:**
    ```python
-   # src/formats/newformat/converter.py
+   # src/newformat/converter.py
    from src.models.base import BaseConverter
    from src.models.conversion import ConversionResult
    
@@ -595,33 +620,6 @@ tests/
 ```
 
 **Coverage:** 354 tests passing, targeting 80%+ coverage
-
----
-
-## Future Architecture Improvements
-
-### Planned Refactoring
-
-1. **Split Large Files**
-   - `rdf_converter.py` (2514 lines) → parser, processor, output modules
-   - `cli/commands.py` (1382 lines) → separate command files
-
-2. **Reorganize into `formats/` Structure**
-   ```
-   src/formats/
-   ├── rdf/
-   │   ├── converter.py
-   │   ├── validator.py
-   │   └── exporter.py
-   └── dtdl/
-       ├── converter.py
-       └── validator.py
-   ```
-
-3. **Plugin Architecture**
-   - Allow third-party format converters
-   - Dynamic command registration
-   - Custom validation rules
 
 ---
 
