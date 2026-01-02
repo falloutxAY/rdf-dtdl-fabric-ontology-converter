@@ -22,7 +22,6 @@ Please refer to the [LICENSE](LICENSE) file for full terms.
 - **Export & Compare** – Export Fabric ontologies back to TTL for verification
 - **Pre-flight Validation** – Check compatibility before upload
 - **Ontology API Coverage** – Create, read, update, delete, list ontologies
-- **Enterprise Resilience** – Rate limiting, circuit breakers, graceful cancellation
 
 ## Table of Contents
 
