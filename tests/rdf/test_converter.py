@@ -1,14 +1,21 @@
 """
 Unit tests for RDF to Fabric Ontology Converter
 
-Run with: python -m pytest tests/test_converter.py -v
+Run with: python -m pytest tests/rdf/test_converter.py -v
 Or with coverage: python -m pytest tests/ --cov=src --cov-report=html
 """
 
 import pytest
 import json
+import sys
 from pathlib import Path
-from rdf import (
+
+ROOT_DIR = Path(__file__).resolve().parents[2]
+SRC_DIR = ROOT_DIR / "src"
+if str(SRC_DIR) not in sys.path:
+    sys.path.insert(0, str(SRC_DIR))
+
+from src.rdf import (
     RDFToFabricConverter, 
     EntityType, 
     RelationshipType,
@@ -319,7 +326,7 @@ class TestSampleOntologies:
     @pytest.fixture
     def samples_dir(self):
         """Get the samples/rdf directory path for RDF tests"""
-        return Path(__file__).parent.parent / "samples" / "rdf"
+        return ROOT_DIR / "samples" / "rdf"
     
     def test_sample_ontology_ttl(self, samples_dir):
         """Test parsing sample_supply_chain_ontology.ttl"""
@@ -1117,7 +1124,7 @@ class TestPathTraversalProtection:
     @pytest.fixture
     def validator(self):
         """Get InputValidator class"""
-        from core.validators import InputValidator
+        from src.core.validators import InputValidator
         return InputValidator
     
     def test_path_traversal_forward_slash_rejected(self, validator):
@@ -1240,7 +1247,7 @@ class TestSymlinkSecurityProtection:
     @pytest.fixture
     def validator(self):
         """Get InputValidator class"""
-        from core.validators import InputValidator
+        from src.core.validators import InputValidator
         return InputValidator
     
     @pytest.mark.skipif(
@@ -1330,7 +1337,7 @@ class TestConfigFilePathValidation:
     @pytest.fixture
     def validator(self):
         """Get InputValidator class"""
-        from core.validators import InputValidator
+        from src.core.validators import InputValidator
         return InputValidator
     
     def test_config_file_requires_json_extension(self, validator, tmp_path, monkeypatch):
@@ -1368,7 +1375,7 @@ class TestEnhancedErrorMessages:
     @pytest.fixture
     def validator(self):
         """Get InputValidator class"""
-        from core.validators import InputValidator
+        from src.core.validators import InputValidator
         return InputValidator
     
     def test_path_traversal_error_message_is_clear(self, validator):

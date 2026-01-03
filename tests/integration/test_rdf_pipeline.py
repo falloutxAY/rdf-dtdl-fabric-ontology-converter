@@ -8,6 +8,9 @@ import json
 import pytest
 from pathlib import Path
 
+ROOT_DIR = Path(__file__).resolve().parents[2]
+SAMPLES_RDF_DIR = ROOT_DIR / "samples" / "rdf"
+
 from src.rdf import parse_ttl_with_result
 
 
@@ -17,7 +20,7 @@ class TestRDFConversionPipeline:
     @pytest.fixture
     def samples_dir(self) -> Path:
         """Get the samples/rdf directory path for RDF tests."""
-        return Path(__file__).parent.parent.parent / "samples" / "rdf"
+        return SAMPLES_RDF_DIR
 
     def test_foaf_ontology_conversion(self, samples_dir: Path):
         """Test converting the FOAF sample ontology."""

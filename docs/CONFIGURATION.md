@@ -103,7 +103,7 @@ $env:FABRIC_CLIENT_SECRET = az keyvault secret show `
     --query "value" -o tsv
 
 # Then run the converter
-python src/main.py rdf-upload ontology.ttl
+python -m src.main upload --format rdf ontology.ttl
 ```
 
 Or use managed identity with Key Vault references in your CI/CD pipeline.
@@ -482,7 +482,7 @@ url = URLValidator.validate_url(
 Quick sanity check:
 
 ```powershell
-python src/main.py test
+python -m src.main test
 ```
 
 ## Multiple Configurations
@@ -491,9 +491,9 @@ You can maintain multiple configurations:
 
 ```powershell
 # Development
-python src\main.py rdf-upload sample.ttl --config config.dev.json
+python -m src.main upload --format rdf sample.ttl --config config.dev.json
 
 # Production
-python src\main.py rdf-upload sample.ttl --config config.prod.json
+python -m src.main upload --format rdf sample.ttl --config config.prod.json
 ```
 

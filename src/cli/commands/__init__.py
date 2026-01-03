@@ -3,9 +3,8 @@ CLI command implementations.
 
 This package contains split command modules for better organization:
 - base.py: Base command class and protocols
+- unified.py: Unified commands (validate, convert, upload, export)
 - common.py: Common commands (list, get, delete, test, compare)
-- rdf.py: RDF/TTL-specific commands (validate, upload, convert, export)
-- dtdl.py: DTDL-specific commands (validate, convert, upload/import)
 """
 
 from .base import (
@@ -24,17 +23,11 @@ from .common import (
     CompareCommand,
 )
 
-from .rdf import (
+from .unified import (
     ValidateCommand,
-    UploadCommand,
     ConvertCommand,
+    UploadCommand,
     ExportCommand,
-)
-
-from .dtdl import (
-    DTDLValidateCommand,
-    DTDLConvertCommand,
-    DTDLImportCommand,
 )
 
 
@@ -51,13 +44,9 @@ __all__ = [
     'DeleteCommand',
     'TestCommand',
     'CompareCommand',
-    # RDF
+    # Unified
     'ValidateCommand',
-    'UploadCommand',
     'ConvertCommand',
+    'UploadCommand',
     'ExportCommand',
-    # DTDL
-    'DTDLValidateCommand',
-    'DTDLConvertCommand',
-    'DTDLImportCommand',
 ]

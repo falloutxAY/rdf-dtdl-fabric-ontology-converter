@@ -18,12 +18,15 @@ import os
 from pathlib import Path
 
 # Add src to path for imports
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
+src_dir = os.path.join(os.path.dirname(__file__), '..', 'src')
+if src_dir not in sys.path:
+    sys.path.insert(0, src_dir)
 
 # Add tests directory to path for fixtures import
 tests_dir = os.path.dirname(__file__)
 if tests_dir not in sys.path:
-    sys.path.insert(0, tests_dir)
+    # Ensure src directory stays ahead of tests for module resolution
+    sys.path.insert(1, tests_dir)
 
 # Import centralized fixtures
 from fixtures import (
@@ -254,12 +257,12 @@ def temp_config_file(tmp_path, sample_config):
 @pytest.fixture
 def rdf_converter():
     """Create an RDFToFabricConverter instance."""
-    from rdf import RDFToFabricConverter
+    from src.rdf import RDFToFabricConverter
     return RDFToFabricConverter()
 
 
 @pytest.fixture
 def input_validator():
     """Get InputValidator class for path validation tests."""
-    from core.validators import InputValidator
+    from src.core.validators import InputValidator
     return InputValidator

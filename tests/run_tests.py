@@ -82,19 +82,19 @@ Examples:
     
     elif command == "resilience":
         return run_command(
-            "python -m pytest tests/test_resilience.py -v",
+            "python -m pytest tests/core/test_resilience.py -v",
             "Running Resilience Tests (Rate Limiter, Circuit Breaker, Cancellation)"
         )
     
     elif command == "validation":
         return run_command(
-            "python -m pytest tests/test_validation.py -v",
+            "python -m pytest tests/rdf/test_validation.py -v",
             "Running Validation and E2E Tests"
         )
     
     elif command == "core":
         return run_command(
-            "python -m pytest tests/test_converter.py::TestRDFConverter -v",
+            "python -m pytest tests/rdf/test_converter.py::TestRDFConverter -v",
             "Running Core Converter Tests"
         )
     

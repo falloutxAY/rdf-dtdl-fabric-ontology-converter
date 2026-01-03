@@ -7,10 +7,26 @@ This guide provides comprehensive information about importing **Digital Twins De
 - [What is DTDL?](#what-is-dtdl)
 - [DTDL Commands](#dtdl-commands)
 - [DTDL to Fabric Mapping](#dtdl-to-fabric-mapping)
+  - [Core Mappings](#core-mappings)
+  - [Type Mapping](#type-mapping)
+  - [Configurable Features](#configurable-features)
 - [What Gets Converted?](#what-gets-converted)
+  - [Fully Supported](#-fully-supported-dtdl-v2v3v4)
+  - [Configurable Features](#-configurable-features)
+  - [Limited Support](#-limited-support-information-loss)
+  - [Not Supported](#-not-supported-skipped)
+  - [Version-Specific Limits](#version-specific-limits)
 - [DTDL Validation Checks](#dtdl-validation-checks)
 - [Examples](#examples)
 - [Key Considerations](#key-considerations)
+  - [Information Loss During Conversion](#information-loss-during-conversion)
+  - [Fabric API Limits](#fabric-api-limits)
+  - [Configuration Options](#configuration-options)
+  - [Before You Convert](#before-you-convert)
+  - [Best Practices for DTDL Sources](#best-practices-for-dtdl-sources)
+  - [Common Warnings & Fixes](#common-warnings--fixes)
+  - [Compliance Reports](#compliance-reports)
+- [Related Resources](#related-resources)
 
 ## What is DTDL?
 
@@ -34,25 +50,26 @@ This section shows the typical workflow for working with DTDL models.
 
 ```powershell
 # 1. Validate your DTDL models
-python src\main.py dtdl-validate ./models/ --recursive --verbose
+python -m src.main validate --format dtdl ./models/ --recursive --verbose
 
 # 2. Convert to Fabric JSON (optional - for inspection)
-python src\main.py dtdl-convert ./models/ --recursive --output fabric_output.json
+python -m src.main convert --format dtdl ./models/ --recursive --output fabric_output.json
 
 # 3. Upload to Fabric
-python src\main.py dtdl-upload ./models/ --recursive --ontology-name "MyDigitalTwin"
+python -m src.main upload --format dtdl ./models/ --recursive --ontology-name "MyDigitalTwin"
 ```
 
 ### Available Commands
 
 | Command | Purpose |
 |---------|----------|
-| `dtdl-validate` | Validate DTDL schema and structure |
-| `dtdl-convert` | Convert DTDL to Fabric JSON (no upload) |
-| `dtdl-upload` | Full pipeline: validate → convert → upload |
+| `validate --format dtdl` | Validate DTDL schema and structure |
+| `convert --format dtdl` | Convert DTDL to Fabric JSON (no upload) |
+| `upload --format dtdl` | Full pipeline: validate → convert → upload |
 
 ### Common Options
 
+- `--format dtdl` - Specify DTDL format (required for unified commands)
 - `--recursive` - Process directories recursively
 - `--verbose` - Show detailed interface information
 - `--output` - Specify output file path
@@ -63,7 +80,7 @@ python src\main.py dtdl-upload ./models/ --recursive --ontology-name "MyDigitalT
 - `--streaming` - Use memory-efficient mode for large files (>100MB)
 - `--force-memory` - Skip memory safety checks for very large files
 
-**See [COMMANDS.md](COMMANDS.md#dtdl-commands) for:**
+**See [COMMANDS.md](COMMANDS.md#unified-commands) for:**
 - Complete command syntax and all options
 - Component and command handling modes
 - Streaming mode details for large files
@@ -72,47 +89,171 @@ python src\main.py dtdl-upload ./models/ --recursive --ontology-name "MyDigitalT
 
 ## DTDL to Fabric Mapping
 
-> **📘 For complete mapping details and configuration options, see [MAPPING_LIMITATIONS.md](MAPPING_LIMITATIONS.md#dtdl-supported-features)**
-
 The converter maps DTDL concepts to Fabric Ontology:
 
-- **Interface** → EntityType
-- **Property** → EntityTypeProperty (primitive and complex types)
-- **Telemetry** → TimeseriesProperty (for sensor data)
-- **Relationship** → RelationshipType
-- **Component** → Configurable (skip/flatten/separate)
-- **Command** → Configurable (skip/property/entity)
-- **Inheritance** (extends) → baseEntityTypeId (single parent only)
+### Core Mappings
 
-**Type Mapping:** DTDL primitive types (boolean, integer, double, string, date, etc.) map directly to Fabric types. Complex types (Object, Array, Map) are serialized to JSON strings. DTDL v4 types (byte, uuid, geospatial) are supported with appropriate conversions.
+| DTDL Feature | Fabric Mapping | Support Level |
+|--------------|----------------|---------------|
+| Interface | EntityType | ✅ Full |
+| Property | EntityTypeProperty | ✅ Full |
+| Telemetry | timeseriesProperties | ✅ Full |
+| Relationship | RelationshipType | ✅ Full |
+| extends (single) | baseEntityTypeId | ✅ Full |
+| Primitive schemas | valueType | ✅ Full |
+| displayName | resolved to name | ✅ Full |
+| description | metadata | ✅ Full |
+
+### Type Mapping
+
+DTDL primitive types map directly to Fabric types:
+- **boolean** → Boolean
+- **integer, long** → BigInt
+- **double, float** → Double
+- **string** → String
+- **date, dateTime, time, duration** → DateTime
+- **byte** (v4) → BigInt (with range validation)
+- **uuid** (v4) → String (with format validation)
+
+Complex types are serialized to JSON strings:
+- **Object** → JSON String (nested structure preserved)
+- **Array** → JSON String (array type information lost)
+- **Map** → JSON String (key-value structure serialized)
+- **Geospatial types** (v4) → JSON String (coordinates preserved)
+
+### Configurable Features
+
+#### Component Handling
+
+Components can be handled in three ways via `dtdl.component_mode` configuration:
+
+| Mode | Behavior | Use When |
+|------|----------|----------|
+| `skip` (default) | Components ignored | You don't need component data |
+| `flatten` | Properties merged into parent entity with `{component}_` prefix | Simple component structures |
+| `separate` | Component becomes separate EntityType with `has_{component}` relationship | Preserve component identity |
+
+**Example:**
+```json
+{
+  "dtdl": {
+    "component_mode": "flatten"
+  }
+}
+```
+
+#### Command Handling
+
+Commands can be handled in three ways via `dtdl.command_mode` configuration:
+
+| Mode | Behavior | Use When |
+|------|----------|----------|
+| `skip` (default) | Commands ignored | Commands not needed in ontology |
+| `property` | Creates `command_{name}` String property | Simple command tracking |
+| `entity` | Creates `Command_{name}` EntityType with request/response properties | Full command modeling |
+
+**Example with entity mode:**
+```json
+{
+  "dtdl": {
+    "command_mode": "entity"
+  }
+}
+```
+
+Creates:
+- EntityType `Command_{name}` with:
+  - `commandName` (String, identifier)
+  - `requestSchema` (String, JSON)
+  - `responseSchema` (String, JSON)
+  - `request_{param}` properties for each request parameter
+  - `response_{param}` properties for each response parameter
+- RelationshipType `supports_{commandName}` linking interface to command
+
+#### ScaledDecimal Handling (DTDL v4)
+
+ScaledDecimal types can be handled in three ways via `dtdl.scaled_decimal_mode` configuration:
+
+| Mode | Behavior | Use When |
+|------|----------|----------|
+| `json_string` (default) | Stored as JSON: `{"scale": 7, "value": "1234.56"}` | Preserve full precision |
+| `structured` | Creates `{prop}_scale` (BigInt) and `{prop}_value` (String) properties | Queryable scale/value |
+| `calculated` | Calculates `value × 10^scale` as Double | Direct numeric value needed |
+
+**Example:**
+```json
+{
+  "dtdl": {
+    "scaled_decimal_mode": "structured"
+  }
+}
+```
+
+For a property with value `1234.56` and scale `7`, creates:
+- `{property}_scale` (BigInt): `7`
+- `{property}_value` (String): `"1234.56"`
 
 ## What Gets Converted?
 
-> **📘 For complete feature support matrix and configuration options, see [MAPPING_LIMITATIONS.md](MAPPING_LIMITATIONS.md#dtdl-supported-features)**
-
 ### ✅ Fully Supported (DTDL v2/v3/v4)
-- Interfaces, Properties, Telemetry, Relationships
-- Single inheritance (extends)
-- Primitive types and DTDL v4 types (byte, uuid, geospatial)
-- Enums, display names, descriptions
+- **Interfaces** → EntityType with name, description
+- **Properties** → EntityTypeProperty with proper typing
+- **Telemetry** → timeseriesProperties for sensor data
+- **Relationships** → RelationshipType with source/target
+- **Single inheritance** (extends) → baseEntityTypeId
+- **Primitive types** → Direct mapping to Fabric types
+- **DTDL v4 types** → byte (BigInt), uuid (String), geospatial (JSON)
+- **Enums** → String type (enum values documented in description)
+- **displayName, description** → name and metadata
 
 ### ⚠️ Configurable Features
-- **Components:** skip / flatten / separate (see [MAPPING_LIMITATIONS.md](MAPPING_LIMITATIONS.md#component-handling-modes))
-- **Commands:** skip / property / entity (see [MAPPING_LIMITATIONS.md](MAPPING_LIMITATIONS.md#command-handling-modes))
-- **ScaledDecimal (v4):** json_string / structured / calculated (see [MAPPING_LIMITATIONS.md](MAPPING_LIMITATIONS.md#scaleddecimal-handling-modes-dtdl-v4))
+- **Components:** Three modes available
+  - `skip` (default): Components ignored
+  - `flatten`: Properties merged with `{component}_` prefix
+  - `separate`: New EntityType + `has_{component}` relationship
+- **Commands:** Three modes available
+  - `skip` (default): Commands ignored
+  - `property`: Creates `command_{name}` String property
+  - `entity`: Creates `Command_{name}` EntityType with full details
+- **ScaledDecimal (v4):** Three modes available
+  - `json_string` (default): JSON with scale and value
+  - `structured`: Separate `_scale` and `_value` properties
+  - `calculated`: Computed Double value
 
-### ⚠️ Limited Support
-- Multiple inheritance (first parent only)
-- Complex schemas (Object, Array, Map → JSON strings)
-- Relationship properties (not preserved)
+### ⚠️ Limited Support (Information Loss)
+- **Multiple inheritance** → First parent only (DTDL allows multiple extends)
+- **Complex schemas** → JSON strings
+  - Object → JSON String (nested structure preserved)
+  - Array → JSON String (array type information lost)
+  - Map → JSON String (key-value structure serialized)
+- **Enum** → String (enum values lost, documented in description)
+- **@id (DTMI)** → Hashed to numeric ID (original DTMI preserved in mapping)
+- **Relationship properties** → Not preserved (DTDL allows properties on relationships)
 
-### ❌ Not Supported
-- Custom @context extensions
-- Semantic type inference
+### ❌ Not Supported (Skipped)
+- **request/response schemas** (in SKIP/PROPERTY command modes)
+- **writable** → Mutability information lost
+- **unit** → Metadata only, not queryable
+- **semanticType** → Not preserved in Fabric model
+- **minMultiplicity/maxMultiplicity** → Cardinality constraints not enforced
+- **target** (Relationship) → External targets ignored
+- **Custom @context extensions** → Only standard DTDL contexts supported
+
+### Version-Specific Limits
+
+The converter validates against DTDL specification limits per version:
+
+| Limit | DTDL v2 | DTDL v3 | DTDL v4 |
+|-------|---------|---------|---------|
+| Max contents per interface | 300 | 100,000 | 100,000 |
+| Max extends depth | 10 | 10 | 12 |
+| Max complex schema depth | 5 | 5 | 8 |
+| Max name length | 64 | 512 | 512 |
+| Max description length | 512 | 512 | 512 |
 
 ## DTDL Validation Checks
 
-The `dtdl-validate` command performs comprehensive checks:
+The `validate --format dtdl` command performs comprehensive checks:
 
 ### Schema Validation
 - **DTMI format** - Validates Digital Twin Model Identifier syntax
@@ -161,7 +302,7 @@ The `dtdl-validate` command performs comprehensive checks:
 
 **Conversion:**
 ```powershell
-python src\main.py dtdl-upload samples/dtdl/thermostat.json --ontology-name "ThermostatOntology"
+python -m src.main upload --format dtdl samples/dtdl/thermostat.json --ontology-name "ThermostatOntology"
 ```
 
 **Result:**
@@ -215,7 +356,7 @@ The RealEstateCore DTDL ontology (~269 interfaces) has been successfully tested:
 
 ```powershell
 # Import the full RealEstateCore DTDL ontology
-python src\main.py dtdl-upload path/to/RealEstateCore/ --recursive --ontology-name "RealEstateCore"
+python -m src.main upload --format dtdl path/to/RealEstateCore/ --recursive --ontology-name "RealEstateCore"
 ```
 
 This demonstrates the tool's capability to handle large, complex DTDL ontologies with:
@@ -226,18 +367,32 @@ This demonstrates the tool's capability to handle large, complex DTDL ontologies
 
 ## Key Considerations
 
-> **📘 For comprehensive limitations, configuration modes, and best practices, see [MAPPING_LIMITATIONS.md](MAPPING_LIMITATIONS.md)**
-
 ### Information Loss During Conversion
 
 DTDL is designed for digital twins, while Fabric Ontology targets business data models. Some features don't translate directly:
 
-- **Commands** are skipped by default (configurable via `command_mode`)
-- **Complex schemas** (Object, Array, Map) become JSON strings
-- **Multiple inheritance** simplified to first parent only
-- **Relationship properties** are not preserved
-- **Components** need configuration (`component_mode`)
-- **Cardinality constraints** (minMultiplicity/maxMultiplicity) not enforced
+| DTDL Feature | Impact | Recommendation |
+|--------------|--------|----------------|
+| **Commands** | Lost in skip mode | Use `command_mode=entity` for full modeling |
+| **Complex schemas** (Object, Array, Map) | Serialized to JSON strings | Accept JSON representation or simplify schema |
+| **Multiple inheritance** | First parent only | Refactor to single parent or accept limitation |
+| **Relationship properties** | Not preserved | Model as intermediate entity |
+| **request/response schemas** | Lost in SKIP/PROPERTY modes | Use `command_mode=entity` |
+| **writable** | Mutability lost | Document field behavior separately |
+| **unit** | Metadata only | Track units in separate documentation |
+| **semanticType** | Not preserved | Document semantic types separately |
+| **minMultiplicity/maxMultiplicity** | Cardinality lost | Validate in data layer |
+| **target** (Relationship) | External targets ignored | Ensure targets in same conversion set |
+
+### Fabric API Limits
+
+> **📘 For complete API limits and constraints, see [API.md - Fabric API Limits](API.md#fabric-api-limits)**
+
+Key limits that affect DTDL conversion:
+- Max entity/property/relationship name length: **256 characters**
+- Max properties per entity: **200**
+- Max entity types per ontology: **1000**
+- Max relationship types per ontology: **1000**
 
 ### Configuration Options
 
@@ -253,36 +408,65 @@ Customize conversion behavior via config.json or command parameters:
 }
 ```
 
-See [MAPPING_LIMITATIONS.md](MAPPING_LIMITATIONS.md#component-handling-modes) for detailed mode descriptions.
+**Configuration priority:** Command-line parameters > config.json > defaults
 
 ### Before You Convert
 
-1. **Validate first:** `python src\main.py dtdl-validate ./models/ --recursive`
+1. **Validate first:** `python -m src.main validate --format dtdl ./models/ --recursive --verbose`
 2. **Choose configuration:** Decide how to handle Components, Commands, ScaledDecimals
-3. **Review compliance report:** Understand what will be preserved vs. lost
+3. **Review validation output:** Check for unsupported constructs
 4. **Test with samples:** Try conversion on a subset before full upload
+5. **Check version limits:** Ensure interface sizes match DTDL version (see table above)
+
+### Best Practices for DTDL Sources
+
+✅ **Use single inheritance** — Multi-extends will use only the first parent  
+✅ **Simplify complex schemas** — Objects/Arrays serialize to JSON strings  
+✅ **Include targets in conversion** — Ensure relationship targets are in the same set  
+✅ **Configure Component handling** — Choose mode based on your needs  
+✅ **Check version limits** — Ensure interface sizes match DTDL version  
+✅ **Keep names under limits** — Entity/property names under 256 characters  
+✅ **Limit properties per entity** — Stay under 200 properties  
+✅ **Enable debug logging** — Set `logging.level` to `DEBUG` in config.json  
+
+### Common Warnings & Fixes
+
+| Warning | Fix |
+|---------|-----|
+| "Multiple inheritance not supported" | Refactor to single parent or accept first-parent-only behavior |
+| "Complex schema serialized to JSON" | Accept JSON representation or simplify schema |
+| "Entity name exceeds Fabric limit" | Shorten name or accept truncation |
+| "Too many properties" | Split entity, use `component_mode=separate`, or remove properties |
+| "Relationship target not found" | Include target interface in conversion set |
+| "DTDL version limit exceeded" | Reduce interface size or split into multiple interfaces |
 
 ### Compliance Reports
 
 Generate detailed reports showing conversion impact:
 
 ```python
-from dtdl import DTDLToFabricConverter
+from src.dtdl.dtdl_converter import DTDLToFabricConverter
+from src.dtdl.dtdl_parser import DTDLParser
 
+# Parse DTDL
+parser = DTDLParser()
+interfaces = parser.parse_file("samples/dtdl/thermostat.json")
+
+# Convert with compliance report
 converter = DTDLToFabricConverter()
-result, report = converter.convert_with_compliance_report(interfaces)
+result, report = converter.convert_with_compliance_report(interfaces, dtdl_version="v3")
 
+# Access report data
 if report:
-    print(f"⚠️  Warnings: {len(report.warnings)}")
+    print(f"Total issues: {report.total_issues}")
     for warning in report.warnings:
         print(f"[{warning.impact.value}] {warning.feature}: {warning.message}")
 ```
 
-### See Also
-
-- **[MAPPING_LIMITATIONS.md](MAPPING_LIMITATIONS.md)** - Complete technical reference for conversion constraints and configuration
-- **[DTDL Specification](https://learn.microsoft.com/azure/digital-twins/concepts-models)** - Official Azure documentation
-- **[Fabric Ontology API](API.md)** - Microsoft Fabric API reference
+The report shows:
+1. **Source Compliance Issues** - DTDL specification violations
+2. **Conversion Warnings** - Features preserved/limited/lost
+3. **Fabric Compliance Issues** - API limit violations
 
 ## Related Resources
 

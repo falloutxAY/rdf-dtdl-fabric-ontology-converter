@@ -4,11 +4,11 @@ CLI module for RDF to Fabric Ontology Converter.
 This module provides a clean separation of concerns for the CLI:
 - commands/: Command implementations split by format
   - base.py: Base command class and protocols
+  - unified.py: Unified commands (validate, convert, upload, export)
   - common.py: Common commands (list, get, delete, test, compare)
-  - rdf.py: RDF/TTL commands (validate, upload, convert, export)
-  - dtdl.py: DTDL commands (validate, convert, upload/import)
 - parsers.py: Argument parsing configuration
 - helpers.py: Shared CLI utilities
+- format.py: Format enum and dispatch helpers
 """
 
 from .commands import (
@@ -24,15 +24,11 @@ from .commands import (
     DeleteCommand,
     TestCommand,
     CompareCommand,
-    # RDF
+    # Unified
     ValidateCommand,
-    UploadCommand,
     ConvertCommand,
+    UploadCommand,
     ExportCommand,
-    # DTDL
-    DTDLValidateCommand,
-    DTDLConvertCommand,
-    DTDLImportCommand,
 )
 
 from .parsers import create_argument_parser
@@ -42,6 +38,8 @@ from .helpers import (
     get_default_config_path,
     setup_logging,
 )
+
+from .format import Format
 
 __all__ = [
     # Base
@@ -56,19 +54,17 @@ __all__ = [
     'DeleteCommand',
     'TestCommand',
     'CompareCommand',
-    # RDF Commands
+    # Unified Commands
     'ValidateCommand',
-    'UploadCommand',
     'ConvertCommand',
+    'UploadCommand',
     'ExportCommand',
-    # DTDL Commands
-    'DTDLValidateCommand',
-    'DTDLConvertCommand',
-    'DTDLImportCommand',
     # Parsers
     'create_argument_parser',
     # Helpers
     'load_config',
     'get_default_config_path',
     'setup_logging',
+    # Format
+    'Format',
 ]

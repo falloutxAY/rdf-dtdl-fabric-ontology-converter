@@ -13,15 +13,19 @@ from typing import List, Optional
 # Import test fixtures
 import sys
 from pathlib import Path
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from core.validators import (
+ROOT_DIR = Path(__file__).resolve().parents[2]
+SRC_DIR = ROOT_DIR / "src"
+if str(SRC_DIR) not in sys.path:
+    sys.path.insert(0, str(SRC_DIR))
+
+from src.core.validators import (
     FabricLimitsValidator,
     FabricLimitValidationError,
     EntityIdPartsInferrer,
 )
-from models import EntityType, EntityTypeProperty, RelationshipType, RelationshipEnd
-from constants import FabricLimits, EntityIdPartsConfig
+from src.models import EntityType, EntityTypeProperty, RelationshipType, RelationshipEnd
+from src.constants import FabricLimits, EntityIdPartsConfig
 
 
 # =============================================================================
@@ -502,7 +506,7 @@ class TestFabricLimitsIntegration:
     
     def test_rdf_conversion_validates_limits(self):
         """Test RDF conversion includes Fabric limits validation."""
-        from rdf import convert_to_fabric_definition
+        from src.rdf import convert_to_fabric_definition
         
         # Create entities that would exceed limits
         entities = [
@@ -523,7 +527,7 @@ class TestFabricLimitsIntegration:
     
     def test_rdf_conversion_skip_limits(self):
         """Test RDF conversion can skip Fabric limits validation."""
-        from rdf import convert_to_fabric_definition
+        from src.rdf import convert_to_fabric_definition
         
         entities = [
             EntityType(

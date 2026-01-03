@@ -17,6 +17,7 @@ This document provides detailed API documentation for the RDF/DTDL to Microsoft 
   - [DTDL Validator](#dtdl-validator)
   - [DTDL to Fabric Converter](#dtdl-to-fabric-converter)
 - [Fabric Client](#fabric-client)
+  - [Fabric API Limits](#fabric-api-limits)
 - [CLI Commands](#cli-commands)
 - [Error Handling](#error-handling)
 - [Type Mappings](#type-mappings)
@@ -1084,6 +1085,45 @@ client.delete_ontology(ontology_id)
 
 ---
 
+### Fabric API Limits
+
+The Fabric Ontology API enforces the following limits and constraints. These limits apply to all ontology conversions regardless of source format (RDF, DTDL, etc.).
+
+#### Size and Count Limits
+
+| Limit | Value | Consequence |
+|-------|-------|-------------|
+| Max entity name length | 256 characters | Names exceeding limit are truncated with warning |
+| Max property name length | 256 characters | Names exceeding limit are truncated with warning |
+| Max relationship name length | 256 characters | Names exceeding limit are truncated with warning |
+| Max namespace length | 256 characters | Namespace truncated with warning |
+| Max properties per entity | 200 | Excess properties are skipped |
+| Max entity types per ontology | 1000 | Large ontologies may need partitioning |
+| Max relationship types per ontology | 1000 | Large ontologies may need partitioning |
+| Max entity ID parts | 10 | Composite keys limited to 10 properties |
+
+#### Format Constraints
+
+| Constraint | Requirement | Notes |
+|------------|-------------|-------|
+| Entity ID format | Numeric string | Non-numeric IDs are converted to hash |
+| Property ID format | Numeric string | Auto-generated if not provided |
+| Relationship ID format | Numeric string | Auto-generated if not provided |
+
+#### Best Practices
+
+✅ **Keep names concise** — Use abbreviations for long technical terms  
+✅ **Limit properties** — Group related properties or use nested structures  
+✅ **Partition large ontologies** — Split into multiple related ontologies if exceeding 1000 entities  
+✅ **Use numeric IDs** — Ensure all IDs follow numeric string format  
+✅ **Validate before upload** — Use pre-flight validation to catch limit violations early  
+
+#### Validation
+
+The converter automatically validates against these limits using `FabricLimitsValidator`. See [Validators](#fabriclimitsvalidator) section for programmatic validation.
+
+---
+
 ## CLI Commands
 
 The converter provides a comprehensive command-line interface for importing, validating, and managing ontologies. For detailed documentation on all available commands, options, and usage patterns, see [COMMANDS.md](COMMANDS.md).
@@ -1092,26 +1132,29 @@ The converter provides a comprehensive command-line interface for importing, val
 
 **RDF/OWL Operations:**
 ```bash
-# Import TTL/RDF ontology
-python -m src.main import <ttl_file> [--name NAME] [--streaming]
-
 # Validate TTL file
-python -m src.main rdf-validate <ttl_file>
+python -m src.main validate --format rdf <ttl_file>
 
 # Convert to JSON (without upload)
-python -m src.main rdf-convert <ttl_file> [--output FILE]
+python -m src.main convert --format rdf <ttl_file> [--output FILE]
+
+# Upload to Fabric
+python -m src.main upload --format rdf <ttl_file> [--ontology-name NAME] [--streaming]
 
 # Export to TTL
-python -m src.main rdf-export <ontology_id> [--output FILE]
+python -m src.main export <ontology_id> [--output FILE]
 ```
 
 **DTDL Operations:**
 ```bash
-# Import DTDL models
-python -m src.main dtdl-upload <path> [--ontology-name NAME] [--recursive]
-
 # Validate DTDL models
-python -m src.main dtdl-validate <path> [--recursive]
+python -m src.main validate --format dtdl <path> [--recursive]
+
+# Convert DTDL to Fabric JSON
+python -m src.main convert --format dtdl <path> [--ontology-name NAME] [--recursive]
+
+# Upload DTDL to Fabric
+python -m src.main upload --format dtdl <path> [--ontology-name NAME] [--recursive]
 ```
 
 **Ontology Management:**

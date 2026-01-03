@@ -9,9 +9,9 @@ This module contains all Fabric client-related tests:
 - Authentication and error handling
 
 Run specific test categories:
-    pytest -m integration                    # All integration tests
-    pytest tests/test_fabric_client.py       # All Fabric client tests
-    pytest -k "Streaming" tests/test_fabric_client.py  # Streaming tests only
+    pytest -m integration                          # All integration tests
+    pytest tests/core/test_fabric_client.py        # All Fabric client tests
+    pytest -k "Streaming" tests/core/test_fabric_client.py  # Streaming tests only
 """
 
 import pytest
@@ -24,16 +24,20 @@ from unittest.mock import Mock, patch, MagicMock
 from typing import Dict, Any
 
 import sys
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
-from core import (
+ROOT_DIR = Path(__file__).resolve().parents[2]
+SRC_DIR = ROOT_DIR / "src"
+if str(SRC_DIR) not in sys.path:
+    sys.path.insert(0, str(SRC_DIR))
+
+from src.core import (
     FabricOntologyClient,
     FabricConfig,
     FabricAPIError,
     RateLimitConfig,
 )
-from core.fabric_client import TransientAPIError
-from rdf import (
+from src.core.fabric_client import TransientAPIError
+from src.rdf import (
     StreamingRDFConverter,
     RDFToFabricConverter,
     parse_ttl_streaming,
@@ -1180,7 +1184,7 @@ class TestCancellationSupport:
     
     def test_cancellation_token_checked(self, large_ttl_file):
         """Test that cancellation token is checked during parsing."""
-        from core import CancellationToken
+        from src.core import CancellationToken
         
         token = CancellationToken()
         check_count = [0]
@@ -1198,7 +1202,7 @@ class TestCancellationSupport:
     
     def test_pre_cancelled_token_raises(self, large_ttl_file):
         """Test that pre-cancelled token raises immediately."""
-        from core import CancellationToken, OperationCancelledException
+        from src.core import CancellationToken, OperationCancelledException
         
         token = CancellationToken()
         token.cancel()
@@ -1303,7 +1307,7 @@ class TestSampleOntologiesStreaming:
     @pytest.fixture
     def samples_dir(self):
         """Get path to samples/rdf directory for RDF tests."""
-        samples = Path(__file__).parent.parent / "samples" / "rdf"
+        samples = ROOT_DIR / "samples" / "rdf"
         if not samples.exists():
             pytest.skip("samples/rdf directory not found")
         return samples

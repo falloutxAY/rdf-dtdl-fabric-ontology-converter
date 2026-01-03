@@ -56,66 +56,78 @@ pip install -e .
 copy config.sample.json src\config.json
 
 # 2. Validate an RDF/TTL ontology
-python src\main.py rdf-validate samples/rdf/sample_supply_chain_ontology.ttl
+python -m src.main validate --format rdf samples/rdf/sample_supply_chain_ontology.ttl
 
 # 3. Upload to Fabric
-python src\main.py rdf-upload samples/rdf/sample_supply_chain_ontology.ttl --name "MyOntology"
+python -m src.main upload --format rdf samples/rdf/sample_supply_chain_ontology.ttl --ontology-name "MyOntology"
 
 # 4. Import DTDL models
-python src\main.py dtdl-upload samples/dtdl/ --recursive --ontology-name "MyDTDL"
+python -m src.main upload --format dtdl samples/dtdl/ --recursive --ontology-name "MyDTDL"
 ```
 
 See [docs/CONFIGURATION.md](docs/CONFIGURATION.md) for detailed configuration options.
 
 ## Common Commands
 
-### RDF/TTL Operations
+All format-specific commands use unified verbs with a `--format` flag:
 
 ```powershell
-# Validate a TTL file before upload
-python src\main.py rdf-validate <file.ttl> --verbose
-
-# Convert TTL to Fabric JSON (without upload)
-python src\main.py rdf-convert <file.ttl> --output output.json
-
-# Upload ontology to Fabric
-python src\main.py rdf-upload <file.ttl> --name "OntologyName"
-
-# Export Fabric ontology back to TTL
-python src\main.py rdf-export <ontology_id> --output exported.ttl
-
-# List all ontologies
-python src\main.py list
-
-# Delete an ontology
-python src\main.py delete <ontology_id>
+python -m src.main <command> --format {rdf,dtdl} <path> [options]
 ```
 
-### DTDL Operations
+### Validation
 
 ```powershell
+# Validate RDF/TTL
+python -m src.main validate --format rdf <file.ttl> --verbose
+
 # Validate DTDL models
-python src\main.py dtdl-validate <path> --recursive
+python -m src.main validate --format dtdl <path> --recursive
+```
+
+### Conversion
+
+```powershell
+# Convert RDF to Fabric JSON (without upload)
+python -m src.main convert --format rdf <file.ttl> --output output.json
 
 # Convert DTDL to Fabric JSON
-python src\main.py dtdl-convert <path> --recursive --output output.json
+python -m src.main convert --format dtdl <path> --recursive --output output.json
+```
 
-# Upload DTDL to Fabric
-python src\main.py dtdl-upload <path> --recursive --ontology-name "MyDTDL"
+### Upload to Fabric
+
+```powershell
+# Upload RDF ontology
+python -m src.main upload --format rdf <file.ttl> --ontology-name "OntologyName"
+
+# Upload DTDL models
+python -m src.main upload --format dtdl <path> --recursive --ontology-name "MyDTDL"
+```
+
+### Workspace Operations
+
+```powershell
+# List all ontologies
+python -m src.main list
+
+# Export Fabric ontology back to TTL
+python -m src.main export <ontology_id> --output exported.ttl
+
+# Delete an ontology
+python -m src.main delete <ontology_id>
 ```
 
 ### Large File Support
 
 ```powershell
-# Use streaming mode for files >100MB (RDF)
-python src\main.py rdf-upload <large_file.ttl> --streaming
-
-# Use streaming mode for files >100MB (DTDL)
-python src\main.py dtdl-upload <path> --streaming --ontology-name "MyDTDL"
+# Use streaming mode for files >100MB
+python -m src.main upload --format rdf <large_file.ttl> --streaming
+python -m src.main convert --format dtdl <path> --streaming
 
 # Force processing for files >500MB (bypass memory checks)
-python src\main.py rdf-upload <huge_file.ttl> --force-memory
-python src\main.py dtdl-convert <large_models> --force-memory
+python -m src.main upload --format rdf <huge_file.ttl> --force-memory
+python -m src.main convert --format dtdl <large_models> --force-memory
 ```
 
 For the complete command reference, see [docs/COMMANDS.md](docs/COMMANDS.md).
@@ -125,9 +137,8 @@ For the complete command reference, see [docs/COMMANDS.md](docs/COMMANDS.md).
 ### 📚 User Guides
 - **[Configuration Guide](docs/CONFIGURATION.md)** – Detailed setup, authentication, and API configuration
 - **[Commands Reference](docs/COMMANDS.md)** – Complete command-line reference
-- **[RDF Guide](docs/RDF_GUIDE.md)** – RDF/OWL import, mapping, and examples
-- **[DTDL Guide](docs/DTDL_GUIDE.md)** – DTDL import, mapping, and examples
-- **[Mapping Limitations](docs/MAPPING_LIMITATIONS.md)** – RDF & DTDL → Fabric conversion constraints
+- **[RDF Guide](docs/RDF_GUIDE.md)** – RDF/OWL import, mapping, limitations, and examples
+- **[DTDL Guide](docs/DTDL_GUIDE.md)** – DTDL import, mapping, limitations, and examples
 - **[Troubleshooting](docs/TROUBLESHOOTING.md)** – Common issues and solutions
 
 ### 🛠️ Developer Guides  
@@ -158,6 +169,16 @@ src/
 │   └── streaming.py          # Memory-efficient processing
 ├── models/                   # Shared data models
 └── cli/                      # Command handlers & parsers
+
+tests/
+├── core/                     # Fabric client, resilience, validation infrastructure
+├── dtdl/                     # DTDL parser, validator, and edge cases
+├── rdf/                      # RDF converter and validation suites
+├── cli/                      # CLI parsing/formatting coverage
+├── models/                   # Shared model tests
+├── integration/              # Cross-format pipelines using sample data
+├── fixtures/                 # Reusable TTL/DTDL/config fixtures
+└── run_tests.py              # Convenience launcher for pytest targets
 ```
 
 For detailed architecture, see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).

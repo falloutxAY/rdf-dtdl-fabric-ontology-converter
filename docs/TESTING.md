@@ -3,15 +3,24 @@
 ## Table of Contents
 
 - [🚀 Quick Start](#-quick-start)
-- [📋 Test Files](#-test-files-consolidated)
-- [Running Tests](#running-tests)
-- [✨ Sample Output](#-sample-output)
-- [What the Tests Cover](#what-the-tests-cover)
-- [Adding New Tests](#adding-new-tests)
+- [📋 Test Files (consolidated)](#-test-files-consolidated)
+  - [Pytest markers](#pytest-markers)
+- [Running tests](#running-tests)
+  - [Quick Commands](#quick-commands)
+  - [Examples](#examples)
+  - [Specific tests](#specific-tests)
+- [✨ Sample output](#-sample-output)
+- [What the tests cover](#what-the-tests-cover)
+  - [DTDL v4 Test Coverage](#dtdl-v4-test-coverage)
+- [Adding new tests](#adding-new-tests)
+  - [Example: Unit test](#example-unit-test)
+  - [Example: Integration test with mocked API](#example-integration-test-with-mocked-api)
 - [Troubleshooting](#troubleshooting)
+  - [Import errors](#import-errors)
+  - [Tests run slowly](#tests-run-slowly)
 - [Dependencies](#dependencies)
-- [💡 Best Practices](#-best-practices)
-- [📚 API Documentation](#-api-documentation)
+- [💡 Best practices](#-best-practices)
+- [📚 API documentation](#-api-documentation)
 
 ## 🚀 Quick Start
 
@@ -47,6 +56,10 @@ pytest -m slow           # Long-running tests
 | `fixtures/dtdl_fixtures.py` | DTDL JSON samples | - |
 | `fixtures/config_fixtures.py` | Configuration samples | - |
 
+> **Note:** The former `tests/cli` and `tests/models` packages were consolidated into the
+> format and core suites to avoid shadowing `src.cli` and `src.models`. CLI-facing behavior
+> is covered alongside the Fabric client and converter tests listed above.
+
 ### Pytest markers
 
 Configure in `conftest.py`:
@@ -70,10 +83,10 @@ pytest -m "integration and samples"  # Combined markers
 pytest -m "not slow"                 # Exclude slow tests
 
 # Run specific test file
-pytest tests/test_converter.py -v
-pytest tests/test_resilience.py -v
-pytest tests/test_fabric_client.py -v
-pytest tests/test_validation.py -v
+pytest tests/rdf/test_converter.py -v
+pytest tests/core/test_resilience.py -v
+pytest tests/core/test_fabric_client.py -v
+pytest tests/rdf/test_validation.py -v
 
 # Run with coverage
 python -m pytest tests/ --cov=src --cov-report=html
@@ -82,40 +95,40 @@ python -m pytest tests/ --cov=src --cov-report=html
 ### Examples
 ```powershell
 # Core converter tests
-python -m pytest tests/test_converter.py::TestRDFConverter -v
+python -m pytest tests/rdf/test_converter.py::TestRDFConverter -v
 
 # Sample file tests
 pytest -m samples -v
 
 # Rate limiter tests
-pytest tests/test_resilience.py::TestTokenBucketRateLimiter -v
+pytest tests/core/test_resilience.py::TestTokenBucketRateLimiter -v
 
 # Circuit breaker tests  
-pytest tests/test_resilience.py::TestCircuitBreakerStates -v
+pytest tests/core/test_resilience.py::TestCircuitBreakerStates -v
 
 # Cancellation tests
-pytest tests/test_resilience.py::TestCancellationToken -v
+pytest tests/core/test_resilience.py::TestCancellationToken -v
 
 # Fabric API integration tests
-pytest tests/test_fabric_client.py::TestListOntologies -v
+pytest tests/core/test_fabric_client.py::TestListOntologies -v
 
 # Streaming converter tests
-pytest tests/test_fabric_client.py::TestStreamingRDFConverterBasic -v
+pytest tests/core/test_fabric_client.py::TestStreamingRDFConverterBasic -v
 
 # Pre-flight validation tests
-pytest tests/test_validation.py::TestPreflightValidator -v
+pytest tests/rdf/test_validation.py::TestPreflightValidator -v
 
 # End-to-end tests
-pytest tests/test_validation.py::TestEndToEnd -v
+pytest tests/rdf/test_validation.py::TestEndToEnd -v
 ```
 
 ### Specific tests
 ```powershell
 # Run a test class
-pytest tests/test_converter.py::TestSampleOntologies -v
+pytest tests/rdf/test_converter.py::TestSampleOntologies -v
 
 # Run a single test
-pytest tests/test_converter.py::TestSampleOntologies::test_foaf_ontology_ttl -v -s
+pytest tests/rdf/test_converter.py::TestSampleOntologies::test_foaf_ontology_ttl -v -s
 
 # Run tests matching a pattern
 pytest -k "rate_limit" -v

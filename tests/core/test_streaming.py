@@ -22,9 +22,12 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 # Add src to path for imports
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
+ROOT_DIR = Path(__file__).resolve().parents[2]
+SRC_DIR = ROOT_DIR / "src"
+if str(SRC_DIR) not in sys.path:
+    sys.path.insert(0, str(SRC_DIR))
 
-from core.streaming import (
+from src.core.streaming import (
     StreamFormat,
     StreamConfig,
     StreamStats,

@@ -20,14 +20,14 @@ The converter follows a layered architecture with clear separation of concerns:
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
 │                          CLI Layer                                   │
-│  ┌──────────────┐ ┌──────────────┐ ┌──────────────────────────────┐│
-│  │   RDF Cmds   │ │   DTDL Cmds  │ │  Common Cmds (list/get/etc) ││
-│  │  rdf-validate│ │  dtdl-validate│ │  list-ontologies            ││
-│  │  rdf-convert │ │  dtdl-convert│ │  get-ontology               ││
-│  │  rdf-upload  │ │  dtdl-upload │ │  delete-ontology            ││
-│  │  rdf-export  │ │              │ │  fabric-to-ttl              ││
-│  └──────┬───────┘ └──────┬───────┘ └────────────┬─────────────────┘│
-└─────────┼────────────────┼──────────────────────┼──────────────────┘
+│  ┌─────────────────────────────────┐ ┌────────────────────────────┐│
+│  │   Unified Commands              │ │  Common Cmds (list/get/etc)││
+│  │  validate --format {rdf,dtdl}   │ │  list                      ││
+│  │  convert  --format {rdf,dtdl}   │ │  get                       ││
+│  │  upload   --format {rdf,dtdl}   │ │  delete                    ││
+│  │  export   (RDF only)            │ │  compare, test             ││
+│  └──────────────┬──────────────────┘ └────────────┬───────────────┘│
+└─────────────────┼──────────────────────────────────┼───────────────┘
           │                │                      │
           ▼                ▼                      │
 ┌─────────────────────────────────────────────────────────────────────┐
@@ -98,10 +98,10 @@ The converter follows a layered architecture with clear separation of concerns:
 - `commands/` - Modular command implementations:
   - `base.py` - BaseCommand ABC and protocol interfaces
   - `common.py` - Common commands (list, get, delete, test, compare)
-  - `rdf.py` - RDF/TTL commands (validate, upload, convert, export)
-  - `dtdl.py` - DTDL commands (validate, convert, upload)
+  - `unified.py` - Unified commands (validate, convert, upload, export) with format dispatch
+- `format.py` - Format enum and service factory registry
 - `helpers.py` - Utility functions for CLI operations
-- `parsers.py` - Argument parsing and validation
+- `parsers.py` - Argument parsing with shared flag builders
 
 **Key Features:**
 - Command pattern for extensibility
@@ -398,10 +398,10 @@ src/
     ├── commands/              # Modular command implementations
     │   ├── base.py            # BaseCommand ABC
     │   ├── common.py          # List, Get, Delete, Test, Compare
-    │   ├── rdf.py             # RDF commands with batch support
-    │   └── dtdl.py            # DTDL commands
+    │   └── unified.py         # Unified commands with format dispatch
+    ├── format.py              # Format enum and service factories
     ├── helpers.py             # CLI utilities
-    └── parsers.py             # Argument parsing
+    └── parsers.py             # Argument parsing with shared flags
 ```
 
 ### Recommended Import Patterns
@@ -602,24 +602,22 @@ class CustomValidator(PreflightValidator):
 
 ## Testing Architecture
 
+
+CLI-facing assertions now live alongside the core and format-specific suites, eliminating
+namespace clashes with `src.cli` and `src.models`.
+
 ```
 tests/
-├── unit/                    # Fast, isolated tests
-│   ├── test_type_mapper.py
-│   ├── test_uri_utils.py
-│   └── ...
-│
-├── integration/             # End-to-end workflows
-│   ├── test_rdf_pipeline.py
-│   ├── test_dtdl_pipeline.py
-│   └── test_cross_format.py
-│
-└── fixtures/                # Test data
-    ├── sample_ontologies/
-    └── mock_responses/
+├── core/          # Fabric client, resilience, validation infrastructure
+├── dtdl/          # DTDL parser, validator, and edge-case suites
+├── rdf/           # RDF converter and validation coverage
+├── integration/   # Cross-format and pipeline end-to-end tests
+├── fixtures/      # Shared sample content and config helpers
+├── run_tests.py   # Convenience runner for common pytest targets
+└── __init__.py    # Package marker for pytest discovery helpers
 ```
 
-**Coverage:** 354 tests passing, targeting 80%+ coverage
+**Coverage:** Comprehensive unit and integration suites aligned with the new package layout
 
 ---
 
@@ -633,4 +631,4 @@ tests/
 
 ---
 
-**Last Updated:** January 1, 2026
+**Last Updated:** January 3, 2026

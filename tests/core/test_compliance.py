@@ -10,71 +10,37 @@ from dataclasses import dataclass
 from typing import List, Optional
 from unittest.mock import MagicMock
 
-# Try to import from package structure
-try:
-    from src.core.compliance import (
-        ComplianceLevel,
-        ConversionImpact,
-        DTDLVersion,
-        ComplianceIssue,
-        ConversionWarning,
-        ComplianceResult,
-        ConversionReport,
-        DTDLComplianceValidator,
-        RDFOWLComplianceValidator,
-        FabricComplianceChecker,
-        ConversionReportGenerator,
-        DTDL_LIMITS,
-        OWL_CONSTRUCT_SUPPORT,
-        DTDL_FEATURE_SUPPORT,
-    )
-    from src.models import (
-        EntityType,
-        EntityTypeProperty,
-        RelationshipType,
-        RelationshipEnd,
-        ConversionResult,
-    )
-    from src.dtdl.dtdl_models import (
-        DTDLInterface,
-        DTDLProperty,
-        DTDLRelationship,
-        DTDLTelemetry,
-        DTDLCommand,
-        DTDLComponent,
-    )
-except ImportError:
-    from core.compliance import (
-        ComplianceLevel,
-        ConversionImpact,
-        DTDLVersion,
-        ComplianceIssue,
-        ConversionWarning,
-        ComplianceResult,
-        ConversionReport,
-        DTDLComplianceValidator,
-        RDFOWLComplianceValidator,
-        FabricComplianceChecker,
-        ConversionReportGenerator,
-        DTDL_LIMITS,
-        OWL_CONSTRUCT_SUPPORT,
-        DTDL_FEATURE_SUPPORT,
-    )
-    from models import (
-        EntityType,
-        EntityTypeProperty,
-        RelationshipType,
-        RelationshipEnd,
-        ConversionResult,
-    )
-    from dtdl.dtdl_models import (
-        DTDLInterface,
-        DTDLProperty,
-        DTDLRelationship,
-        DTDLTelemetry,
-        DTDLCommand,
-        DTDLComponent,
-    )
+from src.core.compliance import (
+    ComplianceLevel,
+    ConversionImpact,
+    DTDLVersion,
+    ComplianceIssue,
+    ConversionWarning,
+    ComplianceResult,
+    ConversionReport,
+    DTDLComplianceValidator,
+    RDFOWLComplianceValidator,
+    FabricComplianceChecker,
+    ConversionReportGenerator,
+    DTDL_LIMITS,
+    OWL_CONSTRUCT_SUPPORT,
+    DTDL_FEATURE_SUPPORT,
+)
+from src.models import (
+    EntityType,
+    EntityTypeProperty,
+    RelationshipType,
+    RelationshipEnd,
+    ConversionResult,
+)
+from src.dtdl.dtdl_models import (
+    DTDLInterface,
+    DTDLProperty,
+    DTDLRelationship,
+    DTDLTelemetry,
+    DTDLCommand,
+    DTDLComponent,
+)
 
 
 # ============================================================================

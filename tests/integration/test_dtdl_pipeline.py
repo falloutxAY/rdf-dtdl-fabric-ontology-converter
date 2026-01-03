@@ -8,6 +8,9 @@ import json
 import pytest
 from pathlib import Path
 
+ROOT_DIR = Path(__file__).resolve().parents[2]
+SAMPLES_DTDL_DIR = ROOT_DIR / "samples" / "dtdl"
+
 from src.dtdl import DTDLParser, DTDLValidator, DTDLToFabricConverter
 
 
@@ -17,7 +20,7 @@ class TestDTDLConversionPipeline:
     @pytest.fixture
     def dtdl_samples_dir(self) -> Path:
         """Get the DTDL samples directory path."""
-        return Path(__file__).parent.parent.parent / "samples" / "dtdl"
+        return SAMPLES_DTDL_DIR
 
     @pytest.fixture
     def parser(self) -> DTDLParser:

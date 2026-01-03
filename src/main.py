@@ -11,18 +11,16 @@ Usage:
     # Or from the src directory
     cd src && python main.py <command> [options]
     
-    # RDF/TTL Commands (use rdf- prefix)
-    python -m src.main rdf-upload <ttl_file> [--config <config.json>] [--name <ontology_name>]
-    python -m src.main rdf-validate <ttl_file> [--verbose]
-    python -m src.main rdf-convert <ttl_file> [--output <output.json>]
-    python -m src.main rdf-export <ontology_id> [--output <output.ttl>]
+    # Unified Commands (use --format to specify input type)
+    python -m src.main validate --format rdf <ttl_file> [--verbose]
+    python -m src.main validate --format dtdl <path> [--recursive]
+    python -m src.main convert --format rdf <ttl_file> [--output <output.json>]
+    python -m src.main convert --format dtdl <path> [--ontology-name <name>]
+    python -m src.main upload --format rdf <ttl_file> [--ontology-name <name>]
+    python -m src.main upload --format dtdl <path> [--ontology-name <name>]
+    python -m src.main export <ontology_id> [--output <output.ttl>]
     
-    # DTDL Commands (use dtdl- prefix)
-    python -m src.main dtdl-validate <path> [--recursive]
-    python -m src.main dtdl-convert <path> [--output <output.json>] [--ontology-name <name>]
-    python -m src.main dtdl-upload <path> [--ontology-name <name>] [--config <config.json>]
-    
-    # Other Commands
+    # Workspace Commands
     python -m src.main list [--config <config.json>]
     python -m src.main get <ontology_id> [--config <config.json>]
     python -m src.main delete <ontology_id> [--config <config.json>]
@@ -32,9 +30,11 @@ Usage:
 Architecture:
     This module provides the main entry point and delegates to the cli/ module
     which implements clean separation of concerns:
-    - cli/commands.py: Command handlers (thin orchestration layer)
+    - cli/commands/unified.py: Unified command handlers (validate, convert, upload, export)
+    - cli/commands/common.py: Common command handlers (list, get, delete, test, compare)
     - cli/parsers.py: Argument parsing configuration
     - cli/helpers.py: Shared utilities (logging, config loading)
+    - cli/format.py: Format enum and dispatch helpers
 """
 
 import sys
@@ -45,58 +45,45 @@ try:
     from .cli import (
         create_argument_parser,
         ValidateCommand,
+        ConvertCommand,
         UploadCommand,
+        ExportCommand,
         ListCommand,
         GetCommand,
         DeleteCommand,
         TestCommand,
-        ConvertCommand,
-        ExportCommand,
         CompareCommand,
-        # DTDL commands
-        DTDLValidateCommand,
-        DTDLConvertCommand,
-        DTDLImportCommand,
     )
 except ImportError:
     # When running directly: python src/main.py (from project root)
     from cli import (
         create_argument_parser,
         ValidateCommand,
+        ConvertCommand,
         UploadCommand,
+        ExportCommand,
         ListCommand,
         GetCommand,
         DeleteCommand,
         TestCommand,
-        ConvertCommand,
-        ExportCommand,
         CompareCommand,
-        # DTDL commands
-        DTDLValidateCommand,
-        DTDLConvertCommand,
-        DTDLImportCommand,
     )
 
 
 # Command mapping from command name to Command class
 COMMAND_MAP = {
-    # RDF/TTL commands
-    'rdf-validate': ValidateCommand,
-    'rdf-upload': UploadCommand,
-    'rdf-convert': ConvertCommand,
-    'rdf-export': ExportCommand,
+    # Unified commands (require --format)
+    'validate': ValidateCommand,
+    'convert': ConvertCommand,
+    'upload': UploadCommand,
+    'export': ExportCommand,
     
-    # Common commands (no prefix needed)
+    # Common commands (no format needed)
     'list': ListCommand,
     'get': GetCommand,
     'delete': DeleteCommand,
     'test': TestCommand,
     'compare': CompareCommand,
-    
-    # DTDL commands
-    'dtdl-validate': DTDLValidateCommand,
-    'dtdl-convert': DTDLConvertCommand,
-    'dtdl-upload': DTDLImportCommand,
 }
 
 

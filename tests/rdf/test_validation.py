@@ -10,7 +10,7 @@ This module contains:
 Run specific test categories:
     pytest -m validation                     # All validation tests
     pytest -m samples                        # Tests using sample files
-    pytest tests/test_validation.py -k "Preflight"  # Preflight tests only
+    pytest tests/rdf/test_validation.py -k "Preflight"  # Preflight tests only
 """
 
 import pytest
@@ -23,9 +23,12 @@ import time
 from pathlib import Path
 from unittest.mock import Mock, patch, MagicMock
 
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
+ROOT_DIR = Path(__file__).resolve().parents[2]
+SRC_DIR = ROOT_DIR / "src"
+if str(SRC_DIR) not in sys.path:
+    sys.path.insert(0, str(SRC_DIR))
 
-from rdf import (
+from src.rdf import (
     PreflightValidator,
     ValidationReport,
     ValidationIssue,
@@ -1010,7 +1013,7 @@ class TestConvertCommand:
     
     def test_convert_ttl_to_json(self, sample_ttl, tmp_path):
         """Test converting TTL to JSON definition"""
-        from rdf import parse_ttl_file
+        from src.rdf import parse_ttl_file
         
         output_file = tmp_path / "output.json"
         
@@ -1055,7 +1058,7 @@ class TestRobustness:
         ttl_file = tmp_path / "large.ttl"
         ttl_file.write_text(ttl_content)
         
-        from rdf import parse_ttl_file
+        from src.rdf import parse_ttl_file
         
         definition, name = parse_ttl_file(str(ttl_file))
         
@@ -1077,7 +1080,7 @@ class TestRobustness:
         ttl_file = tmp_path / "unicode.ttl"
         ttl_file.write_text(ttl_content, encoding='utf-8')
         
-        from rdf import parse_ttl_file
+        from src.rdf import parse_ttl_file
         
         definition, name = parse_ttl_file(str(ttl_file))
         assert "parts" in definition
@@ -1096,7 +1099,7 @@ class TestRobustness:
         ttl_file = tmp_path / "special.ttl"
         ttl_file.write_text(ttl_content)
         
-        from rdf import parse_ttl_file
+        from src.rdf import parse_ttl_file
         import base64
         
         definition, name = parse_ttl_file(str(ttl_file))
@@ -1119,7 +1122,7 @@ class TestThreadSafeTokenCaching:
     
     def test_concurrent_token_acquisition(self):
         """Test that concurrent token requests are handled thread-safely"""
-        from core import FabricOntologyClient, FabricConfig
+        from src.core import FabricOntologyClient, FabricConfig
         
         config = FabricConfig(workspace_id="12345678-1234-1234-1234-123456789012")
         client = FabricOntologyClient(config)
@@ -1162,7 +1165,7 @@ class TestSampleFilesValidation:
     @pytest.fixture
     def samples_dir(self):
         """Get the samples/rdf directory path for RDF tests."""
-        samples = Path(__file__).parent.parent / "samples" / "rdf"
+        samples = ROOT_DIR / "samples" / "rdf"
         if not samples.exists():
             pytest.skip("samples/rdf directory not found")
         return samples
@@ -1208,7 +1211,7 @@ class TestSampleFilesRoundTrip:
     @pytest.fixture
     def samples_dir(self):
         """Get the samples/rdf directory path for RDF tests."""
-        samples = Path(__file__).parent.parent / "samples" / "rdf"
+        samples = ROOT_DIR / "samples" / "rdf"
         if not samples.exists():
             pytest.skip("samples/rdf directory not found")
         return samples
@@ -1263,7 +1266,7 @@ class TestEndToEnd:
     @pytest.fixture
     def samples_dir(self):
         """Get samples/rdf directory for RDF tests"""
-        return Path(__file__).parent.parent / "samples" / "rdf"
+        return ROOT_DIR / "samples" / "rdf"
     
     def test_parse_sample_ontology_complete(self, samples_dir):
         """Complete test of parsing sample_supply_chain_ontology.ttl"""
@@ -1272,7 +1275,7 @@ class TestEndToEnd:
         if not sample_file.exists():
             pytest.skip("Sample file not found")
         
-        from rdf import parse_ttl_file
+        from src.rdf import parse_ttl_file
         import base64
         
         definition, name = parse_ttl_file(str(sample_file))
@@ -1297,7 +1300,7 @@ class TestEndToEnd:
     
     def test_multiple_files_sequentially(self, samples_dir):
         """Test parsing multiple files in sequence"""
-        from rdf import parse_ttl_file
+        from src.rdf import parse_ttl_file
         
         ttl_files = [
             "sample_supply_chain_ontology.ttl",

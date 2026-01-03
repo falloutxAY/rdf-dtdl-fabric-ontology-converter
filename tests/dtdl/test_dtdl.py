@@ -11,7 +11,13 @@ Tests cover:
 import json
 import pytest
 import tempfile
+import sys
 from pathlib import Path
+
+ROOT_DIR = Path(__file__).resolve().parents[2]
+SRC_DIR = ROOT_DIR / "src"
+if str(SRC_DIR) not in sys.path:
+    sys.path.insert(0, str(SRC_DIR))
 
 from src.dtdl import (
     DTDLParser,
@@ -398,7 +404,7 @@ class TestIntegration:
     
     def test_parse_convert_thermostat_sample(self):
         """Test full pipeline with thermostat sample."""
-        sample_path = Path(__file__).parent.parent / "samples" / "dtdl" / "thermostat.json"
+        sample_path = ROOT_DIR / "samples" / "dtdl" / "thermostat.json"
         
         if not sample_path.exists():
             pytest.skip("Sample file not found")
@@ -425,7 +431,7 @@ class TestIntegration:
     
     def test_parse_convert_manufacturing_samples(self):
         """Test full pipeline with manufacturing samples."""
-        samples_dir = Path(__file__).parent.parent / "samples" / "dtdl"
+        samples_dir = ROOT_DIR / "samples" / "dtdl"
         
         if not samples_dir.exists():
             pytest.skip("Samples directory not found")

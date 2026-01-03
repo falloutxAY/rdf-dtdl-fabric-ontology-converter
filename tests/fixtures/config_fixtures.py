@@ -78,31 +78,3 @@ SERVICE_PRINCIPAL_CONFIG = {
         "level": "INFO"
     }
 }
-
-
-# =============================================================================
-# Invalid Configuration Fixtures (for negative testing)
-# =============================================================================
-
-INVALID_WORKSPACE_ID_CONFIG = {
-    "fabric": {
-        "workspace_id": "YOUR_WORKSPACE_ID",
-        "tenant_id": "00000000-0000-0000-0000-000000000000",
-        "use_interactive_auth": True
-    }
-}
-
-MISSING_WORKSPACE_CONFIG = {
-    "fabric": {
-        "tenant_id": "00000000-0000-0000-0000-000000000000",
-        "use_interactive_auth": True
-    }
-}
-
-MALFORMED_GUID_CONFIG = {
-    "fabric": {
-        "workspace_id": "not-a-valid-guid",
-        "tenant_id": "00000000-0000-0000-0000-000000000000",
-        "use_interactive_auth": True
-    }
-}

@@ -7,6 +7,10 @@ and can handle various edge cases.
 import pytest
 from pathlib import Path
 
+ROOT_DIR = Path(__file__).resolve().parents[2]
+SAMPLES_RDF_DIR = ROOT_DIR / "samples" / "rdf"
+SAMPLES_DTDL_DIR = ROOT_DIR / "samples" / "dtdl"
+
 from src.rdf import parse_ttl_with_result
 from src.dtdl import DTDLParser, DTDLToFabricConverter
 
@@ -17,7 +21,7 @@ class TestCrossFormatCompatibility:
     @pytest.fixture
     def samples_dir(self) -> Path:
         """Get the samples/rdf directory path for RDF tests."""
-        return Path(__file__).parent.parent.parent / "samples" / "rdf"
+        return SAMPLES_RDF_DIR
 
     @pytest.fixture
     def dtdl_parser(self) -> DTDLParser:
@@ -43,9 +47,8 @@ class TestCrossFormatCompatibility:
             assert len(rdf_result.entity_types) > 0 or len(rdf_result.relationship_types) > 0
 
         # Convert DTDL - also returns API format with 'parts'
-        dtdl_dir = samples_dir / "dtdl"
-        if dtdl_dir.exists():
-            parse_result = dtdl_parser.parse_directory(str(dtdl_dir))
+        if SAMPLES_DTDL_DIR.exists():
+            parse_result = dtdl_parser.parse_directory(str(SAMPLES_DTDL_DIR))
             if parse_result.interfaces:
                 dtdl_result = dtdl_converter.convert(parse_result.interfaces)
                 dtdl_definition = dtdl_converter.to_fabric_definition(dtdl_result, "test")
@@ -73,10 +76,9 @@ class TestCrossFormatCompatibility:
                     assert hasattr(entity, field), f"RDF entity missing: {field}"
 
         # Get DTDL entity
-        dtdl_dir = samples_dir / "dtdl"
         dtdl_entity_fields = set()
-        if dtdl_dir.exists():
-            parse_result = dtdl_parser.parse_directory(str(dtdl_dir))
+        if SAMPLES_DTDL_DIR.exists():
+            parse_result = dtdl_parser.parse_directory(str(SAMPLES_DTDL_DIR))
             if parse_result.interfaces:
                 result = dtdl_converter.convert(parse_result.interfaces)
                 definition = dtdl_converter.to_fabric_definition(result, "test")
@@ -106,9 +108,8 @@ class TestCrossFormatCompatibility:
                     )
 
         # Check DTDL properties
-        dtdl_dir = samples_dir / "dtdl"
-        if dtdl_dir.exists():
-            parse_result = dtdl_parser.parse_directory(str(dtdl_dir))
+        if SAMPLES_DTDL_DIR.exists():
+            parse_result = dtdl_parser.parse_directory(str(SAMPLES_DTDL_DIR))
             if parse_result.interfaces:
                 result = dtdl_converter.convert(parse_result.interfaces)
                 definition = dtdl_converter.to_fabric_definition(result, "test")

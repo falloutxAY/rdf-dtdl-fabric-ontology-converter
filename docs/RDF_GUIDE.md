@@ -7,10 +7,27 @@ This guide provides comprehensive information about importing **RDF/OWL ontologi
 - [What is RDF/OWL?](#what-is-rdfowl)
 - [RDF Commands](#rdf-commands)
 - [RDF to Fabric Mapping](#rdf-to-fabric-mapping)
+  - [Fully Supported Constructs](#-fully-supported-constructs)
+  - [XSD Type Mapping](#xsd-type-mapping)
+  - [Partially Supported Constructs](#-partially-supported-constructs)
+  - [Unsupported Constructs](#-unsupported-constructs)
 - [What Gets Converted?](#what-gets-converted)
+  - [Fully Supported](#-fully-supported)
+  - [Limited Support](#-limited-support-simplified)
+  - [Not Supported](#-not-supported-skipped-with-warnings)
 - [RDF Validation Checks](#rdf-validation-checks)
+  - [Syntax Validation](#syntax-validation)
+  - [Semantic Validation](#semantic-validation)
+  - [Fabric Compatibility](#fabric-compatibility)
 - [Examples](#examples)
 - [Key Considerations](#key-considerations)
+  - [Information Loss During Conversion](#information-loss-during-conversion)
+  - [Fabric API Limits](#fabric-api-limits)
+  - [Before You Convert](#before-you-convert)
+  - [Best Practices for RDF Sources](#best-practices-for-rdf-sources)
+  - [Common Warnings & Fixes](#common-warnings--fixes)
+  - [Compliance Reports](#compliance-reports)
+- [Related Resources](#related-resources)
 
 ## What is RDF/OWL?
 
@@ -35,29 +52,30 @@ This section shows the typical workflow for working with RDF/TTL ontologies.
 
 ```powershell
 # 1. Validate your TTL file
-python src\main.py rdf-validate ontology.ttl --verbose
+python -m src.main validate --format rdf ontology.ttl --verbose
 
 # 2. Convert to Fabric JSON (optional - for inspection)
-python src\main.py rdf-convert ontology.ttl --output fabric_output.json
+python -m src.main convert --format rdf ontology.ttl --output fabric_output.json
 
 # 3. Upload to Fabric
-python src\main.py rdf-upload ontology.ttl --name "MyOntology"
+python -m src.main upload --format rdf ontology.ttl --ontology-name "MyOntology"
 
 # 4. Export back to TTL (optional - for verification)
-python src\main.py rdf-export <ontology-id> --output exported.ttl
+python -m src.main export <ontology-id> --output exported.ttl
 ```
 
 ### Available Commands
 
 | Command | Purpose |
 |---------|----------|
-| `rdf-validate` | Validate TTL syntax and Fabric compatibility |
-| `rdf-convert` | Convert TTL to Fabric JSON (no upload) |
-| `rdf-upload` | Full pipeline: validate → convert → upload |
-| `rdf-export` | Export Fabric ontology to TTL format |
+| `validate --format rdf` | Validate TTL syntax and Fabric compatibility |
+| `convert --format rdf` | Convert TTL to Fabric JSON (no upload) |
+| `upload --format rdf` | Full pipeline: validate → convert → upload |
+| `export` | Export Fabric ontology to TTL format |
 
 ### Common Options
 
+- `--format rdf` - Specify RDF format (required for unified commands)
 - `--recursive` - Process directories recursively
 - `--verbose` - Show detailed output
 - `--output` - Specify output file path
@@ -65,7 +83,7 @@ python src\main.py rdf-export <ontology-id> --output exported.ttl
 - `--force-memory` - Skip memory safety checks for very large files
 - `--config` - Use custom configuration file
 
-**See [COMMANDS.md](COMMANDS.md#rdf-commands) for:**
+**See [COMMANDS.md](COMMANDS.md#unified-commands) for:**
 - Complete command syntax and all options
 - Batch processing examples
 - Streaming mode details
@@ -73,42 +91,122 @@ python src\main.py rdf-export <ontology-id> --output exported.ttl
 
 ## RDF to Fabric Mapping
 
-> **📘 For complete mapping details, see [MAPPING_LIMITATIONS.md](MAPPING_LIMITATIONS.md#rdf-supported-constructs)**
+The converter maps RDF/OWL concepts to Fabric Ontology with the following support levels:
 
-The converter maps RDF/OWL concepts to Fabric Ontology:
+### ✅ Fully Supported Constructs
 
-- **Classes** (`owl:Class`, `rdfs:Class`) → EntityType
-- **Datatype Properties** (`owl:DatatypeProperty`) → EntityTypeProperty with XSD type mapping
-- **Object Properties** (`owl:ObjectProperty`) → RelationshipType
-- **Inheritance** (`rdfs:subClassOf`) → baseEntityTypeId (single parent only)
-- **Labels & Comments** (`rdfs:label`, `rdfs:comment`) → displayName and description
+| OWL/RDF Construct | Fabric Mapping | Notes |
+|-------------------|----------------|-------|
+| `owl:Class` | EntityType | Named classes become entity types |
+| `rdfs:Class` | EntityType | RDF Schema classes supported |
+| `rdfs:subClassOf` (simple) | baseEntityTypeId | Single parent inheritance |
+| `owl:DatatypeProperty` | EntityTypeProperty | Attributes with primitive types |
+| `owl:ObjectProperty` | RelationshipType | Relationships between entities |
+| `rdfs:domain` | Property assignment | Property assigned to entity |
+| `rdfs:range` (datatype) | valueType | Property type from XSD datatype |
+| `rdfs:range` (class) | Relationship target | Target entity for relationships |
+| `rdfs:label` | name, displayName | Entity/property display names |
+| `rdfs:comment` | description | Entity/property descriptions |
 
-**XSD Type Mapping:** Standard XSD types (string, boolean, integer, decimal, date, dateTime, etc.) are mapped to equivalent Fabric property types. Unsupported types default to String.
+### XSD Type Mapping
+
+Standard XSD types are mapped to equivalent Fabric property types:
+
+| XSD Type | Fabric Type | Notes |
+|----------|-------------|-------|
+| `xsd:string` | String | Default for unknown types |
+| `xsd:boolean` | Boolean | |
+| `xsd:integer` | BigInt | |
+| `xsd:int` | BigInt | |
+| `xsd:long` | BigInt | |
+| `xsd:decimal` | Decimal | |
+| `xsd:double` | Double | |
+| `xsd:float` | Double | |
+| `xsd:date` | DateTime | |
+| `xsd:dateTime` | DateTime | |
+| `xsd:time` | DateTime | |
+| `xsd:anyURI` | String | URIs stored as strings |
+| Other XSD types | String | Defaults to String with warning |
+
+### ⚠️ Partially Supported Constructs
+
+| OWL/RDF Construct | Fabric Mapping | Notes |
+|-------------------|----------------|-------|
+| `owl:unionOf` (classes) | Multiple relationships | Creates separate relationships for each union member |
+| `owl:unionOf` (datatypes) | Most restrictive type | Multiple types unified to single Fabric type (e.g., int + double → double) |
+| `owl:intersectionOf` | Class extraction | Extracts named classes, ignores complex restrictions |
+| `rdfs:subClassOf` (complex) | Flattened | Restrictions and expressions simplified to named class |
+| `owl:equivalentClass` | Skipped | Entity ID mapping not preserved |
+| `owl:sameAs` | Instance scope | Out of converter scope (operates on instances, not schema) |
+
+### ❌ Unsupported Constructs
+
+These OWL/RDF features are not supported and will be skipped with warnings:
+
+#### Property Restrictions
+- `owl:Restriction` - Cardinality/value constraints lost
+- `owl:allValuesFrom` - Universal restriction not enforced
+- `owl:someValuesFrom` - Existential restriction not enforced
+- `owl:hasValue` - Value restriction not enforced
+- `owl:minCardinality`, `owl:maxCardinality`, `owl:exactCardinality` - Cardinality constraints not enforced
+
+#### Property Characteristics
+- `owl:TransitiveProperty` - Transitivity not enforced
+- `owl:SymmetricProperty` - Symmetry not enforced
+- `owl:FunctionalProperty` - Uniqueness not enforced
+- `owl:InverseFunctionalProperty` - Uniqueness not enforced
+- `owl:ReflexiveProperty` - Reflexivity not enforced
+- `owl:IrreflexiveProperty` - Irreflexivity not enforced
+- `owl:AsymmetricProperty` - Asymmetry not enforced
+
+#### Class Operations
+- `owl:disjointWith` - Disjointness not enforced
+- `owl:complementOf` - Negation lost
+- `owl:oneOf` - Enumeration extracted as separate entities
+- `owl:propertyChainAxiom` - Property chains not preserved
+- `owl:inverseOf` - Inverse relationships not auto-created
+
+#### Other Features
+- `owl:imports` - External imports not resolved (merge ontologies first)
+- `owl:AnnotationProperty` - Stored as metadata only
+- `owl:deprecated` - Metadata only, not enforced
+- `owl:versionInfo` - Metadata only
+- `rdf:List` - Flattened, list structure lost
+- `SHACL shapes` - Constraints lost
 
 ## What Gets Converted?
 
-> **📘 For complete feature support matrix, see [MAPPING_LIMITATIONS.md](MAPPING_LIMITATIONS.md#rdf-supported-constructs)**
-
 ### ✅ Fully Supported
-- Classes, datatype properties, object properties
-- Simple inheritance (single parent)
-- Domain/range declarations
-- Labels, comments, and standard XSD types
+- **Classes** (`owl:Class`, `rdfs:Class`) → EntityType with description
+- **Datatype Properties** (`owl:DatatypeProperty`) → EntityTypeProperty with proper typing
+- **Object Properties** (`owl:ObjectProperty`) → RelationshipType
+- **Simple inheritance** (`rdfs:subClassOf` to named class) → baseEntityTypeId
+- **Domain/range declarations** → Property assignment and typing
+- **Labels, comments** (`rdfs:label`, `rdfs:comment`) → name, displayName, description
+- **Standard XSD types** → Direct mapping to Fabric types (see table above)
 
-### ⚠️ Limited Support
-- Multiple inheritance (first parent only)
-- Complex class expressions (simplified)
-- Property characteristics (metadata only)
+### ⚠️ Limited Support (Simplified)
+- **Multiple inheritance** → First parent only (Fabric supports single inheritance)
+- **Complex class expressions** → Simplified to named classes
+  - `owl:unionOf` (classes) → Multiple separate relationships
+  - `owl:intersectionOf` → Named classes extracted, restrictions ignored
+- **Complex subClassOf** → Flattened (restrictions and expressions simplified)
+- **Property characteristics** → Metadata only (transitivity, symmetry, etc. not enforced)
+- **owl:oneOf** → Enumeration extracted as separate entities
 
-### ❌ Not Supported
-- OWL Restrictions (cardinality, value constraints)
-- Property chains, inverse properties
-- External imports (must merge first)
-- Reasoning/inference
+### ❌ Not Supported (Skipped with Warnings)
+- **OWL Restrictions** (cardinality, value constraints, allValuesFrom, someValuesFrom)
+- **Property chains** (`owl:propertyChainAxiom`)
+- **Inverse properties** (`owl:inverseOf`) - not auto-created
+- **External imports** (`owl:imports`) - must merge ontologies first
+- **Class operations** (disjointWith, complementOf)
+- **Reasoning/inference** - not performed
+- **SHACL shapes** - validation constraints lost
+- **RDF Lists** - flattened, structure lost
 
 ## RDF Validation Checks
 
-The `rdf-validate` command performs comprehensive checks:
+The `validate --format rdf` command performs comprehensive checks:
 
 ### Syntax Validation
 - **TTL format** - Validates Turtle syntax
@@ -157,7 +255,7 @@ The `rdf-validate` command performs comprehensive checks:
 
 **Conversion:**
 ```powershell
-python src\main.py rdf-upload samples/rdf/sample_supply_chain_ontology.ttl --name "SupplyChain"
+python -m src.main upload --format rdf samples/rdf/sample_supply_chain_ontology.ttl --ontology-name "SupplyChain"
 ```
 
 **Result:**
@@ -204,7 +302,7 @@ The Friend of a Friend (FOAF) ontology has been successfully tested:
 
 ```powershell
 # Import the FOAF ontology
-python src\main.py rdf-upload samples/rdf/sample_foaf_ontology.ttl --name "FOAF"
+python -m src.main upload --format rdf samples/rdf/sample_foaf_ontology.ttl --ontology-name "FOAF"
 ```
 
 This demonstrates conversion of a standard semantic web vocabulary with:
@@ -215,35 +313,87 @@ This demonstrates conversion of a standard semantic web vocabulary with:
 
 ## Key Considerations
 
-> **📘 For comprehensive limitations and workarounds, see [MAPPING_LIMITATIONS.md](MAPPING_LIMITATIONS.md)**
-
 ### Information Loss During Conversion
 
-RDF/OWL has rich semantics that may not fully translate to Fabric Ontology:
+RDF/OWL has rich semantics that may not fully translate to Fabric Ontology. Understanding what is preserved and what is lost is crucial for successful conversion.
 
-- **OWL Restrictions** (cardinality, value constraints) are not enforced
-- **Property characteristics** (transitivity, symmetry) are metadata only
-- **Multiple inheritance** is simplified to single parent
-- **Complex expressions** are flattened to named classes
-- **External imports** must be merged before conversion
-- **Reasoning/inference** is not performed
+#### What is Preserved
+✅ Class hierarchies (single inheritance)  
+✅ Property signatures (domain/range)  
+✅ Basic typing (XSD datatypes)  
+✅ Labels and descriptions  
+✅ Object relationships  
+
+#### What is Lost or Simplified
+
+| OWL/RDF Feature | Impact | Recommendation |
+|-----------------|--------|----------------|
+| **OWL Restrictions** | Cardinality/value constraints not enforced | Document constraints separately, validate in data layer |
+| **Property characteristics** | Transitivity, symmetry, etc. metadata only | Pre-compute transitive closure, create inverse relationships |
+| **Multiple inheritance** | First parent only | Refactor to single parent or accept limitation |
+| **Complex expressions** | Flattened to named classes | Use explicit class declarations |
+| **External imports** | Not resolved | Merge external ontologies before conversion |
+| **Reasoning/inference** | Not performed | Pre-compute inferred relationships |
+| **Property chains** | Not preserved | Pre-compute derived relationships |
+| **Inverse properties** | Not auto-created | Manually create inverse relationships |
+| **Class operations** | Disjointness, complement lost | Validate data separately |
+| **SHACL shapes** | Validation constraints lost | Document validation rules separately |
+| **RDF Lists** | Structure lost | Use explicit properties or arrays |
+
+### Fabric API Limits
+
+> **📘 For complete API limits and constraints, see [API.md - Fabric API Limits](API.md#fabric-api-limits)**
+
+Key limits that affect RDF conversion:
+- Max entity/property/relationship name length: **256 characters**
+- Max properties per entity: **200**
+- Max entity types per ontology: **1000**
+- Max relationship types per ontology: **1000**
 
 ### Before You Convert
 
-1. **Validate first:** `python src\main.py rdf-validate your_file.ttl --verbose`
-2. **Review the report:** Check for unsupported constructs
+1. **Validate first:** `python -m src.main validate --format rdf your_file.ttl --verbose`
+2. **Review the validation report:** Check for unsupported constructs
 3. **Merge external ontologies:** Ensure all referenced classes are declared locally
 4. **Document constraints:** Keep track of restrictions that won't be preserved
+5. **Flatten restrictions:** Convert property restrictions to explicit typed properties
+6. **Check size limits:** Ensure names under 256 chars, properties per entity under 200
+
+### Best Practices for RDF Sources
+
+✅ **Provide explicit signatures** — Always declare `rdfs:domain` and `rdfs:range`  
+✅ **Declare all referenced classes** — Don't rely on external ontologies unless merged  
+✅ **Use supported XSD types** — string, boolean, integer, decimal, date, dateTime, anyURI  
+✅ **Flatten restrictions** — Convert property restrictions to explicit typed properties  
+✅ **Merge imports** — Combine external ontologies before conversion  
+✅ **Keep names under limits** — Entity/property names under 256 characters  
+✅ **Limit properties per entity** — Stay under 200 properties  
+✅ **Use single inheritance** — Refactor if multiple parents  
+✅ **Enable debug logging** — Set `logging.level` to `DEBUG` in config.json  
+
+### Common Warnings & Fixes
+
+| Warning | Fix |
+|---------|-----|
+| "Skipping property due to unresolved domain/range" | Add explicit `rdfs:domain`/`rdfs:range` and declare all referenced classes locally |
+| "Unresolved class target" | Declare the class in your TTL or merge the external vocabulary |
+| "Unknown XSD datatype, defaulting to String" | Use supported XSD types or accept String fallback |
+| "Unsupported OWL construct: owl:Restriction" | Flatten restrictions to explicit properties with signatures |
+| "Multiple inheritance not supported" | Refactor to single parent or accept first-parent-only behavior |
+| "Entity name exceeds Fabric limit" | Shorten name or accept truncation |
+| "Too many properties" | Split entity or remove less important properties |
+| "External import not resolved" | Merge external ontology files before conversion |
 
 ### Compliance Reports
 
 Generate detailed reports showing what will be preserved, limited, or lost:
 
 ```python
-from rdf import RDFToFabricConverter
+from src.rdf.rdf_converter import RDFToFabricConverter
 
 converter = RDFToFabricConverter()
-result, report = converter.parse_ttl_with_compliance_report(ttl_content)
+with open("ontology.ttl") as f:
+    result, report = converter.parse_ttl_with_compliance_report(f.read())
 
 if report:
     print(f"⚠️  Warnings: {len(report.warnings)}")
@@ -251,11 +401,11 @@ if report:
         print(f"[{warning.severity}] {warning.message}")
 ```
 
-### See Also
-
-- **[MAPPING_LIMITATIONS.md](MAPPING_LIMITATIONS.md)** - Complete technical reference for RDF/DTDL conversion constraints
-- **[W3C RDF/OWL Specifications](https://www.w3.org/RDF/)** - Official standards documentation
-- **[Fabric Ontology API](API.md)** - Microsoft Fabric API reference
+The report shows:
+1. **Syntax Validation** - TTL format and structure issues
+2. **Semantic Validation** - Missing declarations, type consistency
+3. **Conversion Warnings** - Features preserved/limited/lost
+4. **Fabric Compliance** - API limit violations
 
 ## Related Resources
 
