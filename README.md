@@ -4,7 +4,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Code style: ruff](https://img.shields.io/badge/code%20style-ruff-000000.svg)](https://github.com/astral-sh/ruff)
 
-Convert RDF/OWL/TTL ontologies and DTDL models to Microsoft Fabric Ontology format via the [Fabric Ontology REST API](https://learn.microsoft.com/rest/api/fabric/ontology/items).
+Convert RDF in TTL and DTDL to Microsoft Fabric Ontology format via the [Fabric Ontology REST API](https://learn.microsoft.com/rest/api/fabric/ontology/items).
 
 ## Disclaimer
 
@@ -12,7 +12,7 @@ This is a **personal project** and is **not an official Microsoft product**. It 
 
 ## Features
 
-- **RDF/TTL Import** – Convert Turtle/OWL ontologies to Fabric format
+- **RDF TTL Import** – Convert Turtle based RDF to Fabric format
 - **DTDL Import** – Convert Azure Digital Twins models (v2/v3/v4)
 - **Export & Compare** – Export Fabric ontologies back to TTL for verification
 - **Pre-flight Validation** – Check compatibility before upload
