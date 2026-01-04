@@ -1,9 +1,88 @@
-# Python
+# =============================================================================
+# RDF/DTDL to Microsoft Fabric Ontology Converter - .gitignore
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Configuration & Secrets (CRITICAL - Never commit these!)
+# -----------------------------------------------------------------------------
+# Runtime configuration with credentials
+config.json
+src/config.json
+
+# Environment variables
+*.env
+.env
+.env.*
+.envrc
+
+# Azure credentials
+.azure/
+*.azureauth
+*.publishsettings
+azureProfile.json
+AzureProfile.json
+
+# Certificate files
+*.pem
+*.crt
+*.cer
+*.pfx
+*.key
+*.p12
+
+# Secret files
+*.secrets.json
+*.secrets.yaml
+*.secret
+*.token
+*.auth
+secrets/
+credentials/
+
+# Database files (if any)
+*.db
+*.sqlite
+*.sqlite3
+
+# Terraform state (if used for deployment)
+*.tfvars
+*.tfvars.json
+terraform.tfstate
+terraform.tfstate.*
+.terraform/
+
+# -----------------------------------------------------------------------------
+# Logs & Output Files
+# -----------------------------------------------------------------------------
+# All log files
+*.log
+
+# Log directories at any level
+logs/
+src/logs/
+**/logs/
+
+# Test output
+test_results.txt
+test-output/
+
+# Conversion output files
+samples/*.json
+samples/**/output/
+*.exported.ttl
+*.fabric.json
+
+# -----------------------------------------------------------------------------
+# Python Build & Distribution
+# -----------------------------------------------------------------------------
+# Byte-compiled files
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
 *.pdb
+
+# Distribution / packaging
 *.egg-info/
 *.egg
 .Python
@@ -19,96 +98,123 @@ parts/
 sdist/
 var/
 wheels/
+pip-wheel-metadata/
+share/python-wheels/
 *.manifest
 *.spec
 
-# Virtual environments
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# -----------------------------------------------------------------------------
+# Virtual Environments
+# -----------------------------------------------------------------------------
 .venv/
 venv/
 ENV/
 env/
 .virtualenv/
 
-# IDE/editor
+# -----------------------------------------------------------------------------
+# IDE & Editor
+# -----------------------------------------------------------------------------
+# VS Code
 .vscode/
+*.code-workspace
+
+# PyCharm / IntelliJ
 .idea/
+*.iml
+
+# Vim
 *.swp
 *.swo
 *~
-.DS_Store
-.agentic/
 
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+Desktop.ini
+ehthumbs.db
+ehthumbs_vista.db
+
+# Linux
+*~
+.directory
+
+# AI Tools
+.agentic/
+.cursor/
+
+# -----------------------------------------------------------------------------
+# Testing & Coverage
+# -----------------------------------------------------------------------------
+.pytest_cache/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+.tox/
+.hypothesis/
+*.cover
+.cache
+nosetests.xml
+test-reports/
+
+# -----------------------------------------------------------------------------
+# Type Checking & Linting
+# -----------------------------------------------------------------------------
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.ruff_cache/
+.pylint.d/
+
+# -----------------------------------------------------------------------------
+# Documentation Generation (if used)
+# -----------------------------------------------------------------------------
+site/
+.doctrees/
+
+# -----------------------------------------------------------------------------
+# Project-Specific Temporary Files
+# -----------------------------------------------------------------------------
 # Code validation reports
 code-validation/
 
 # Review documents
 review/
 
-# Testing
-.pytest_cache/
-.coverage
-coverage.xml
-htmlcov/
-.tox/
-.hypothesis/
-test_results.txt
-*.cover
-
-# Type checking
-.mypy_cache/
-.ruff_cache/
-
-# Logs
-*.log
-logs/
-src/logs/
-**/logs/
-
-# Secrets and credentials
-config.json
-*.pem
-*.crt
-*.cer
-*.pfx
-*.key
-*.env
-.env*
-.envrc
-.envrc*
-.azure/
-*.azureauth
-*.publishsettings
-azureProfile.json
-AzureProfile.json
-*.secrets.json
-*.secrets.yaml
-*.secret
-*.token
-*.auth
-*.tfvars
-*.tfvars.json
-terraform.tfstate
-terraform.tfstate.*
-*.db
-*.sqlite*
-secrets/
-credentials/
-
-# Local test outputs
-samples/*.json
-samples/**/output/
-*.exported.ttl
-
 # Backup files
 *.bak
 *.backup
 *.old
+*.orig
 
-# OS specific
-Thumbs.db
-Desktop.ini
-
-# Temporary files
+# Temporary directories
 tmp/
 temp/
+.tmp/
+
+# OS temporary files
 *.tmp
+*.temp
+
+# -----------------------------------------------------------------------------
+# Keep These Files (Explicitly tracked)
+# -----------------------------------------------------------------------------
+# Template configuration (this SHOULD be committed)
+!config.sample.json
+
+# Sample ontology files (these SHOULD be committed)
+!samples/**/*.ttl
+!samples/**/*.rdf
+!samples/**/*.owl
+!samples/**/*.dtdl
+!samples/**/*.jsonld
