@@ -17,6 +17,7 @@ class Format(str, Enum):
     """Supported ontology formats."""
     RDF = "rdf"
     DTDL = "dtdl"
+    JSONLD = "jsonld"
 
     def __str__(self) -> str:
         return self.value
@@ -152,6 +153,18 @@ def _register_defaults() -> None:
     register_validator(Format.DTDL, dtdl_validator)
     register_converter(Format.DTDL, dtdl_converter)
 
+    # JSON-LD validators/converters
+    def jsonld_validator():
+        from ..plugins.builtin.jsonld_plugin import JSONLDValidator
+        return JSONLDValidator()
+
+    def jsonld_converter():
+        from ..plugins.builtin.jsonld_plugin import JSONLDConverter
+        return JSONLDConverter()
+
+    register_validator(Format.JSONLD, jsonld_validator)
+    register_converter(Format.JSONLD, jsonld_converter)
+
 
 # Auto-register on module load
 _register_defaults()
@@ -163,6 +176,7 @@ _register_defaults()
 
 RDF_EXTENSIONS = {".ttl", ".rdf", ".owl", ".nt", ".n3", ".xml"}
 DTDL_EXTENSIONS = {".json"}
+JSONLD_EXTENSIONS = {".jsonld", ".json-ld"}
 
 
 def infer_format_from_path(path: str) -> Format:
@@ -200,6 +214,8 @@ def infer_format_from_path(path: str) -> Format:
     # Fall back to hardcoded extensions
     if ext in RDF_EXTENSIONS:
         return Format.RDF
+    if ext in JSONLD_EXTENSIONS:
+        return Format.JSONLD
     if ext in DTDL_EXTENSIONS:
         return Format.DTDL
     raise ValueError(
@@ -255,4 +271,4 @@ def list_supported_extensions() -> Set[str]:
     manager = _get_plugin_manager()
     if manager:
         return manager.list_extensions()
-    return RDF_EXTENSIONS | DTDL_EXTENSIONS
+    return RDF_EXTENSIONS | DTDL_EXTENSIONS | JSONLD_EXTENSIONS

@@ -93,9 +93,9 @@ def add_format_flag(parser: argparse.ArgumentParser, required: bool = True) -> N
     """Add the --format selector flag."""
     parser.add_argument(
         '--format',
-        choices=['rdf', 'dtdl'],
+        choices=['rdf', 'dtdl', 'jsonld'],
         required=required,
-        help='Input format: rdf (TTL/RDF/OWL) or dtdl (JSON)'
+        help='Input format: rdf (TTL/RDF/OWL), dtdl (JSON), or jsonld (JSON-LD)'
     )
 
 

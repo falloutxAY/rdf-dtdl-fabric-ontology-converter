@@ -67,6 +67,8 @@ class ValidateCommand(BaseCommand):
             return self._validate_rdf(args)
         elif fmt == Format.DTDL:
             return self._validate_dtdl(args)
+        elif fmt == Format.JSONLD:
+            return self._validate_jsonld(args)
         else:
             print(f"✗ Unsupported format: {fmt}")
             return 1
@@ -310,6 +312,93 @@ class ValidateCommand(BaseCommand):
         
         return exit_code
 
+    def _validate_jsonld(self, args: argparse.Namespace) -> int:
+        """Delegate to JSON-LD validation logic."""
+        import json
+        
+        try:
+            from ...plugins.builtin.jsonld_plugin import JSONLDParser, JSONLDValidator
+        except ImportError:
+            print("✗ JSON-LD plugin not found. Ensure src/plugins/builtin/jsonld_plugin.py exists.")
+            return 1
+        
+        path = Path(args.path)
+        parser = JSONLDParser()
+        validator = JSONLDValidator()
+        
+        print(f"Validating JSON-LD at: {path}")
+        
+        # Handle directory with --recursive
+        if path.is_dir():
+            recursive = getattr(args, 'recursive', False)
+            pattern = "**/*.jsonld" if recursive else "*.jsonld"
+            files = list(path.glob(pattern))
+            if not files:
+                print(f"✗ No JSON-LD files found in '{path}'")
+                return 1
+            
+            print(f"Found {len(files)} JSON-LD file(s) to validate\n")
+            successes, failures = [], []
+            
+            for i, f in enumerate(files, 1):
+                print(f"[{i}/{len(files)}] {f.name}")
+                try:
+                    with open(f, 'r', encoding='utf-8') as fp:
+                        content = fp.read()
+                    result = validator.validate(content, str(f))
+                    if result.is_valid:
+                        successes.append(str(f))
+                        print("  ✓ Valid")
+                    else:
+                        failures.append((str(f), f"{result.error_count} errors"))
+                        print(f"  ✗ {result.error_count} errors")
+                except Exception as e:
+                    failures.append((str(f), str(e)))
+                    print(f"  ✗ Error: {e}")
+            
+            print(f"\n{'='*60}")
+            print(f"BATCH VALIDATION SUMMARY")
+            print(f"{'='*60}")
+            print(f"Total: {len(files)}, Successful: {len(successes)}, Failed: {len(failures)}")
+            return 0 if not failures else 1
+        
+        # Single file validation
+        if not path.exists():
+            print(f"✗ File not found: {path}")
+            return 1
+        
+        try:
+            with open(path, 'r', encoding='utf-8') as f:
+                content = f.read()
+        except Exception as e:
+            print(f"✗ Error reading file: {e}")
+            return 1
+        
+        result = validator.validate(content, str(path))
+        
+        print_header("VALIDATION RESULT")
+        if result.is_valid:
+            print("✓ JSON-LD is valid and can be converted.")
+        else:
+            print("✗ Issues detected:")
+            print(f"  Errors: {result.error_count}")
+            print(f"  Warnings: {result.warning_count}")
+            for issue in result.issues[:10]:
+                print(f"  - [{issue.severity.value}] {issue.message}")
+        print_footer()
+        
+        if args.output:
+            with open(args.output, 'w', encoding='utf-8') as f:
+                json.dump(result.to_dict(), f, indent=2)
+            print(f"\nReport saved to: {args.output}")
+        elif getattr(args, 'save_report', False):
+            output_path = str(path.with_suffix('.validation.json'))
+            with open(output_path, 'w', encoding='utf-8') as f:
+                json.dump(result.to_dict(), f, indent=2)
+            print(f"\nReport saved to: {output_path}")
+        
+        return 0 if result.is_valid else 1
+
 
 # ============================================================================
 # Unified Convert Command
@@ -332,6 +421,8 @@ class ConvertCommand(BaseCommand):
             return self._convert_rdf(args)
         elif fmt == Format.DTDL:
             return self._convert_dtdl(args)
+        elif fmt == Format.JSONLD:
+            return self._convert_jsonld(args)
         else:
             print(f"✗ Unsupported format: {fmt}")
             return 1
@@ -576,6 +667,123 @@ class ConvertCommand(BaseCommand):
             print(f"✗ Streaming error: {e}")
             return 1
 
+    def _convert_jsonld(self, args: argparse.Namespace) -> int:
+        """Delegate to JSON-LD conversion logic."""
+        import json
+        
+        try:
+            from ...plugins.builtin.jsonld_plugin import JSONLDParser, JSONLDValidator, JSONLDConverter
+        except ImportError:
+            print("✗ JSON-LD plugin not found.")
+            return 1
+        
+        path = Path(args.path)
+        ontology_name = args.ontology_name or path.stem
+        
+        print(f"=== JSON-LD Convert: {path} ===")
+        
+        # Handle directory with --recursive
+        if path.is_dir():
+            recursive = getattr(args, 'recursive', False)
+            pattern = "**/*.jsonld" if recursive else "*.jsonld"
+            files = list(path.glob(pattern))
+            if not files:
+                print(f"✗ No JSON-LD files found in '{path}'")
+                return 1
+            
+            print(f"Found {len(files)} JSON-LD file(s) to convert\n")
+            all_entity_types = []
+            all_relationship_types = []
+            all_skipped = []
+            all_warnings = []
+            
+            converter = JSONLDConverter()
+            
+            for i, f in enumerate(files, 1):
+                print(f"[{i}/{len(files)}] {f.name}")
+                try:
+                    with open(f, 'r', encoding='utf-8') as fp:
+                        content = fp.read()
+                    result = converter.convert(content)
+                    all_entity_types.extend(result.entity_types)
+                    all_relationship_types.extend(result.relationship_types)
+                    all_skipped.extend(result.skipped_items)
+                    all_warnings.extend(result.warnings)
+                    print(f"  ✓ {len(result.entity_types)} entities, {len(result.relationship_types)} relationships")
+                except Exception as e:
+                    print(f"  ✗ Error: {e}")
+                    all_warnings.append(f"Failed to convert {f.name}: {e}")
+            
+            # Build combined definition
+            definition = {
+                "displayName": ontology_name,
+                "description": getattr(args, 'description', None) or f"Combined JSON-LD ontology from {path.name}",
+                "entityTypes": [e.to_dict() for e in all_entity_types],
+                "relationshipTypes": [r.to_dict() for r in all_relationship_types],
+            }
+            
+            output_path = Path(args.output or f"{ontology_name}_fabric.json")
+            with open(output_path, 'w', encoding='utf-8') as f:
+                json.dump(definition, f, indent=2)
+            
+            print(f"\n{'='*60}")
+            print(f"CONVERSION SUMMARY")
+            print(f"{'='*60}")
+            print(f"Entity Types: {len(all_entity_types)}")
+            print(f"Relationships: {len(all_relationship_types)}")
+            print(f"Skipped: {len(all_skipped)}")
+            print(f"Warnings: {len(all_warnings)}")
+            print(f"Output: {output_path}")
+            return 0
+        
+        # Single file conversion
+        print("\nStep 1: Parsing...")
+        parser = JSONLDParser()
+        validator = JSONLDValidator()
+        converter = JSONLDConverter()
+        
+        try:
+            with open(path, 'r', encoding='utf-8') as f:
+                content = f.read()
+            parsed = parser.parse(content, str(path))
+        except Exception as e:
+            print(f"  ✗ Parse error: {e}")
+            return 2
+        
+        print(f"  ✓ Parsed JSON-LD document")
+        
+        # Validate
+        print("\nStep 2: Validating...")
+        validation_result = validator.validate(content, str(path))
+        
+        if not validation_result.is_valid:
+            print(f"  ✗ Validation errors: {validation_result.error_count}")
+            if not getattr(args, 'force', False):
+                return 1
+        
+        print("  ✓ Validation passed")
+        
+        # Convert
+        print("\nStep 3: Converting...")
+        conversion_result = converter.convert(content)
+        
+        print_conversion_summary(conversion_result, heading="CONVERSION SUMMARY")
+        
+        # Build definition
+        definition = {
+            "displayName": ontology_name,
+            "description": getattr(args, 'description', None) or f"Converted from JSON-LD: {path.name}",
+            "entityTypes": [e.to_dict() for e in conversion_result.entity_types],
+            "relationshipTypes": [r.to_dict() for r in conversion_result.relationship_types],
+        }
+        
+        output_path = Path(args.output or f"{ontology_name}_fabric.json")
+        with open(output_path, 'w', encoding='utf-8') as f:
+            json.dump(definition, f, indent=2)
+        
+        print(f"\n✓ Saved to: {output_path}")
+        return 0
+
 
 # ============================================================================
 # Unified Upload Command
@@ -598,6 +806,8 @@ class UploadCommand(BaseCommand):
             return self._upload_rdf(args)
         elif fmt == Format.DTDL:
             return self._upload_dtdl(args)
+        elif fmt == Format.JSONLD:
+            return self._upload_jsonld(args)
         else:
             print(f"✗ Unsupported format: {fmt}")
             return 1
@@ -876,6 +1086,191 @@ class UploadCommand(BaseCommand):
                 result = client.create_ontology(
                     display_name=ontology_name,
                     description=f"Imported from DTDL: {path.name}",
+                    definition=definition
+                )
+                ontology_id = result.get('id') if isinstance(result, dict) else result
+                print(f"  ✓ Upload successful! Ontology ID: {ontology_id}")
+            except Exception as e:
+                print(f"  ✗ Upload failed: {e}")
+                return 1
+        
+        print("\n=== Upload complete ===")
+        return 0
+
+    def _upload_jsonld(self, args: argparse.Namespace) -> int:
+        """Delegate to JSON-LD upload logic."""
+        import json
+        import base64
+        
+        try:
+            from ...plugins.builtin.jsonld_plugin import JSONLDParser, JSONLDValidator, JSONLDConverter
+        except ImportError:
+            print("✗ JSON-LD plugin not found.")
+            return 1
+        
+        path = Path(args.path)
+        ontology_name = args.ontology_name or path.stem
+        
+        print(f"=== JSON-LD Upload: {path} ===")
+        
+        # Handle directory with --recursive
+        if path.is_dir():
+            recursive = getattr(args, 'recursive', False)
+            pattern = "**/*.jsonld" if recursive else "*.jsonld"
+            files = list(path.glob(pattern))
+            if not files:
+                print(f"✗ No JSON-LD files found in '{path}'")
+                return 1
+            
+            print(f"Found {len(files)} JSON-LD file(s) to upload\n")
+            all_entity_types = []
+            all_relationship_types = []
+            all_skipped = []
+            all_warnings = []
+            
+            converter = JSONLDConverter()
+            validator = JSONLDValidator()
+            
+            for i, f in enumerate(files, 1):
+                print(f"[{i}/{len(files)}] Parsing {f.name}...")
+                try:
+                    with open(f, 'r', encoding='utf-8') as fp:
+                        content = fp.read()
+                    
+                    # Validate
+                    validation_result = validator.validate(content, str(f))
+                    if not validation_result.is_valid and not getattr(args, 'force', False):
+                        print(f"  ⚠ Skipping {f.name}: {validation_result.error_count} validation errors")
+                        continue
+                    
+                    result = converter.convert(content)
+                    all_entity_types.extend(result.entity_types)
+                    all_relationship_types.extend(result.relationship_types)
+                    all_skipped.extend(result.skipped_items)
+                    all_warnings.extend(result.warnings)
+                    print(f"  ✓ {len(result.entity_types)} entities, {len(result.relationship_types)} relationships")
+                except Exception as e:
+                    print(f"  ✗ Error: {e}")
+                    all_warnings.append(f"Failed to convert {f.name}: {e}")
+            
+            entity_types = all_entity_types
+            relationship_types = all_relationship_types
+            description = getattr(args, 'description', None) or f"Combined JSON-LD ontology from {path.name}"
+        else:
+            # Single file processing
+            print("\nStep 1: Parsing...")
+            parser = JSONLDParser()
+            validator = JSONLDValidator()
+            converter = JSONLDConverter()
+            
+            try:
+                with open(path, 'r', encoding='utf-8') as f:
+                    content = f.read()
+            except Exception as e:
+                print(f"  ✗ Error reading file: {e}")
+                return 2
+            
+            print(f"  ✓ Parsed JSON-LD document")
+            
+            # Validate
+            print("\nStep 2: Validating...")
+            validation_result = validator.validate(content, str(path))
+            
+            if not validation_result.is_valid:
+                print(f"  ✗ Validation errors: {validation_result.error_count}")
+                if not getattr(args, 'force', False):
+                    return 1
+            
+            print("  ✓ Validation passed")
+            
+            # Convert
+            print("\nStep 3: Converting...")
+            conversion_result = converter.convert(content)
+            
+            print_conversion_summary(conversion_result, heading="CONVERSION SUMMARY")
+            
+            entity_types = conversion_result.entity_types
+            relationship_types = conversion_result.relationship_types
+            description = getattr(args, 'description', None) or f"Converted from JSON-LD: {path.name}"
+        
+        # Build Fabric API parts format
+        parts = []
+        
+        # .platform file
+        platform_content = {
+            "metadata": {
+                "type": "Ontology",
+                "displayName": ontology_name
+            }
+        }
+        parts.append({
+            "path": ".platform",
+            "payload": base64.b64encode(
+                json.dumps(platform_content, indent=2).encode()
+            ).decode(),
+            "payloadType": "InlineBase64"
+        })
+        
+        # definition.json
+        parts.append({
+            "path": "definition.json",
+            "payload": base64.b64encode(b"{}").decode(),
+            "payloadType": "InlineBase64"
+        })
+        
+        # Entity types
+        for entity_type in entity_types:
+            entity_content = entity_type.to_dict()
+            parts.append({
+                "path": f"EntityTypes/{entity_type.id}/definition.json",
+                "payload": base64.b64encode(
+                    json.dumps(entity_content, indent=2).encode()
+                ).decode(),
+                "payloadType": "InlineBase64"
+            })
+        
+        # Relationship types
+        for rel_type in relationship_types:
+            rel_content = rel_type.to_dict()
+            parts.append({
+                "path": f"RelationshipTypes/{rel_type.id}/definition.json",
+                "payload": base64.b64encode(
+                    json.dumps(rel_content, indent=2).encode()
+                ).decode(),
+                "payloadType": "InlineBase64"
+            })
+        
+        definition = {"parts": parts}
+        
+        # Dry-run or upload
+        if getattr(args, 'dry_run', False):
+            print("\nStep 4: Dry run - saving to file...")
+            output_path = Path(args.output or f"{ontology_name}_fabric.json")
+            with open(output_path, 'w', encoding='utf-8') as f:
+                json.dump(definition, f, indent=2)
+            print(f"  ✓ Saved to: {output_path}")
+        else:
+            print("\nStep 4: Uploading...")
+            
+            try:
+                from core import FabricOntologyClient, FabricConfig
+            except ImportError:
+                print("  ✗ Could not import FabricOntologyClient")
+                return 1
+            
+            config_path = args.config or get_default_config_path()
+            try:
+                config = FabricConfig.from_file(config_path)
+            except Exception as e:
+                print(f"  ✗ Config error: {e}")
+                return 1
+            
+            client = FabricOntologyClient(config)
+            
+            try:
+                result = client.create_ontology(
+                    display_name=ontology_name,
+                    description=description,
                     definition=definition
                 )
                 ontology_id = result.get('id') if isinstance(result, dict) else result

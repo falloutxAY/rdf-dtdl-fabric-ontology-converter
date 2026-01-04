@@ -531,7 +531,237 @@ manager.register(MyFormatPlugin())
 
 ## CLI Integration
 
-After registration, your format works with all CLI commands:
+**Important:** Full CLI integration requires updates to multiple files. The plugin manager
+handles plugin discovery, but the CLI layer needs explicit format registration.
+
+### Required CLI Updates
+
+To enable CLI commands for your new format, you must update **three files**:
+
+#### 1. Update Format Enum (`src/cli/format.py`)
+
+Add your format to the `Format` enum and register validators/converters:
+
+```python
+class Format(str, Enum):
+    """Supported ontology formats."""
+    RDF = "rdf"
+    DTDL = "dtdl"
+    JSONLD = "jsonld"
+    MYFORMAT = "myformat"  # Add your format
+
+# In _register_defaults():
+def _register_defaults() -> None:
+    # ... existing registrations ...
+    
+    # MyFormat validators/converters
+    def myformat_validator():
+        from ..plugins.builtin.myformat_plugin import MyFormatValidator
+        return MyFormatValidator()
+
+    def myformat_converter():
+        from ..plugins.builtin.myformat_plugin import MyFormatConverter
+        return MyFormatConverter()
+
+    register_validator(Format.MYFORMAT, myformat_validator)
+    register_converter(Format.MYFORMAT, myformat_converter)
+
+# Add extensions
+MYFORMAT_EXTENSIONS = {".myf", ".myformat"}
+
+# Update infer_format_from_path():
+if ext in MYFORMAT_EXTENSIONS:
+    return Format.MYFORMAT
+
+# Update list_supported_extensions():
+return RDF_EXTENSIONS | DTDL_EXTENSIONS | JSONLD_EXTENSIONS | MYFORMAT_EXTENSIONS
+```
+
+#### 2. Update CLI Argument Parser (`src/cli/parsers.py`)
+
+Add your format to the `--format` choices:
+
+```python
+def add_format_flag(parser: argparse.ArgumentParser, required: bool = True) -> None:
+    """Add the --format selector flag."""
+    parser.add_argument(
+        '--format',
+        choices=['rdf', 'dtdl', 'jsonld', 'myformat'],  # Add your format
+        required=required,
+        help='Input format: rdf (TTL/RDF/OWL), dtdl (JSON), jsonld (JSON-LD), or myformat'
+    )
+```
+
+#### 3. Update Unified Commands (`src/cli/commands/unified.py`)
+
+Add handlers for validate, convert, and upload commands:
+
+```python
+# In ValidateCommand.execute():
+def execute(self, args: argparse.Namespace) -> int:
+    fmt = Format(args.format)
+    
+    if fmt == Format.RDF:
+        return self._validate_rdf(args)
+    elif fmt == Format.DTDL:
+        return self._validate_dtdl(args)
+    elif fmt == Format.JSONLD:
+        return self._validate_jsonld(args)
+    elif fmt == Format.MYFORMAT:
+        return self._validate_myformat(args)  # Add your handler
+    else:
+        print(f"✗ Unsupported format: {fmt}")
+        return 1
+
+# Add the handler method:
+def _validate_myformat(self, args: argparse.Namespace) -> int:
+    """Delegate to MyFormat validation logic."""
+    from ...plugins.builtin.myformat_plugin import MyFormatValidator
+    # ... implementation
+```
+
+Repeat for `ConvertCommand.execute()` and `UploadCommand.execute()`.
+
+### Fabric API Definition Format
+
+**Critical:** The Fabric API requires a specific `parts` format with base64-encoded payloads.
+Do NOT use a flat JSON structure. Use this format:
+
+```python
+import base64
+import json
+
+def build_fabric_definition(entity_types, relationship_types, ontology_name):
+    """Build Fabric API-compatible definition with parts array."""
+    parts = []
+    
+    # 1. .platform file (required)
+    platform_content = {
+        "metadata": {
+            "type": "Ontology",
+            "displayName": ontology_name
+        }
+    }
+    parts.append({
+        "path": ".platform",
+        "payload": base64.b64encode(
+            json.dumps(platform_content, indent=2).encode()
+        ).decode(),
+        "payloadType": "InlineBase64"
+    })
+    
+    # 2. definition.json (required, can be empty)
+    parts.append({
+        "path": "definition.json",
+        "payload": base64.b64encode(b"{}").decode(),
+        "payloadType": "InlineBase64"
+    })
+    
+    # 3. Entity types
+    for entity_type in entity_types:
+        entity_content = entity_type.to_dict()
+        parts.append({
+            "path": f"EntityTypes/{entity_type.id}/definition.json",
+            "payload": base64.b64encode(
+                json.dumps(entity_content, indent=2).encode()
+            ).decode(),
+            "payloadType": "InlineBase64"
+        })
+    
+    # 4. Relationship types
+    for rel_type in relationship_types:
+        rel_content = rel_type.to_dict()
+        parts.append({
+            "path": f"RelationshipTypes/{rel_type.id}/definition.json",
+            "payload": base64.b64encode(
+                json.dumps(rel_content, indent=2).encode()
+            ).decode(),
+            "payloadType": "InlineBase64"
+        })
+    
+    return {"parts": parts}
+```
+
+### Upload Handler Template
+
+Use this template for your upload handler in `unified.py`:
+
+```python
+def _upload_myformat(self, args: argparse.Namespace) -> int:
+    """Upload MyFormat files to Fabric."""
+    import json
+    import base64
+    
+    try:
+        from ...plugins.builtin.myformat_plugin import MyFormatParser, MyFormatValidator, MyFormatConverter
+    except ImportError:
+        print("✗ MyFormat plugin not found.")
+        return 1
+    
+    path = Path(args.path)
+    ontology_name = args.ontology_name or path.stem
+    
+    print(f"=== MyFormat Upload: {path} ===")
+    
+    # Parse and convert
+    converter = MyFormatConverter()
+    validator = MyFormatValidator()
+    
+    # ... file reading and conversion logic ...
+    
+    # Build Fabric definition (MUST use parts format)
+    parts = []
+    
+    # .platform file
+    platform_content = {"metadata": {"type": "Ontology", "displayName": ontology_name}}
+    parts.append({
+        "path": ".platform",
+        "payload": base64.b64encode(json.dumps(platform_content).encode()).decode(),
+        "payloadType": "InlineBase64"
+    })
+    
+    # definition.json
+    parts.append({
+        "path": "definition.json",
+        "payload": base64.b64encode(b"{}").decode(),
+        "payloadType": "InlineBase64"
+    })
+    
+    # Entity types
+    for entity_type in entity_types:
+        parts.append({
+            "path": f"EntityTypes/{entity_type.id}/definition.json",
+            "payload": base64.b64encode(json.dumps(entity_type.to_dict()).encode()).decode(),
+            "payloadType": "InlineBase64"
+        })
+    
+    # Relationship types
+    for rel_type in relationship_types:
+        parts.append({
+            "path": f"RelationshipTypes/{rel_type.id}/definition.json",
+            "payload": base64.b64encode(json.dumps(rel_type.to_dict()).encode()).decode(),
+            "payloadType": "InlineBase64"
+        })
+    
+    definition = {"parts": parts}
+    
+    # Upload
+    from core import FabricOntologyClient, FabricConfig
+    config = FabricConfig.from_file(args.config or get_default_config_path())
+    client = FabricOntologyClient(config)
+    
+    result = client.create_ontology(
+        display_name=ontology_name,
+        description=args.description or f"Imported from MyFormat",
+        definition=definition
+    )
+    print(f"✓ Upload successful! Ontology ID: {result.get('id')}")
+    return 0
+```
+
+### CLI Usage After Integration
+
+Once all updates are complete, your format works with all CLI commands:
 
 ```bash
 # List available plugins
@@ -547,7 +777,7 @@ python -m src.main convert samples/myformat/example.myf --format myformat
 python -m src.main convert samples/myformat/example.myf --format myformat -o output/
 
 # Upload to Fabric
-python -m src.main upload samples/myformat/example.myf --format myformat --workspace my-ws
+python -m src.main upload samples/myformat/example.myf --format myformat --config config.json
 ```
 
 ### Adding Custom CLI Arguments
