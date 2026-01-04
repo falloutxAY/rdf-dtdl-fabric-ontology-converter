@@ -20,10 +20,13 @@
   "fabric": {
     "workspace_id": "YOUR_WORKSPACE_ID",
     "tenant_id": "YOUR_TENANT_ID",
+    "client_id": "04b07795-8ddb-461a-bbcb-537c989290d8",
     "use_interactive_auth": true
   }
 }
 ```
+
+> **Note:** The `client_id` above is Azure CLI's well-known client ID. You can use your own app registration if needed.
 
 ### Service Principal
 
@@ -55,6 +58,33 @@ $env:FABRIC_CLIENT_SECRET = "your-secret"
 ### Tenant ID
 1. Click your profile photo (top right)
 2. See "Tenant details"
+
+### Service Principal Client ID
+
+To use a Service Principal, you need to create an App Registration in Microsoft Entra ID:
+
+1. **Go to Azure Portal** → [portal.azure.com](https://portal.azure.com)
+
+2. **Navigate to Microsoft Entra ID** → **App registrations** → **New registration**
+
+3. **Create the app:**
+   - Name: e.g., `RDF-DTDL-Converter`
+   - Supported account types: "Accounts in this organizational directory only"
+   - Click **Register**
+
+4. **Copy the Client ID:**
+   - On the app's **Overview** page, copy the **Application (client) ID** — this is your `client_id`
+
+5. **Create a Client Secret:**
+   - Go to **Certificates & secrets** → **New client secret**
+   - Add a description and expiration
+   - Copy the **Value** immediately (you won't see it again) — set this as `FABRIC_CLIENT_SECRET`
+
+6. **Grant Fabric API Permission:**
+   - Go to **API permissions** → **Add a permission**
+   - Select **APIs my organization uses** → search for **Power BI Service**
+   - Add **Application permission**: `Item.ReadWrite.All`
+   - Click **Grant admin consent** (requires admin privileges)
 
 ## Environment Variables
 
@@ -110,7 +140,7 @@ Environment variables override config file values:
 |--------|----------|-------------|
 | `workspace_id` | Yes | Fabric workspace GUID |
 | `tenant_id` | Yes | Azure AD tenant ID |
-| `client_id` | For SP | Service principal client ID |
+| `client_id` | Yes | Azure CLI client ID (`04b07795-8ddb-461a-bbcb-537c989290d8`) for interactive, or your app registration for SP |
 | `use_interactive_auth` | Yes | `true` for browser, `false` for SP |
 
 ### Rate Limiting
