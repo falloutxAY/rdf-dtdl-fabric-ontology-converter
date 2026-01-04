@@ -4,7 +4,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Code style: ruff](https://img.shields.io/badge/code%20style-ruff-000000.svg)](https://github.com/astral-sh/ruff)
 
-Convert RDF in TTL, DTDL, JSON-LD, and other ontology formats to Microsoft Fabric Ontology format via the [Fabric Ontology REST API](https://learn.microsoft.com/rest/api/fabric/ontology/items).
+Convert RDF (Turtle, RDF/XML, N-Triples, N-Quads, TriG, Notation3, JSON-LD) and DTDL ontologies to Microsoft Fabric Ontology format via the [Fabric Ontology REST API](https://learn.microsoft.com/rest/api/fabric/ontology/items).
 
 ## Disclaimer
 
@@ -12,9 +12,8 @@ This is a **personal project** and is **not an official Microsoft product**. It 
 
 ## Features
 
-- **RDF TTL Import** – Convert Turtle based RDF/OWL to Fabric format
+- **RDF Import (Turtle, RDF/XML, N-Triples, TriG, N-Quads, N3, JSON-LD)** – Convert popular RDF/OWL serializations (including `.jsonld`) to Fabric format
 - **DTDL Import** – Convert Azure Digital Twins models (v2/v3/v4)
-- **JSON-LD Import** – Convert JSON-LD linked data schemas
 - **Plugin System** – Extensible architecture for adding new formats
 - **Export & Compare** – Export Fabric ontologies back to TTL for verification
 - **Pre-flight Validation** – Check compatibility before upload
@@ -64,11 +63,13 @@ python -m src.main validate --format rdf samples/rdf/sample_supply_chain_ontolog
 python -m src.main upload --format rdf samples/rdf/sample_supply_chain_ontology.ttl
 ```
 
+All common RDF serializations are supported, including files with `.ttl`, `.rdf`, `.owl`, `.nt`, `.nq`, `.trig`, and `.n3` extensions.
+
 See [docs/CONFIGURATION.md](docs/CONFIGURATION.md) and [docs/CLI_COMMANDS.md](docs/CLI_COMMANDS.md) for complete options.
 
 ## Command Overview
 
-All format-specific commands use unified verbs with `--format {rdf,dtdl,jsonld}`:
+All format-specific commands use unified verbs with `--format {rdf,dtdl}`:
 
 | Command | Description |
 |---------|-------------|
@@ -114,7 +115,7 @@ src/
 ├── plugins/                  # Plugin system
 │   ├── base.py               # Plugin base class
 │   ├── manager.py            # Plugin discovery/registration
-│   └── builtin/              # Built-in plugins (RDF, DTDL, JSON-LD)
+│   └── builtin/              # Built-in plugins (RDF + DTDL)
 ├── common/                   # Shared plugin infrastructure
 │   ├── validation.py         # Unified validation
 │   ├── type_registry.py      # Type mapping registry
@@ -143,7 +144,7 @@ tests/
 samples/
 ├── rdf/                      # RDF/TTL sample ontologies
 ├── dtdl/                     # DTDL sample models
-└── jsonld/                   # JSON-LD sample schemas
+└── jsonld/                   # JSON-LD sample schemas (parsed via the RDF pipeline)
 ```
 
 For detailed architecture, see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).

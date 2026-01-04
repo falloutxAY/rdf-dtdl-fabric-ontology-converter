@@ -1,7 +1,8 @@
 # Plugin Development Guide
 
 This guide explains how to create plugins for the Fabric Ontology Converter. Plugins allow
-you to add support for new ontology formats beyond the built-in RDF, DTDL, and JSON-LD formats.
+you to add support for new ontology formats beyond the built-in RDF and DTDL pipelines
+(JSON-LD now flows through the RDF plugin via rdflib).
 
 ## Table of Contents
 
@@ -29,30 +30,32 @@ Each plugin provides:
 
 ### Built-in Plugins
 
-| Plugin | Format | Extensions | Description |
-|--------|--------|------------|-------------|
-| RDF | `rdf` | `.ttl`, `.rdf`, `.owl` | RDF/OWL ontologies in Turtle format |
+| Plugin | Format identifiers | Extensions | Description |
+|--------|--------------------|------------|-------------|
+| RDF | `rdf` | `.ttl`, `.rdf`, `.owl`, `.nt`, `.n3`, `.trig`, `.nq`, `.nquads`, `.trix`, `.hext`, `.html`, `.xhtml`, `.htm`, `.jsonld` | RDF/OWL ontologies across Turtle-like serializations. JSON-LD documents are parsed via rdflib under the same plugin. |
 | DTDL | `dtdl` | `.json`, `.dtdl` | Digital Twins Definition Language v2/v3/v4 |
-| JSON-LD | `jsonld` | `.jsonld` | JSON-LD linked data format |
+
+JSON-LD no longer has its own CLI format switch—the RDF plugin handles `.jsonld` files directly.
 
 ## Plugin Architecture
 
 ```
 ┌──────────────────────────────────────────────────────────────────┐
 │                        Plugin Manager                             │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐           │
-│  │ RDF Plugin   │  │ DTDL Plugin  │  │ JSON-LD      │           │
-│  │              │  │              │  │ Plugin       │           │
-│  │ ┌──────────┐ │  │ ┌──────────┐ │  │ ┌──────────┐ │           │
-│  │ │  Parser  │ │  │ │  Parser  │ │  │ │  Parser  │ │           │
-│  │ └──────────┘ │  │ └──────────┘ │  │ └──────────┘ │           │
-│  │ ┌──────────┐ │  │ ┌──────────┐ │  │ ┌──────────┐ │           │
-│  │ │Validator │ │  │ │Validator │ │  │ │Validator │ │           │
-│  │ └──────────┘ │  │ └──────────┘ │  │ └──────────┘ │           │
-│  │ ┌──────────┐ │  │ ┌──────────┐ │  │ ┌──────────┐ │           │
-│  │ │Converter │ │  │ │Converter │ │  │ │Converter │ │           │
-│  │ └──────────┘ │  │ └──────────┘ │  │ └──────────┘ │           │
-│  └──────────────┘  └──────────────┘  └──────────────┘           │
+│  ┌──────────────┐  ┌──────────────┐                             │
+│  │ RDF Plugin   │  │ DTDL Plugin  │                             │
+│  │ (handles RDF │  │              │                             │
+│  │  + JSON-LD)  │  │              │                             │
+│  │ ┌──────────┐ │  │ ┌──────────┐ │                             │
+│  │ │  Parser  │ │  │ │  Parser  │ │                             │
+│  │ └──────────┘ │  │ └──────────┘ │                             │
+│  │ ┌──────────┐ │  │ ┌──────────┐ │                             │
+│  │ │Validator │ │  │ │Validator │ │                             │
+│  │ └──────────┘ │  │ └──────────┘ │                             │
+│  │ ┌──────────┐ │  │ ┌──────────┐ │                             │
+│  │ │Converter │ │  │ │Converter │ │                             │
+│  │ └──────────┘ │  │ └──────────┘ │                             │
+│  └──────────────┘  └──────────────┘                             │
 └──────────────────────────────────────────────────────────────────┘
                               │
                               ▼
@@ -493,16 +496,16 @@ pytest
 ```python
 from .myformat_plugin import MyFormatPlugin
 
-__all__ = ["RDFPlugin", "DTDLPlugin", "JSONLDPlugin", "MyFormatPlugin"]
+__all__ = ["RDFPlugin", "DTDLPlugin", "MyFormatPlugin"]
 ```
 
 3. Register in `src/plugins/manager.py`:
 
 ```python
 def _load_builtin_plugins(self) -> None:
-    from .builtin import RDFPlugin, DTDLPlugin, JSONLDPlugin, MyFormatPlugin
+    from .builtin import RDFPlugin, DTDLPlugin, MyFormatPlugin
     
-    for plugin_class in [RDFPlugin, DTDLPlugin, JSONLDPlugin, MyFormatPlugin]:
+    for plugin_class in [RDFPlugin, DTDLPlugin, MyFormatPlugin]:
         try:
             plugin = plugin_class()
             self.register(plugin)
@@ -540,14 +543,13 @@ To enable CLI commands for your new format, you must update **three files**:
 
 #### 1. Update Format Enum (`src/cli/format.py`)
 
-Add your format to the `Format` enum and register validators/converters:
+Add your format to the `Format` enum and register validators/converters.
 
 ```python
 class Format(str, Enum):
     """Supported ontology formats."""
     RDF = "rdf"
     DTDL = "dtdl"
-    JSONLD = "jsonld"
     MYFORMAT = "myformat"  # Add your format
 
 # In _register_defaults():
@@ -574,7 +576,7 @@ if ext in MYFORMAT_EXTENSIONS:
     return Format.MYFORMAT
 
 # Update list_supported_extensions():
-return RDF_EXTENSIONS | DTDL_EXTENSIONS | JSONLD_EXTENSIONS | MYFORMAT_EXTENSIONS
+return RDF_EXTENSIONS | DTDL_EXTENSIONS | MYFORMAT_EXTENSIONS
 ```
 
 #### 2. Update CLI Argument Parser (`src/cli/parsers.py`)
@@ -586,9 +588,9 @@ def add_format_flag(parser: argparse.ArgumentParser, required: bool = True) -> N
     """Add the --format selector flag."""
     parser.add_argument(
         '--format',
-        choices=['rdf', 'dtdl', 'jsonld', 'myformat'],  # Add your format
+        choices=['rdf', 'dtdl', 'myformat'],  # Add your format
         required=required,
-        help='Input format: rdf (TTL/RDF/OWL), dtdl (JSON), jsonld (JSON-LD), or myformat'
+        help='Input format: rdf (TTL/RDF/OWL/JSON-LD), dtdl (Digital Twins JSON), or myformat'
     )
 ```
 
@@ -605,8 +607,6 @@ def execute(self, args: argparse.Namespace) -> int:
         return self._validate_rdf(args)
     elif fmt == Format.DTDL:
         return self._validate_dtdl(args)
-    elif fmt == Format.JSONLD:
-        return self._validate_jsonld(args)
     elif fmt == Format.MYFORMAT:
         return self._validate_myformat(args)  # Add your handler
     else:
@@ -620,7 +620,8 @@ def _validate_myformat(self, args: argparse.Namespace) -> int:
     # ... implementation
 ```
 
-Repeat for `ConvertCommand.execute()` and `UploadCommand.execute()`.
+Repeat the same branching pattern for `ConvertCommand.execute()` and
+`UploadCommand.execute()`.
 
 ### Fabric API Definition Format
 
@@ -939,8 +940,9 @@ def _create_entity_type(self, type_def: Dict[str, Any]) -> EntityType:
 
 ### Complete Plugin Example
 
-See `src/plugins/builtin/jsonld_plugin.py` for a complete reference implementation
-that demonstrates:
+See `src/plugins/builtin/rdf_plugin.py` (graph-based formats) or
+`src/plugins/builtin/dtdl_plugin.py` (JSON-based formats) for complete reference
+implementations that demonstrate:
 
 - Full parser with context handling
 - Comprehensive validation
@@ -1012,7 +1014,8 @@ ConversionResult: 0 entities, 10 skipped
 
 For questions or issues:
 
-1. Review the JSON-LD plugin implementation as a reference
+1. Review the RDF or DTDL plugin implementations as references (the old JSON-LD plugin
+    has been deprecated in favor of the RDF alias)
 2. Check existing plugins for common patterns
 3. Run the test suite to verify functionality
 4. Open an issue on the project repository

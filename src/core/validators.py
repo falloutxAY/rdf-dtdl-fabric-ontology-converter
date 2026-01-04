@@ -64,7 +64,23 @@ class InputValidator:
     """
     
     # Allowed extensions for different file types
-    TTL_EXTENSIONS = ['.ttl', '.rdf', '.owl', '.n3', '.nt', '.nq', '.trig']
+    TTL_EXTENSIONS = [
+        '.ttl',
+        '.rdf',
+        '.owl',
+        '.n3',
+        '.nt',
+        '.nq',
+        '.nquads',
+        '.trig',
+        '.trix',
+        '.jsonld',
+        '.xml',
+        '.hext',
+        '.html',
+        '.xhtml',
+        '.htm',
+    ]
     JSON_EXTENSIONS = ['.json']
     OUTPUT_EXTENSIONS = ['.ttl', '.json', '.txt', '.md']
     

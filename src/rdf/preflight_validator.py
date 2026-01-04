@@ -13,8 +13,10 @@ import os
 from datetime import datetime
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Dict, List, Any, Optional, Set, Tuple
+from pathlib import Path
+from typing import Dict, List, Any, Optional, Set, Tuple, Union
 from rdflib import Graph, Namespace, RDF, RDFS, OWL, XSD, URIRef, Literal, BNode
+from .rdf_parser import RDFGraphParser
 
 logger = logging.getLogger(__name__)
 
@@ -204,7 +206,13 @@ class PreflightValidator:
             recommendation=recommendation,
         ))
 
-    def validate(self, ttl_content: str, file_path: str = "unknown") -> ValidationReport:
+    def validate(
+        self,
+        ttl_content: str,
+        file_path: str = "unknown",
+        rdf_format: Optional[str] = None,
+        source_path: Optional[Union[str, os.PathLike[str]]] = None,
+    ) -> ValidationReport:
         """
         Validate TTL content for Fabric Ontology compatibility.
         
@@ -219,16 +227,21 @@ class PreflightValidator:
         self.declared_classes = set()
         self.declared_properties = set()
         
-        # Parse the TTL
+        # Parse the RDF content
         self.graph = Graph()
         try:
-            self.graph.parse(data=ttl_content, format='turtle')
+            format_name = RDFGraphParser.resolve_format(
+                rdf_format,
+                source_path or file_path,
+            )
+            self.graph = RDFGraphParser._create_graph(format_name)
+            self.graph.parse(data=ttl_content, format=format_name)
         except Exception as e:
             self._add_issue(
                 IssueCategory.OTHER,
                 IssueSeverity.ERROR,
-                f"Failed to parse TTL content: {e}",
-                recommendation="Fix RDF/TTL syntax errors before validation.",
+                f"Failed to parse RDF content: {e}",
+                recommendation="Fix RDF syntax errors before validation.",
             )
             return self._build_report(file_path)
         
@@ -651,7 +664,7 @@ class PreflightValidator:
         )
 
 
-def validate_ttl_file(file_path: str) -> ValidationReport:
+def validate_ttl_file(file_path: str, rdf_format: Optional[str] = None) -> ValidationReport:
     """
     Validate a TTL file for Fabric Ontology compatibility.
     
@@ -665,10 +678,20 @@ def validate_ttl_file(file_path: str) -> ValidationReport:
         ttl_content = f.read()
     
     validator = PreflightValidator()
-    return validator.validate(ttl_content, file_path)
+    format_hint = rdf_format or RDFGraphParser.infer_format_from_path(Path(file_path))
+    return validator.validate(
+        ttl_content,
+        file_path,
+        rdf_format=format_hint,
+        source_path=file_path,
+    )
 
 
-def validate_ttl_content(ttl_content: str, file_path: str = "unknown") -> ValidationReport:
+def validate_ttl_content(
+    ttl_content: str,
+    file_path: str = "unknown",
+    rdf_format: Optional[str] = None,
+) -> ValidationReport:
     """
     Validate TTL content for Fabric Ontology compatibility.
     
@@ -680,7 +703,12 @@ def validate_ttl_content(ttl_content: str, file_path: str = "unknown") -> Valida
         ValidationReport with all detected issues
     """
     validator = PreflightValidator()
-    return validator.validate(ttl_content, file_path)
+    return validator.validate(
+        ttl_content,
+        file_path,
+        rdf_format=rdf_format,
+        source_path=file_path,
+    )
 
 
 def generate_import_log(

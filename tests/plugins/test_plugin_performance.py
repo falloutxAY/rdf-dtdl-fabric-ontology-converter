@@ -61,7 +61,7 @@ class TestPluginLoadingPerformance:
         
         # Measure lookup times
         lookups: List[float] = []
-        formats = ["rdf", "dtdl", "jsonld", "unknown"]
+        formats = ["rdf", "dtdl", "unknown"]
         
         for _ in range(100):
             for fmt in formats:
@@ -81,7 +81,7 @@ class TestPluginLoadingPerformance:
         manager = PluginManager.get_instance()
         manager.discover_plugins(load_entrypoints=False)
         
-        extensions = [".ttl", ".json", ".jsonld", ".rdf", ".owl", ".unknown"]
+        extensions = [".ttl", ".json", ".rdf", ".owl", ".unknown"]
         
         lookups: List[float] = []
         for _ in range(100):
@@ -94,101 +94,6 @@ class TestPluginLoadingPerformance:
         
         # Extension lookup should be < 0.1ms
         assert avg_lookup < 0.0001, f"Extension lookup too slow: {avg_lookup*1000:.4f}ms"
-
-
-class TestJSONLDPluginPerformance:
-    """Test JSON-LD plugin performance."""
-
-    @pytest.fixture
-    def large_jsonld_content(self) -> str:
-        """Generate large JSON-LD content for performance testing."""
-        import json
-        
-        types = []
-        for i in range(100):
-            type_def = {
-                "@id": f"http://example.org/Type{i}",
-                "@type": "rdfs:Class",
-                "properties": []
-            }
-            # Add 10 properties per type
-            for j in range(10):
-                type_def["properties"].append({
-                    "@id": f"http://example.org/prop{i}_{j}",
-                    "range": "http://www.w3.org/2001/XMLSchema#string"
-                })
-            types.append(type_def)
-        
-        return json.dumps({
-            "@context": {
-                "rdfs": "http://www.w3.org/2000/01/rdf-schema#",
-                "xsd": "http://www.w3.org/2001/XMLSchema#"
-            },
-            "@graph": types
-        })
-
-    def test_jsonld_parser_performance(self, large_jsonld_content):
-        """Test JSON-LD parser performance with large content."""
-        from src.plugins.builtin.jsonld_plugin import JSONLDParser
-        
-        parser = JSONLDParser()
-        
-        # Warm up
-        parser.parse(large_jsonld_content)
-        
-        # Measure
-        times: List[float] = []
-        for _ in range(10):
-            start = time.perf_counter()
-            _ = parser.parse(large_jsonld_content)
-            times.append(time.perf_counter() - start)
-        
-        avg_time = sum(times) / len(times)
-        
-        # Parsing should be < 100ms for 100 types
-        assert avg_time < 0.1, f"Parser too slow: {avg_time*1000:.1f}ms"
-
-    def test_jsonld_validator_performance(self, large_jsonld_content):
-        """Test JSON-LD validator performance with large content."""
-        from src.plugins.builtin.jsonld_plugin import JSONLDValidator
-        
-        validator = JSONLDValidator()
-        
-        # Warm up
-        validator.validate(large_jsonld_content)
-        
-        # Measure
-        times: List[float] = []
-        for _ in range(10):
-            start = time.perf_counter()
-            _ = validator.validate(large_jsonld_content)
-            times.append(time.perf_counter() - start)
-        
-        avg_time = sum(times) / len(times)
-        
-        # Validation should be < 200ms for 100 types
-        assert avg_time < 0.2, f"Validator too slow: {avg_time*1000:.1f}ms"
-
-    def test_jsonld_converter_performance(self, large_jsonld_content):
-        """Test JSON-LD converter performance with large content."""
-        from src.plugins.builtin.jsonld_plugin import JSONLDConverter
-        
-        converter = JSONLDConverter()
-        
-        # Warm up
-        converter.convert(large_jsonld_content)
-        
-        # Measure
-        times: List[float] = []
-        for _ in range(10):
-            start = time.perf_counter()
-            _ = converter.convert(large_jsonld_content)
-            times.append(time.perf_counter() - start)
-        
-        avg_time = sum(times) / len(times)
-        
-        # Conversion should be < 500ms for 100 types
-        assert avg_time < 0.5, f"Converter too slow: {avg_time*1000:.1f}ms"
 
 
 class TestCommonLayerPerformance:
@@ -346,59 +251,6 @@ class TestPluginIsolation:
 
 class TestEndToEndPerformance:
     """End-to-end performance tests."""
-
-    def test_full_jsonld_pipeline(self):
-        """Test complete JSON-LD conversion pipeline."""
-        import json
-        from plugins.manager import PluginManager
-        
-        # Sample JSON-LD
-        content = json.dumps({
-            "@context": {
-                "schema": "https://schema.org/",
-                "name": "schema:name",
-                "Person": "schema:Person"
-            },
-            "@graph": [
-                {
-                    "@id": "http://example.org/Person",
-                    "@type": "rdfs:Class",
-                    "name": "Person"
-                }
-            ]
-        })
-        
-        manager = PluginManager.get_instance()
-        manager.discover_plugins(load_entrypoints=False)
-        
-        plugin = manager.get_plugin("jsonld")
-        
-        if plugin is None:
-            pytest.skip("JSON-LD plugin not available")
-        
-        # Measure full pipeline
-        start = time.perf_counter()
-        
-        # Parse
-        parser = plugin.create_parser()
-        data = parser.parse(content)
-        
-        # Validate
-        validator = plugin.create_validator()
-        validation = validator.validate(content)
-        
-        # Convert
-        converter = plugin.create_converter()
-        result = converter.convert(content)
-        
-        elapsed = time.perf_counter() - start
-        
-        # Full pipeline should be < 100ms for simple content
-        assert elapsed < 0.1, f"Full pipeline too slow: {elapsed*1000:.1f}ms"
-        
-        # Verify results
-        assert data is not None
-        assert result is not None
 
 
 # Performance thresholds for CI/CD

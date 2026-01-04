@@ -447,11 +447,14 @@ beyond the built-in RDF and DTDL support.
                                 │
         ┌───────────────────────┼───────────────────────┐
         │                       │                       │
-        ▼                       ▼                       ▼
-┌───────────────┐     ┌───────────────┐     ┌─────────────────┐
-│  RDF Plugin   │     │  DTDL Plugin  │     │  JSON-LD Plugin │
-│  (Built-in)   │     │  (Built-in)   │     │  (Built-in)     │
-└───────────────┘     └───────────────┘     └─────────────────┘
+        ▼                       ▼
+    ┌───────────────┐     ┌───────────────┐
+    │  RDF Plugin   │     │  DTDL Plugin  │
+    │  (Built-in)   │     │  (Built-in)   │
+    └───────────────┘     └───────────────┘
+
+    JSON-LD requests now reuse the RDF plugin path (via rdflib's JSON-LD parser)
+    rather than a standalone plugin module.
 ```
 
 ### Plugin Structure
@@ -468,9 +471,8 @@ src/plugins/
 │
 ├── builtin/                 # Built-in plugin implementations
 │   ├── __init__.py
-│   ├── rdf_plugin.py        # RDF/TTL/OWL format
-│   ├── dtdl_plugin.py       # DTDL v2/v3/v4 format
-│   └── jsonld_plugin.py     # JSON-LD format
+│   ├── rdf_plugin.py        # RDF/TTL/OWL (includes JSON-LD)
+│   └── dtdl_plugin.py       # DTDL v2/v3/v4 format
 │
 src/common/                  # Shared infrastructure for plugins
 ├── __init__.py
@@ -529,9 +531,9 @@ Plugins are automatically discovered via:
 
 **CLI Integration:**
 ```bash
-# Use built-in JSON-LD plugin
-python -m src.main validate --format jsonld schema.jsonld
-python -m src.main convert --format jsonld schema.jsonld
+# Validate JSON-LD via RDF plugin
+python -m src.main validate --format rdf schema.jsonld
+python -m src.main convert --format rdf schema.jsonld
 
 # List available plugins
 python -m src.main plugin list
@@ -544,10 +546,10 @@ from plugins import PluginManager
 manager = PluginManager()
 manager.load_plugins()
 
-# Get specific plugin
-jsonld_plugin = manager.get_plugin("jsonld")
-converter = jsonld_plugin.create_converter()
-result = converter.convert(content, id_prefix=1)
+# Get a specific plugin (e.g., RDF)
+rdf_plugin = manager.get_plugin("rdf")
+converter = rdf_plugin.get_converter()
+result = converter.convert(content)
 ```
 
 For detailed plugin development instructions, see [PLUGIN_GUIDE.md](PLUGIN_GUIDE.md).

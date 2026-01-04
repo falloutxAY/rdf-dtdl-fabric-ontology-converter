@@ -216,6 +216,55 @@ class TestRDFConverter:
         
         assert name == "ImportedOntology"  # Default name
         assert "parts" in definition
+
+    def test_parse_rdf_xml_content(self, converter):
+        """Ensure RDF/XML content is supported via format inference."""
+        xml_content = """<?xml version=\"1.0\"?>
+        <rdf:RDF xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\"
+                 xmlns:rdfs=\"http://www.w3.org/2000/01/rdf-schema#\"
+                 xmlns:owl=\"http://www.w3.org/2002/07/owl#\"
+                 xmlns:xsd=\"http://www.w3.org/2001/XMLSchema#\"
+                 xmlns:ex=\"http://example.org/\">
+          <owl:Ontology rdf:about=\"http://example.org/sample\" />
+          <owl:Class rdf:about=\"http://example.org/Device\" />
+          <owl:DatatypeProperty rdf:about=\"http://example.org/serialNumber\">
+            <rdfs:domain rdf:resource=\"http://example.org/Device\" />
+            <rdfs:range rdf:resource=\"http://www.w3.org/2001/XMLSchema#string\" />
+          </owl:DatatypeProperty>
+        </rdf:RDF>
+        """
+
+        entity_types, relationship_types = converter.parse_ttl(
+            xml_content,
+            rdf_format=None,
+            source_path="example.owl",
+        )
+
+        assert len(entity_types) == 1
+        assert entity_types[0].name == "Device"
+        assert len(relationship_types) == 0
+
+    def test_parse_ntriples_content(self, converter):
+        """Ensure N-Triples content parses when specifying the format."""
+        nt_content = """
+        <http://example.com/Device> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/2002/07/owl#Class> .
+        <http://example.com/serialNumber> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/2002/07/owl#DatatypeProperty> .
+        <http://example.com/serialNumber> <http://www.w3.org/2000/01/rdf-schema#domain> <http://example.com/Device> .
+        <http://example.com/serialNumber> <http://www.w3.org/2000/01/rdf-schema#range> <http://www.w3.org/2001/XMLSchema#string> .
+        <http://example.com/connectedTo> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/2002/07/owl#ObjectProperty> .
+        <http://example.com/connectedTo> <http://www.w3.org/2000/01/rdf-schema#domain> <http://example.com/Device> .
+        <http://example.com/connectedTo> <http://www.w3.org/2000/01/rdf-schema#range> <http://example.com/Device> .
+        """
+
+        entity_types, relationship_types = converter.parse_ttl(
+            nt_content,
+            rdf_format="nt",
+        )
+
+        assert len(entity_types) == 1
+        assert entity_types[0].name == "Device"
+        assert len(relationship_types) == 1
+        assert relationship_types[0].name == "connectedTo"
     
     def test_xsd_type_mapping(self, converter):
         """Test XSD datatype to Fabric type mapping"""

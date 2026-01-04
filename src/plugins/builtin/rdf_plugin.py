@@ -46,7 +46,23 @@ class RDFPlugin(OntologyPlugin):
     
     @property
     def file_extensions(self) -> Set[str]:
-        return {".ttl", ".rdf", ".xml", ".nt", ".n3"}
+        return {
+            ".ttl",
+            ".rdf",
+            ".owl",
+            ".nt",
+            ".n3",
+            ".xml",
+            ".trig",
+            ".nq",
+            ".nquads",
+            ".trix",
+            ".hext",
+            ".html",
+            ".xhtml",
+            ".htm",
+            ".jsonld",
+        }
     
     @property
     def version(self) -> str:
@@ -87,8 +103,8 @@ class RDFPlugin(OntologyPlugin):
         parser.add_argument(
             "--rdf-format",
             type=str,
-            choices=["turtle", "xml", "nt", "n3"],
-            help="RDF serialization format (auto-detected by default)"
+            choices=["turtle", "xml", "nt", "n3", "json-ld"],
+            help="RDF serialization format (auto-detected; include json-ld for .jsonld files)"
         )
         parser.add_argument(
             "--include-individuals",

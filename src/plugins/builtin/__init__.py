@@ -1,12 +1,11 @@
 """
-Built-in plugins for RDF, DTDL, and JSON-LD formats.
+Built-in plugins for RDF and DTDL formats.
 
-These plugins wrap the existing converter implementations,
-providing them through the unified plugin interface.
+JSON-LD support now flows through the rdflib-backed RDF pipeline,
+so no standalone JSON-LD plugin is provided.
 """
 
 from .rdf_plugin import RDFPlugin
 from .dtdl_plugin import DTDLPlugin
-from .jsonld_plugin import JSONLDPlugin
 
-__all__ = ["RDFPlugin", "DTDLPlugin", "JSONLDPlugin"]
+__all__ = ["RDFPlugin", "DTDLPlugin"]

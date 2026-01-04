@@ -1,10 +1,11 @@
 # RDF/OWL to Fabric Ontology Guide
 
-This guide provides comprehensive information about importing **RDF/OWL ontologies** (Turtle/TTL format) into Microsoft Fabric Ontology.
+This guide provides comprehensive information about importing **RDF/OWL ontologies** (Turtle/TTL, RDF/XML, N-Triples, N-Quads, TriG, and Notation3 formats) into Microsoft Fabric Ontology.
 
 ## Table of Contents
 
 - [What is RDF/OWL?](#what-is-rdfowl)
+- [Supported RDF Serializations](#supported-rdf-serializations)
 - [RDF Commands](#rdf-commands)
 - [RDF to Fabric Mapping](#rdf-to-fabric-mapping)
   - [Fully Supported Constructs](#-fully-supported-constructs)
@@ -42,6 +43,21 @@ This guide provides comprehensive information about importing **RDF/OWL ontologi
 
 RDF/OWL is widely used for semantic web applications, knowledge graphs, and data integration scenarios.
 
+## Supported RDF Serializations
+
+The `--format rdf` workflow automatically detects several common serializations:
+
+| Extension | Format | Notes |
+|-----------|--------|-------|
+| `.ttl` | Turtle | Default format if no extension hint is provided |
+| `.rdf`, `.owl` | RDF/XML & OWL documents | Uses rdflib's XML parser |
+| `.nt` | N-Triples | Plain triple streams |
+| `.nq` | N-Quads | Multi-graph N-Triples variant |
+| `.trig` | TriG | Named graph extension of Turtle |
+| `.n3` | Notation3 | RDF with logical extensions |
+
+Additional aliases (e.g., `ttl`, `rdfxml`, `nquads`) are also recognized. You can override the inferred serialization when using the Python API by supplying the `rdf_format` parameter directly.
+
 ## RDF Commands
 
 ```powershell
@@ -49,6 +65,10 @@ RDF/OWL is widely used for semantic web applications, knowledge graphs, and data
 python -m src.main validate --format rdf ontology.ttl --verbose
 python -m src.main upload --format rdf ontology.ttl
 python -m src.main export <ontology-id> --output exported.ttl
+
+# Alternate serializations are also accepted
+python -m src.main validate --format rdf ontology.rdf
+python -m src.main convert  --format rdf telemetry.nt
 ```
 
 **See [CLI_COMMANDS.md](CLI_COMMANDS.md) for complete syntax, options, and examples.**

@@ -9,7 +9,7 @@ import argparse
 import logging
 import sys
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Optional, List
 
 # Ensure src directory is in path for late imports
 _src_dir = str(Path(__file__).parent.parent.parent)
@@ -58,6 +58,24 @@ class ValidateCommand(BaseCommand):
         validate --format rdf <path> [options]
         validate --format dtdl <path> [options]
     """
+
+    RDF_BATCH_EXTENSIONS: List[str] = [
+        ".ttl",
+        ".rdf",
+        ".owl",
+        ".nt",
+        ".n3",
+        ".xml",
+        ".trig",
+        ".nq",
+        ".nquads",
+        ".trix",
+        ".hext",
+        ".jsonld",
+        ".html",
+        ".xhtml",
+        ".htm",
+    ]
     
     def execute(self, args: argparse.Namespace) -> int:
         """Execute validation based on the specified format."""
@@ -67,166 +85,148 @@ class ValidateCommand(BaseCommand):
             return self._validate_rdf(args)
         elif fmt == Format.DTDL:
             return self._validate_dtdl(args)
-        elif fmt == Format.JSONLD:
-            return self._validate_jsonld(args)
         else:
             print(f"✗ Unsupported format: {fmt}")
             return 1
     
-    def _validate_rdf(self, args: argparse.Namespace) -> int:
-        """Delegate to RDF validation logic."""
-        from rdf import InputValidator, validate_ttl_content
+    def _validate_rdf(
+        self,
+        args: argparse.Namespace,
+        *,
+        rdf_format_override: Optional[str] = None,
+        format_label: str = "RDF",
+        directory_extensions: Optional[List[str]] = None,
+    ) -> int:
+        """Delegate to RDF/JSON-LD validation logic."""
+        from rdf import InputValidator, PreflightValidator, RDFGraphParser
         import json
-        
+
         self.setup_logging_from_config()
-        
+        label = format_label or "RDF"
+        allow_up = getattr(args, 'allow_relative_up', False)
+        force = getattr(args, 'force', False)
+
+        def _validate_file(file_path: Path, report_target: Optional[Path]) -> int:
+            try:
+                validated_str = InputValidator.validate_input_ttl_path(
+                    str(file_path),
+                    allow_relative_up=allow_up,
+                )
+                validated_path = Path(validated_str)
+            except (ValueError, FileNotFoundError, PermissionError) as exc:
+                print(f"✗ {exc}")
+                return 1
+
+            try:
+                with open(validated_path, 'r', encoding='utf-8') as handle:
+                    ttl_content = handle.read()
+            except OSError as exc:
+                print(f"✗ Error reading file: {exc}")
+                return 1
+
+            if not ttl_content.strip():
+                print(f"✗ File is empty: {validated_path}")
+                return 1
+
+            format_hint = rdf_format_override or RDFGraphParser.infer_format_from_path(validated_path)
+            validator = PreflightValidator()
+            report = validator.validate(
+                ttl_content,
+                file_path=str(validated_path),
+                rdf_format=format_hint,
+                source_path=str(validated_path),
+            )
+
+            print(report.get_human_readable_summary())
+
+            if report_target:
+                report_target.parent.mkdir(parents=True, exist_ok=True)
+                with open(report_target, 'w', encoding='utf-8') as handle:
+                    json.dump(report.to_dict(), handle, indent=2)
+                print(f"Report saved to: {report_target}")
+
+            errors = report.issues_by_severity.get('error', 0)
+            warnings = report.issues_by_severity.get('warning', 0)
+
+            if errors:
+                if force:
+                    print("⚠ Validation completed with errors (forced to continue).")
+                    return 0
+                print("✗ Validation completed with errors.")
+                return 1
+
+            if warnings:
+                print("⚠ Validation completed with warnings.")
+            else:
+                print("✓ Validation successful!")
+
+            return 0
+
         path = Path(args.path)
-        
-        # Handle directory with --recursive
+        extensions = directory_extensions or self.RDF_BATCH_EXTENSIONS
+
         if path.is_dir():
             if not getattr(args, 'recursive', False):
-                print(f"✗ '{path}' is a directory. Use --recursive to process all TTL files.")
+                print(f"✗ '{path}' is a directory. Use --recursive to process all files.")
                 return 1
-            return self._validate_rdf_batch(args, path)
-        
-        # Single file validation
-        try:
-            allow_up = getattr(args, 'allow_relative_up', False)
-            validated_path = InputValidator.validate_input_ttl_path(str(path), allow_relative_up=allow_up)
-        except ValueError as e:
-            print(f"✗ Invalid file path: {e}")
-            return 1
-        except FileNotFoundError:
-            print(f"✗ File not found: {path}")
-            return 1
-        except PermissionError:
-            print(f"✗ Permission denied: {path}")
-            return 1
-        
-        print(f"✓ Validating RDF file: {validated_path}\n")
-        
-        try:
-            with open(validated_path, 'r', encoding='utf-8') as f:
-                ttl_content = f.read()
-        except UnicodeDecodeError as e:
-            print(f"✗ Encoding error: File is not valid UTF-8\n  {e}")
-            return 1
-        except Exception as e:
-            print(f"✗ Error reading file: {e}")
-            return 1
-        
-        report = validate_ttl_content(ttl_content, str(validated_path))
-        
-        # Display results
-        if args.verbose:
-            print(report.get_human_readable_summary())
-        else:
-            print_header("VALIDATION RESULT")
-            if report.can_import_seamlessly:
-                print("✓ This ontology can be imported SEAMLESSLY.")
-            else:
-                print("✗ Issues detected that may affect conversion quality.")
-                print(f"\nTotal Issues: {report.total_issues}")
-                print(f"  - Errors:   {report.issues_by_severity.get('error', 0)}")
-                print(f"  - Warnings: {report.issues_by_severity.get('warning', 0)}")
-                print(f"  - Info:     {report.issues_by_severity.get('info', 0)}")
-            print_footer()
-        
-        # Save report if requested
-        if args.output:
-            report.save_to_file(args.output)
-            print(f"\nReport saved to: {args.output}")
-        elif args.save_report:
-            output_path = str(Path(args.path).with_suffix('.validation.json'))
-            report.save_to_file(output_path)
-            print(f"\nReport saved to: {output_path}")
-        
-        if report.can_import_seamlessly:
+
+            files = set()
+            for ext in extensions:
+                pattern = f"**/*{ext}" if args.recursive else f"*{ext}"
+                files.update(path.glob(pattern))
+            files = sorted(files)
+
+            if not files:
+                print(f"✗ No {label} files found in '{path}'")
+                return 1
+
+            output_dir: Optional[Path] = None
+            if args.output:
+                output_dir = Path(args.output)
+                output_dir.mkdir(parents=True, exist_ok=True)
+
+            failures = 0
+            for file_path in files:
+                print(f"\n--- Validating {file_path} ---")
+                target = None
+                if output_dir:
+                    target = output_dir / f"{file_path.stem}.validation.json"
+                elif args.save_report:
+                    target = Path(f"{file_path}.validation.json")
+                result = _validate_file(Path(file_path), target)
+                if result != 0:
+                    failures += 1
+
+            if failures:
+                print(f"\n✗ {failures} file(s) failed validation.")
+                return 1
+
+            print(f"\n✓ All {len(files)} {label} file(s) validated.")
             return 0
-        elif report.issues_by_severity.get('error', 0) > 0:
-            return 2
-        else:
-            return 1
-    
-    def _validate_rdf_batch(self, args: argparse.Namespace, directory: Path) -> int:
-        """Validate all RDF files in a directory."""
-        from rdf import InputValidator, validate_ttl_content
-        import json
-        
-        pattern = "**/*.ttl" if args.recursive else "*.ttl"
-        files = list(directory.glob(pattern))
-        for ext in [".rdf", ".owl"]:
-            ext_pattern = f"**/*{ext}" if args.recursive else f"*{ext}"
-            files.extend(directory.glob(ext_pattern))
-        files = sorted(set(files))
-        
-        if not files:
-            print(f"✗ No RDF files found in '{directory}'")
-            return 1
-        
-        print(f"Found {len(files)} RDF file(s) to validate\n")
-        
-        successes, failures = [], []
-        all_reports = []
-        
-        for i, f in enumerate(files, 1):
-            print(f"[{i}/{len(files)}] {f.name}")
-            try:
-                validated_path = InputValidator.validate_input_ttl_path(str(f))
-                with open(validated_path, 'r', encoding='utf-8') as fp:
-                    content = fp.read()
-                report = validate_ttl_content(content, str(validated_path))
-                all_reports.append((f.name, report))
-                if report.can_import_seamlessly:
-                    successes.append(str(f))
-                    print("  ✓ Valid")
-                else:
-                    errors = report.issues_by_severity.get('error', 0)
-                    if errors > 0:
-                        failures.append((str(f), f"{errors} errors"))
-                        print(f"  ✗ {errors} errors")
-                    else:
-                        successes.append(str(f))
-                        print(f"  ⚠ warnings only")
-            except Exception as e:
-                failures.append((str(f), str(e)))
-                print(f"  ✗ Error: {e}")
-        
-        print(f"\n{'='*60}")
-        print(f"BATCH VALIDATION SUMMARY")
-        print(f"{'='*60}")
-        print(f"Total: {len(files)}, Successful: {len(successes)}, Failed: {len(failures)}")
-        
+
+        report_target: Optional[Path] = None
         if args.output:
-            combined = {
-                "total_files": len(files),
-                "successful": len(successes),
-                "failed": len(failures),
-                "reports": [{"file": n, "summary": r.to_dict()} for n, r in all_reports]
-            }
-            with open(args.output, 'w', encoding='utf-8') as fp:
-                json.dump(combined, fp, indent=2)
-            print(f"\nCombined report saved to: {args.output}")
-        
-        return 0 if not failures else 1
-    
+            report_target = Path(args.output)
+        elif args.save_report:
+            report_target = Path(f"{path}.validation.json")
+
+        return _validate_file(path, report_target)
+
     def _validate_dtdl(self, args: argparse.Namespace) -> int:
-        """Delegate to DTDL validation logic."""
+        """Validate DTDL models."""
         import json
-        
+
         try:
             from dtdl.dtdl_parser import DTDLParser, ParseError
             from dtdl.dtdl_validator import DTDLValidator
-        except ImportError:
-            print("✗ DTDL module not found. Ensure src/dtdl/ exists.")
+        except ImportError as exc:
+            print(f"✗ DTDL modules not available: {exc}")
             return 1
-        
+
         path = Path(args.path)
         parser = DTDLParser()
         validator = DTDLValidator()
-        
-        print(f"Validating DTDL at: {path}")
-        
+
         try:
             if path.is_file():
                 result = parser.parse_file(str(path))
@@ -236,24 +236,24 @@ class ValidateCommand(BaseCommand):
             else:
                 print(f"✗ Path does not exist: {path}")
                 return 2
-        except ParseError as e:
-            print(f"✗ Parse error: {e}")
+        except ParseError as exc:
+            print(f"✗ Parse error: {exc}")
             return 2
-        except Exception as e:
-            print(f"✗ Unexpected error: {e}")
+        except Exception as exc:
+            print(f"✗ Unexpected error: {exc}")
             return 2
-        
+
         if result.errors:
             print(f"Found {len(result.errors)} parse errors:")
             for err in result.errors[:10]:
                 print(f"  - {err}")
             if not getattr(args, 'continue_on_error', False):
                 return 2
-        
+
         print(f"Parsed {len(result.interfaces)} interfaces")
-        
+
         validation_result = validator.validate(result.interfaces)
-        
+
         report_data = {
             "path": str(path),
             "interfaces_parsed": len(result.interfaces),
@@ -278,9 +278,9 @@ class ValidateCommand(BaseCommand):
                     "components": len(i.components),
                 }
                 for i in result.interfaces
-            ]
+            ],
         }
-        
+
         if validation_result.errors:
             print(f"Found {len(validation_result.errors)} validation errors:")
             for err in validation_result.errors[:10]:
@@ -289,116 +289,31 @@ class ValidateCommand(BaseCommand):
         else:
             if validation_result.warnings:
                 print(f"Found {len(validation_result.warnings)} warnings:")
-                for w in validation_result.warnings[:10]:
-                    print(f"  - {w.dtmi or 'unknown'}: {w.message}")
+                for warn in validation_result.warnings[:10]:
+                    print(f"  - {warn.dtmi or 'unknown'}: {warn.message}")
             print("✓ Validation successful!")
             exit_code = 0
-        
+
         if getattr(args, 'verbose', False):
             print("\nInterface Summary:")
             for iface in result.interfaces[:20]:
                 print(f"  {iface.name} ({iface.dtmi})")
-                print(f"    Props: {len(iface.properties)}, Telemetry: {len(iface.telemetries)}, Rels: {len(iface.relationships)}")
-        
+                print(
+                    f"    Props: {len(iface.properties)}, Telemetry: {len(iface.telemetries)}, "
+                    f"Rels: {len(iface.relationships)}"
+                )
+
         if args.output:
-            with open(args.output, 'w', encoding='utf-8') as f:
-                json.dump(report_data, f, indent=2)
+            with open(args.output, 'w', encoding='utf-8') as handle:
+                json.dump(report_data, handle, indent=2)
             print(f"\nReport saved to: {args.output}")
         elif args.save_report:
             auto_path = f"{path}.validation.json" if path.is_file() else f"{path.name}.validation.json"
-            with open(auto_path, 'w', encoding='utf-8') as f:
-                json.dump(report_data, f, indent=2)
+            with open(auto_path, 'w', encoding='utf-8') as handle:
+                json.dump(report_data, handle, indent=2)
             print(f"\nReport saved to: {auto_path}")
-        
+
         return exit_code
-
-    def _validate_jsonld(self, args: argparse.Namespace) -> int:
-        """Delegate to JSON-LD validation logic."""
-        import json
-        
-        try:
-            from ...plugins.builtin.jsonld_plugin import JSONLDParser, JSONLDValidator
-        except ImportError:
-            print("✗ JSON-LD plugin not found. Ensure src/plugins/builtin/jsonld_plugin.py exists.")
-            return 1
-        
-        path = Path(args.path)
-        parser = JSONLDParser()
-        validator = JSONLDValidator()
-        
-        print(f"Validating JSON-LD at: {path}")
-        
-        # Handle directory with --recursive
-        if path.is_dir():
-            recursive = getattr(args, 'recursive', False)
-            pattern = "**/*.jsonld" if recursive else "*.jsonld"
-            files = list(path.glob(pattern))
-            if not files:
-                print(f"✗ No JSON-LD files found in '{path}'")
-                return 1
-            
-            print(f"Found {len(files)} JSON-LD file(s) to validate\n")
-            successes, failures = [], []
-            
-            for i, f in enumerate(files, 1):
-                print(f"[{i}/{len(files)}] {f.name}")
-                try:
-                    with open(f, 'r', encoding='utf-8') as fp:
-                        content = fp.read()
-                    result = validator.validate(content, str(f))
-                    if result.is_valid:
-                        successes.append(str(f))
-                        print("  ✓ Valid")
-                    else:
-                        failures.append((str(f), f"{result.error_count} errors"))
-                        print(f"  ✗ {result.error_count} errors")
-                except Exception as e:
-                    failures.append((str(f), str(e)))
-                    print(f"  ✗ Error: {e}")
-            
-            print(f"\n{'='*60}")
-            print(f"BATCH VALIDATION SUMMARY")
-            print(f"{'='*60}")
-            print(f"Total: {len(files)}, Successful: {len(successes)}, Failed: {len(failures)}")
-            return 0 if not failures else 1
-        
-        # Single file validation
-        if not path.exists():
-            print(f"✗ File not found: {path}")
-            return 1
-        
-        try:
-            with open(path, 'r', encoding='utf-8') as f:
-                content = f.read()
-        except Exception as e:
-            print(f"✗ Error reading file: {e}")
-            return 1
-        
-        result = validator.validate(content, str(path))
-        
-        print_header("VALIDATION RESULT")
-        if result.is_valid:
-            print("✓ JSON-LD is valid and can be converted.")
-        else:
-            print("✗ Issues detected:")
-            print(f"  Errors: {result.error_count}")
-            print(f"  Warnings: {result.warning_count}")
-            for issue in result.issues[:10]:
-                print(f"  - [{issue.severity.value}] {issue.message}")
-        print_footer()
-        
-        if args.output:
-            with open(args.output, 'w', encoding='utf-8') as f:
-                json.dump(result.to_dict(), f, indent=2)
-            print(f"\nReport saved to: {args.output}")
-        elif getattr(args, 'save_report', False):
-            output_path = str(path.with_suffix('.validation.json'))
-            with open(output_path, 'w', encoding='utf-8') as f:
-                json.dump(result.to_dict(), f, indent=2)
-            print(f"\nReport saved to: {output_path}")
-        
-        return 0 if result.is_valid else 1
-
 
 # ============================================================================
 # Unified Convert Command
@@ -421,18 +336,30 @@ class ConvertCommand(BaseCommand):
             return self._convert_rdf(args)
         elif fmt == Format.DTDL:
             return self._convert_dtdl(args)
-        elif fmt == Format.JSONLD:
-            return self._convert_jsonld(args)
         else:
             print(f"✗ Unsupported format: {fmt}")
             return 1
     
-    def _convert_rdf(self, args: argparse.Namespace) -> int:
-        """Delegate to RDF conversion logic."""
-        from rdf import InputValidator, parse_ttl_with_result, parse_ttl_streaming, StreamingRDFConverter
+    def _convert_rdf(
+        self,
+        args: argparse.Namespace,
+        *,
+        rdf_format_override: Optional[str] = None,
+        format_label: str = "RDF",
+        directory_extensions: Optional[List[str]] = None,
+    ) -> int:
+        """Delegate to RDF/JSON-LD conversion logic."""
+        from rdf import (
+            InputValidator,
+            parse_ttl_with_result,
+            parse_ttl_streaming,
+            StreamingRDFConverter,
+            RDFGraphParser,
+        )
         import json
         
         self.setup_logging_from_config()
+        label = format_label or "RDF"
         
         path = Path(args.path)
         
@@ -440,7 +367,13 @@ class ConvertCommand(BaseCommand):
             if not getattr(args, 'recursive', False):
                 print(f"✗ '{path}' is a directory. Use --recursive to process all files.")
                 return 1
-            return self._convert_rdf_batch(args, path)
+            return self._convert_rdf_batch(
+                args,
+                path,
+                rdf_format_override=rdf_format_override,
+                format_label=label,
+                extensions=directory_extensions,
+            )
         
         try:
             allow_up = getattr(args, 'allow_relative_up', False)
@@ -449,7 +382,9 @@ class ConvertCommand(BaseCommand):
             print(f"✗ Invalid file path: {e}")
             return 1
         
-        print(f"✓ Converting RDF file: {validated_path}")
+        print(f"✓ Converting {label} file: {validated_path}")
+
+        format_hint = rdf_format_override or RDFGraphParser.infer_format_from_path(validated_path)
         
         force_memory = getattr(args, 'force_memory', False)
         use_streaming = getattr(args, 'streaming', False)
@@ -461,12 +396,18 @@ class ConvertCommand(BaseCommand):
         try:
             if use_streaming:
                 print("Using streaming mode...")
-                definition, ontology_name, conversion_result = parse_ttl_streaming(str(validated_path))
+                definition, ontology_name, conversion_result = parse_ttl_streaming(
+                    str(validated_path),
+                    rdf_format=format_hint,
+                )
             else:
                 with open(validated_path, 'r', encoding='utf-8') as f:
                     ttl_content = f.read()
                 definition, ontology_name, conversion_result = parse_ttl_with_result(
-                    ttl_content, force_large_file=force_memory
+                    ttl_content,
+                    force_large_file=force_memory,
+                    rdf_format=format_hint,
+                    source_path=str(validated_path),
                 )
         except ValueError as e:
             print(f"✗ Invalid RDF content: {e}")
@@ -500,23 +441,31 @@ class ConvertCommand(BaseCommand):
         print(f"\nSaved to: {validated_output}")
         return 0
     
-    def _convert_rdf_batch(self, args: argparse.Namespace, directory: Path) -> int:
-        """Convert all RDF files in a directory."""
-        from rdf import InputValidator, parse_ttl_with_result
+    def _convert_rdf_batch(
+        self,
+        args: argparse.Namespace,
+        directory: Path,
+        *,
+        rdf_format_override: Optional[str] = None,
+        format_label: str = "RDF",
+        extensions: Optional[List[str]] = None,
+    ) -> int:
+        """Convert all RDF/JSON-LD files in a directory."""
+        from rdf import InputValidator, parse_ttl_with_result, RDFGraphParser
         import json
         
-        pattern = "**/*.ttl" if args.recursive else "*.ttl"
-        files = list(directory.glob(pattern))
-        for ext in [".rdf", ".owl"]:
-            ext_pattern = f"**/*{ext}" if args.recursive else f"*{ext}"
-            files.extend(directory.glob(ext_pattern))
-        files = sorted(set(files))
+        ext_list = extensions or getattr(InputValidator, 'TTL_EXTENSIONS', ['.ttl'])
+        files = set()
+        for ext in ext_list:
+            pattern = f"**/*{ext}" if args.recursive else f"*{ext}"
+            files.update(directory.glob(pattern))
+        files = sorted(files)
         
         if not files:
             print(f"✗ No RDF files found in '{directory}'")
             return 1
         
-        print(f"Found {len(files)} RDF file(s) to convert\n")
+        print(f"Found {len(files)} {format_label} file(s) to convert\n")
         
         successes, failures = [], []
         output_dir = Path(args.output) if args.output else directory
@@ -529,7 +478,12 @@ class ConvertCommand(BaseCommand):
                 validated_path = InputValidator.validate_input_ttl_path(str(f))
                 with open(validated_path, 'r', encoding='utf-8') as fp:
                     content = fp.read()
-                definition, ontology_name, conversion_result = parse_ttl_with_result(content)
+                format_hint = rdf_format_override or RDFGraphParser.infer_format_from_path(validated_path)
+                definition, ontology_name, conversion_result = parse_ttl_with_result(
+                    content,
+                    rdf_format=format_hint,
+                    source_path=str(validated_path),
+                )
                 output = {
                     "displayName": ontology_name,
                     "description": f"Converted from {f.name}",
@@ -546,7 +500,7 @@ class ConvertCommand(BaseCommand):
                 print(f"  ✗ {e}")
         
         print(f"\n{'='*60}")
-        print(f"BATCH CONVERSION SUMMARY")
+        print(f"BATCH CONVERSION SUMMARY ({format_label})")
         print(f"{'='*60}")
         print(f"Total: {len(files)}, Successful: {len(successes)}, Failed: {len(failures)}")
         
@@ -667,122 +621,6 @@ class ConvertCommand(BaseCommand):
             print(f"✗ Streaming error: {e}")
             return 1
 
-    def _convert_jsonld(self, args: argparse.Namespace) -> int:
-        """Delegate to JSON-LD conversion logic."""
-        import json
-        
-        try:
-            from ...plugins.builtin.jsonld_plugin import JSONLDParser, JSONLDValidator, JSONLDConverter
-        except ImportError:
-            print("✗ JSON-LD plugin not found.")
-            return 1
-        
-        path = Path(args.path)
-        ontology_name = args.ontology_name or path.stem
-        
-        print(f"=== JSON-LD Convert: {path} ===")
-        
-        # Handle directory with --recursive
-        if path.is_dir():
-            recursive = getattr(args, 'recursive', False)
-            pattern = "**/*.jsonld" if recursive else "*.jsonld"
-            files = list(path.glob(pattern))
-            if not files:
-                print(f"✗ No JSON-LD files found in '{path}'")
-                return 1
-            
-            print(f"Found {len(files)} JSON-LD file(s) to convert\n")
-            all_entity_types = []
-            all_relationship_types = []
-            all_skipped = []
-            all_warnings = []
-            
-            converter = JSONLDConverter()
-            
-            for i, f in enumerate(files, 1):
-                print(f"[{i}/{len(files)}] {f.name}")
-                try:
-                    with open(f, 'r', encoding='utf-8') as fp:
-                        content = fp.read()
-                    result = converter.convert(content)
-                    all_entity_types.extend(result.entity_types)
-                    all_relationship_types.extend(result.relationship_types)
-                    all_skipped.extend(result.skipped_items)
-                    all_warnings.extend(result.warnings)
-                    print(f"  ✓ {len(result.entity_types)} entities, {len(result.relationship_types)} relationships")
-                except Exception as e:
-                    print(f"  ✗ Error: {e}")
-                    all_warnings.append(f"Failed to convert {f.name}: {e}")
-            
-            # Build combined definition
-            definition = {
-                "displayName": ontology_name,
-                "description": getattr(args, 'description', None) or f"Combined JSON-LD ontology from {path.name}",
-                "entityTypes": [e.to_dict() for e in all_entity_types],
-                "relationshipTypes": [r.to_dict() for r in all_relationship_types],
-            }
-            
-            output_path = Path(args.output or f"{ontology_name}_fabric.json")
-            with open(output_path, 'w', encoding='utf-8') as f:
-                json.dump(definition, f, indent=2)
-            
-            print(f"\n{'='*60}")
-            print(f"CONVERSION SUMMARY")
-            print(f"{'='*60}")
-            print(f"Entity Types: {len(all_entity_types)}")
-            print(f"Relationships: {len(all_relationship_types)}")
-            print(f"Skipped: {len(all_skipped)}")
-            print(f"Warnings: {len(all_warnings)}")
-            print(f"Output: {output_path}")
-            return 0
-        
-        # Single file conversion
-        print("\nStep 1: Parsing...")
-        parser = JSONLDParser()
-        validator = JSONLDValidator()
-        converter = JSONLDConverter()
-        
-        try:
-            with open(path, 'r', encoding='utf-8') as f:
-                content = f.read()
-            parsed = parser.parse(content, str(path))
-        except Exception as e:
-            print(f"  ✗ Parse error: {e}")
-            return 2
-        
-        print(f"  ✓ Parsed JSON-LD document")
-        
-        # Validate
-        print("\nStep 2: Validating...")
-        validation_result = validator.validate(content, str(path))
-        
-        if not validation_result.is_valid:
-            print(f"  ✗ Validation errors: {validation_result.error_count}")
-            if not getattr(args, 'force', False):
-                return 1
-        
-        print("  ✓ Validation passed")
-        
-        # Convert
-        print("\nStep 3: Converting...")
-        conversion_result = converter.convert(content)
-        
-        print_conversion_summary(conversion_result, heading="CONVERSION SUMMARY")
-        
-        # Build definition
-        definition = {
-            "displayName": ontology_name,
-            "description": getattr(args, 'description', None) or f"Converted from JSON-LD: {path.name}",
-            "entityTypes": [e.to_dict() for e in conversion_result.entity_types],
-            "relationshipTypes": [r.to_dict() for r in conversion_result.relationship_types],
-        }
-        
-        output_path = Path(args.output or f"{ontology_name}_fabric.json")
-        with open(output_path, 'w', encoding='utf-8') as f:
-            json.dump(definition, f, indent=2)
-        
-        print(f"\n✓ Saved to: {output_path}")
-        return 0
 
 
 # ============================================================================
@@ -806,17 +644,23 @@ class UploadCommand(BaseCommand):
             return self._upload_rdf(args)
         elif fmt == Format.DTDL:
             return self._upload_dtdl(args)
-        elif fmt == Format.JSONLD:
-            return self._upload_jsonld(args)
         else:
             print(f"✗ Unsupported format: {fmt}")
             return 1
     
-    def _upload_rdf(self, args: argparse.Namespace) -> int:
-        """Delegate to RDF upload logic."""
+    def _upload_rdf(
+        self,
+        args: argparse.Namespace,
+        *,
+        rdf_format_override: Optional[str] = None,
+        format_label: str = "RDF",
+        directory_extensions: Optional[List[str]] = None,
+    ) -> int:
+        """Delegate to RDF/JSON-LD upload logic."""
         from rdf import (
             InputValidator, parse_ttl_with_result, parse_ttl_streaming,
-            StreamingRDFConverter, validate_ttl_content, IssueSeverity
+            StreamingRDFConverter, validate_ttl_content, IssueSeverity,
+            RDFGraphParser,
         )
         from core import FabricConfig, FabricOntologyClient, FabricAPIError
         from core import setup_cancellation_handler, restore_default_handler, OperationCancelledException
@@ -839,13 +683,22 @@ class UploadCommand(BaseCommand):
             
             setup_logging(config=config_data.get('logging', {}))
             
+            label = format_label or "RDF"
             path = Path(args.path)
             
             if path.is_dir():
                 if not getattr(args, 'recursive', False):
                     print(f"✗ '{path}' is a directory. Use --recursive.")
                     return 1
-                return self._upload_rdf_batch(args, path, config_data, fabric_config)
+                return self._upload_rdf_batch(
+                    args,
+                    path,
+                    config_data,
+                    fabric_config,
+                    rdf_format_override=rdf_format_override,
+                    format_label=label,
+                    extensions=directory_extensions,
+                )
             
             try:
                 allow_up = getattr(args, 'allow_relative_up', False)
@@ -853,6 +706,7 @@ class UploadCommand(BaseCommand):
             except (ValueError, FileNotFoundError, PermissionError) as e:
                 print(f"✗ {e}")
                 return 1
+            format_hint = rdf_format_override or RDFGraphParser.infer_format_from_path(validated_path)
             
             with open(validated_path, 'r', encoding='utf-8') as f:
                 ttl_content = f.read()
@@ -865,7 +719,11 @@ class UploadCommand(BaseCommand):
             validation_report = None
             if not args.skip_validation:
                 print_header("PRE-FLIGHT VALIDATION")
-                validation_report = validate_ttl_content(ttl_content, str(path))
+                validation_report = validate_ttl_content(
+                    ttl_content,
+                    str(path),
+                    rdf_format=format_hint,
+                )
                 if validation_report.can_import_seamlessly:
                     print("✓ Ontology can be imported seamlessly.")
                 else:
@@ -883,11 +741,18 @@ class UploadCommand(BaseCommand):
             
             if use_streaming:
                 definition, extracted_name, conversion_result = parse_ttl_streaming(
-                    str(validated_path), id_prefix=id_prefix, cancellation_token=cancellation_token
+                    str(validated_path),
+                    id_prefix=id_prefix,
+                    cancellation_token=cancellation_token,
+                    rdf_format=format_hint,
                 )
             else:
                 definition, extracted_name, conversion_result = parse_ttl_with_result(
-                    ttl_content, id_prefix, force_large_file=force_memory
+                    ttl_content,
+                    id_prefix,
+                    force_large_file=force_memory,
+                    rdf_format=format_hint,
+                    source_path=str(validated_path),
                 )
             
             print_conversion_summary(conversion_result, heading="CONVERSION SUMMARY")
@@ -941,23 +806,33 @@ class UploadCommand(BaseCommand):
         finally:
             restore_default_handler()
     
-    def _upload_rdf_batch(self, args, directory: Path, config_data: dict, fabric_config) -> int:
-        """Upload all RDF files in a directory."""
-        from rdf import InputValidator, parse_ttl_with_result
+    def _upload_rdf_batch(
+        self,
+        args,
+        directory: Path,
+        config_data: dict,
+        fabric_config,
+        *,
+        rdf_format_override: Optional[str] = None,
+        format_label: str = "RDF",
+        extensions: Optional[List[str]] = None,
+    ) -> int:
+        """Upload all RDF/JSON-LD files in a directory."""
+        from rdf import InputValidator, parse_ttl_with_result, RDFGraphParser
         from core import FabricOntologyClient
         
-        pattern = "**/*.ttl" if args.recursive else "*.ttl"
-        files = list(directory.glob(pattern))
-        for ext in [".rdf", ".owl"]:
-            ext_pattern = f"**/*{ext}" if args.recursive else f"*{ext}"
-            files.extend(directory.glob(ext_pattern))
-        files = sorted(set(files))
+        ext_list = extensions or getattr(InputValidator, 'TTL_EXTENSIONS', ['.ttl'])
+        files = set()
+        for ext in ext_list:
+            pattern = f"**/*{ext}" if args.recursive else f"*{ext}"
+            files.update(directory.glob(pattern))
+        files = sorted(files)
         
         if not files:
             print(f"✗ No RDF files found in '{directory}'")
             return 1
         
-        print(f"Found {len(files)} RDF file(s) to upload\n")
+        print(f"Found {len(files)} {format_label} file(s) to upload\n")
         
         if not args.force:
             if not confirm_action(f"Upload {len(files)} files to Fabric?"):
@@ -974,7 +849,13 @@ class UploadCommand(BaseCommand):
                 validated_path = InputValidator.validate_input_ttl_path(str(f))
                 with open(validated_path, 'r', encoding='utf-8') as fp:
                     content = fp.read()
-                definition, extracted_name, _ = parse_ttl_with_result(content, id_prefix)
+                format_hint = rdf_format_override or RDFGraphParser.infer_format_from_path(validated_path)
+                definition, extracted_name, _ = parse_ttl_with_result(
+                    content,
+                    id_prefix,
+                    rdf_format=format_hint,
+                    source_path=str(validated_path),
+                )
                 ontology_name = args.ontology_name or extracted_name or f.stem
                 description = args.description or f"Batch imported from {f.name}"
                 result = client.create_or_update_ontology(
@@ -990,7 +871,7 @@ class UploadCommand(BaseCommand):
                 print(f"  ✗ {e}")
         
         print(f"\n{'='*60}")
-        print(f"BATCH UPLOAD SUMMARY")
+        print(f"BATCH UPLOAD SUMMARY ({format_label})")
         print(f"{'='*60}")
         print(f"Total: {len(files)}, Successful: {len(successes)}, Failed: {len(failures)}")
         
@@ -1096,192 +977,6 @@ class UploadCommand(BaseCommand):
         
         print("\n=== Upload complete ===")
         return 0
-
-    def _upload_jsonld(self, args: argparse.Namespace) -> int:
-        """Delegate to JSON-LD upload logic."""
-        import json
-        import base64
-        
-        try:
-            from ...plugins.builtin.jsonld_plugin import JSONLDParser, JSONLDValidator, JSONLDConverter
-        except ImportError:
-            print("✗ JSON-LD plugin not found.")
-            return 1
-        
-        path = Path(args.path)
-        ontology_name = args.ontology_name or path.stem
-        
-        print(f"=== JSON-LD Upload: {path} ===")
-        
-        # Handle directory with --recursive
-        if path.is_dir():
-            recursive = getattr(args, 'recursive', False)
-            pattern = "**/*.jsonld" if recursive else "*.jsonld"
-            files = list(path.glob(pattern))
-            if not files:
-                print(f"✗ No JSON-LD files found in '{path}'")
-                return 1
-            
-            print(f"Found {len(files)} JSON-LD file(s) to upload\n")
-            all_entity_types = []
-            all_relationship_types = []
-            all_skipped = []
-            all_warnings = []
-            
-            converter = JSONLDConverter()
-            validator = JSONLDValidator()
-            
-            for i, f in enumerate(files, 1):
-                print(f"[{i}/{len(files)}] Parsing {f.name}...")
-                try:
-                    with open(f, 'r', encoding='utf-8') as fp:
-                        content = fp.read()
-                    
-                    # Validate
-                    validation_result = validator.validate(content, str(f))
-                    if not validation_result.is_valid and not getattr(args, 'force', False):
-                        print(f"  ⚠ Skipping {f.name}: {validation_result.error_count} validation errors")
-                        continue
-                    
-                    result = converter.convert(content)
-                    all_entity_types.extend(result.entity_types)
-                    all_relationship_types.extend(result.relationship_types)
-                    all_skipped.extend(result.skipped_items)
-                    all_warnings.extend(result.warnings)
-                    print(f"  ✓ {len(result.entity_types)} entities, {len(result.relationship_types)} relationships")
-                except Exception as e:
-                    print(f"  ✗ Error: {e}")
-                    all_warnings.append(f"Failed to convert {f.name}: {e}")
-            
-            entity_types = all_entity_types
-            relationship_types = all_relationship_types
-            description = getattr(args, 'description', None) or f"Combined JSON-LD ontology from {path.name}"
-        else:
-            # Single file processing
-            print("\nStep 1: Parsing...")
-            parser = JSONLDParser()
-            validator = JSONLDValidator()
-            converter = JSONLDConverter()
-            
-            try:
-                with open(path, 'r', encoding='utf-8') as f:
-                    content = f.read()
-            except Exception as e:
-                print(f"  ✗ Error reading file: {e}")
-                return 2
-            
-            print(f"  ✓ Parsed JSON-LD document")
-            
-            # Validate
-            print("\nStep 2: Validating...")
-            validation_result = validator.validate(content, str(path))
-            
-            if not validation_result.is_valid:
-                print(f"  ✗ Validation errors: {validation_result.error_count}")
-                if not getattr(args, 'force', False):
-                    return 1
-            
-            print("  ✓ Validation passed")
-            
-            # Convert
-            print("\nStep 3: Converting...")
-            conversion_result = converter.convert(content)
-            
-            print_conversion_summary(conversion_result, heading="CONVERSION SUMMARY")
-            
-            entity_types = conversion_result.entity_types
-            relationship_types = conversion_result.relationship_types
-            description = getattr(args, 'description', None) or f"Converted from JSON-LD: {path.name}"
-        
-        # Build Fabric API parts format
-        parts = []
-        
-        # .platform file
-        platform_content = {
-            "metadata": {
-                "type": "Ontology",
-                "displayName": ontology_name
-            }
-        }
-        parts.append({
-            "path": ".platform",
-            "payload": base64.b64encode(
-                json.dumps(platform_content, indent=2).encode()
-            ).decode(),
-            "payloadType": "InlineBase64"
-        })
-        
-        # definition.json
-        parts.append({
-            "path": "definition.json",
-            "payload": base64.b64encode(b"{}").decode(),
-            "payloadType": "InlineBase64"
-        })
-        
-        # Entity types
-        for entity_type in entity_types:
-            entity_content = entity_type.to_dict()
-            parts.append({
-                "path": f"EntityTypes/{entity_type.id}/definition.json",
-                "payload": base64.b64encode(
-                    json.dumps(entity_content, indent=2).encode()
-                ).decode(),
-                "payloadType": "InlineBase64"
-            })
-        
-        # Relationship types
-        for rel_type in relationship_types:
-            rel_content = rel_type.to_dict()
-            parts.append({
-                "path": f"RelationshipTypes/{rel_type.id}/definition.json",
-                "payload": base64.b64encode(
-                    json.dumps(rel_content, indent=2).encode()
-                ).decode(),
-                "payloadType": "InlineBase64"
-            })
-        
-        definition = {"parts": parts}
-        
-        # Dry-run or upload
-        if getattr(args, 'dry_run', False):
-            print("\nStep 4: Dry run - saving to file...")
-            output_path = Path(args.output or f"{ontology_name}_fabric.json")
-            with open(output_path, 'w', encoding='utf-8') as f:
-                json.dump(definition, f, indent=2)
-            print(f"  ✓ Saved to: {output_path}")
-        else:
-            print("\nStep 4: Uploading...")
-            
-            try:
-                from core import FabricOntologyClient, FabricConfig
-            except ImportError:
-                print("  ✗ Could not import FabricOntologyClient")
-                return 1
-            
-            config_path = args.config or get_default_config_path()
-            try:
-                config = FabricConfig.from_file(config_path)
-            except Exception as e:
-                print(f"  ✗ Config error: {e}")
-                return 1
-            
-            client = FabricOntologyClient(config)
-            
-            try:
-                result = client.create_ontology(
-                    display_name=ontology_name,
-                    description=description,
-                    definition=definition
-                )
-                ontology_id = result.get('id') if isinstance(result, dict) else result
-                print(f"  ✓ Upload successful! Ontology ID: {ontology_id}")
-            except Exception as e:
-                print(f"  ✗ Upload failed: {e}")
-                return 1
-        
-        print("\n=== Upload complete ===")
-        return 0
-
 
 # ============================================================================
 # Export Command (RDF only)

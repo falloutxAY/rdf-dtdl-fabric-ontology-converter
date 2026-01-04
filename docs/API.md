@@ -833,8 +833,8 @@ manager = PluginManager.get_instance()
 # Load all plugins
 manager.load_plugins()
 
-# Get specific plugin
-plugin = manager.get_plugin("jsonld")
+# Get specific plugin (RDF handles .jsonld files as well)
+plugin = manager.get_plugin("rdf")
 if plugin:
     converter = plugin.create_converter()
     result = converter.convert(content)
@@ -877,7 +877,7 @@ Unified validation result model.
 ```python
 from common.validation import ValidationResult, Severity, IssueCategory
 
-result = ValidationResult(format_name="jsonld", source_path="schema.jsonld")
+result = ValidationResult(format_name="rdf", source_path="schema.jsonld")
 
 # Add issues
 result.add_error(
@@ -973,13 +973,13 @@ from common.type_registry import get_type_registry
 registry = get_type_registry()
 
 # Register format-specific mappings
-registry.register_mappings("jsonld", {
+registry.register_mappings("rdf", {
     "http://schema.org/Text": "String",
     "http://schema.org/Number": "Double",
 })
 
 # Get Fabric type
-fabric_type = registry.get_fabric_type("jsonld", "http://schema.org/Text")
+fabric_type = registry.get_fabric_type("rdf", "http://schema.org/Text")
 # Returns: "String"
 ```
 
@@ -991,15 +991,17 @@ fabric_type = registry.get_fabric_type("jsonld", "http://schema.org/Text")
 |--------|-------------|------------|-------------|
 | `RDFPlugin` | `rdf` | `.ttl`, `.rdf`, `.owl` | RDF/OWL ontologies |
 | `DTDLPlugin` | `dtdl` | `.json`, `.dtdl` | DTDL v2/v3/v4 |
-| `JSONLDPlugin` | `jsonld` | `.jsonld` | JSON-LD linked data |
+
+> **Note:** JSON-LD is processed via the RDF plugin path (rdflib's JSON-LD parser)
+> and no longer ships as a dedicated plugin module.
 
 ```python
-from plugins.builtin import RDFPlugin, DTDLPlugin, JSONLDPlugin
+from plugins.builtin import RDFPlugin, DTDLPlugin
 
 # Use directly
-jsonld = JSONLDPlugin()
-converter = jsonld.create_converter()
-result = converter.convert(jsonld_content, id_prefix=5000)
+rdf_plugin = RDFPlugin()
+converter = rdf_plugin.get_converter()
+result = converter.convert(ttl_content)
 ```
 
 For detailed plugin development instructions, see [PLUGIN_GUIDE.md](PLUGIN_GUIDE.md).

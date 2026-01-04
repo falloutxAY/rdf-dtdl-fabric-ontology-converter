@@ -80,6 +80,29 @@ class TestPreflightValidator:
         assert report.summary['declared_classes'] == 1
         assert report.summary['declared_properties'] == 2
 
+        def test_validate_rdf_xml_content(self):
+                """Validation should succeed when given RDF/XML content."""
+                xml_content = """<?xml version=\"1.0\"?>
+                <rdf:RDF xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\"
+                                 xmlns:rdfs=\"http://www.w3.org/2000/01/rdf-schema#\"
+                                 xmlns:owl=\"http://www.w3.org/2002/07/owl#\"
+                                 xmlns:xsd=\"http://www.w3.org/2001/XMLSchema#\"
+                                 xmlns:ex=\"http://example.org/\">
+                    <owl:Ontology rdf:about=\"http://example.org/sample\" />
+                    <owl:Class rdf:about=\"http://example.org/Device\" />
+                    <owl:DatatypeProperty rdf:about=\"http://example.org/serialNumber\">
+                        <rdfs:domain rdf:resource=\"http://example.org/Device\" />
+                        <rdfs:range rdf:resource=\"http://www.w3.org/2001/XMLSchema#string\" />
+                    </owl:DatatypeProperty>
+                </rdf:RDF>
+                """
+
+                report = validate_ttl_content(xml_content, "example.rdf")
+
+                assert report.can_import_seamlessly is True
+                assert report.summary['declared_classes'] == 1
+                assert report.summary['declared_properties'] == 1
+
     def test_validate_missing_domain(self):
         """Test detection of properties missing rdfs:domain."""
         ttl_content = """

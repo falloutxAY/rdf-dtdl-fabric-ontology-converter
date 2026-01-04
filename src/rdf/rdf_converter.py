@@ -469,7 +469,9 @@ class RDFToFabricConverter:
         self, 
         ttl_content: str, 
         force_large_file: bool = False,
-        return_result: bool = False
+        return_result: bool = False,
+        rdf_format: Optional[str] = None,
+        source_path: Optional[Union[str, Path]] = None,
     ) -> Union[Tuple[List[EntityType], List[RelationshipType]], ConversionResult]:
         """
         Parse RDF TTL content and extract entity and relationship types.
@@ -489,7 +491,10 @@ class RDFToFabricConverter:
         """
         # Delegate TTL parsing to RDFGraphParser
         graph, triple_count, content_size_mb = RDFGraphParser.parse_ttl_content(
-            ttl_content, force_large_file
+            ttl_content,
+            force_large_file,
+            rdf_format=rdf_format,
+            source_path=source_path,
         )
         
         # Reset state (includes skipped_items and conversion_warnings)
@@ -543,7 +548,9 @@ class RDFToFabricConverter:
     def parse_ttl_with_compliance_report(
         self, 
         ttl_content: str, 
-        force_large_file: bool = False
+        force_large_file: bool = False,
+        rdf_format: Optional[str] = None,
+        source_path: Optional[Union[str, Path]] = None,
     ) -> Tuple[ConversionResult, Optional["ConversionReport"]]:
         """
         Parse RDF TTL content with a compliance report.
@@ -568,7 +575,10 @@ class RDFToFabricConverter:
         """
         # Delegate TTL parsing to RDFGraphParser
         graph, triple_count, content_size_mb = RDFGraphParser.parse_ttl_content(
-            ttl_content, force_large_file
+            ttl_content,
+            force_large_file,
+            rdf_format=rdf_format,
+            source_path=source_path,
         )
         
         # Reset state (includes skipped_items and conversion_warnings)
@@ -753,7 +763,8 @@ class StreamingRDFConverter:
         self, 
         file_path: str,
         progress_callback: Optional[Callable[[int], None]] = None,
-        cancellation_token: Optional[Any] = None
+        cancellation_token: Optional[Any] = None,
+        rdf_format: Optional[str] = None,
     ) -> ConversionResult:
         """
         Parse large TTL file in streaming fashion.
@@ -793,7 +804,10 @@ class StreamingRDFConverter:
             cancellation_token.throw_if_cancelled()
         
         # Parse the TTL file using RDFGraphParser
-        graph, total_triples, _ = RDFGraphParser.parse_ttl_file(file_path)
+        graph, total_triples, _ = RDFGraphParser.parse_ttl_file(
+            file_path,
+            rdf_format=rdf_format,
+        )
         
         if progress_callback:
             progress_callback(0)
@@ -865,7 +879,8 @@ def parse_ttl_streaming(
     id_prefix: int = 1000000000000,
     batch_size: int = StreamingRDFConverter.DEFAULT_BATCH_SIZE,
     progress_callback: Optional[Callable[[int], None]] = None,
-    cancellation_token: Optional[Any] = None
+    cancellation_token: Optional[Any] = None,
+    rdf_format: Optional[str] = None,
 ) -> Tuple[Dict[str, Any], str, ConversionResult]:
     """
     Parse a large TTL file using streaming mode and return Fabric Ontology definition.
@@ -900,7 +915,8 @@ def parse_ttl_streaming(
     result = converter.parse_ttl_streaming(
         str(validated_path),
         progress_callback=progress_callback,
-        cancellation_token=cancellation_token
+        cancellation_token=cancellation_token,
+        rdf_format=rdf_format,
     )
     
     # Extract ontology name from file
@@ -1056,7 +1072,12 @@ def convert_to_fabric_definition(
 # will continue to work.
 
 
-def parse_ttl_file(file_path: str, id_prefix: int = 1000000000000, force_large_file: bool = False) -> Tuple[Dict[str, Any], str]:
+def parse_ttl_file(
+    file_path: str,
+    id_prefix: int = 1000000000000,
+    force_large_file: bool = False,
+    rdf_format: Optional[str] = None,
+) -> Tuple[Dict[str, Any], str]:
     """
     Parse a TTL file and return the Fabric Ontology definition.
     
@@ -1078,6 +1099,7 @@ def parse_ttl_file(file_path: str, id_prefix: int = 1000000000000, force_large_f
     # Validate inputs upfront with security checks
     validated_path = InputValidator.validate_input_ttl_path(file_path)
     id_prefix = InputValidator.validate_id_prefix(id_prefix)
+    format_hint = rdf_format or RDFGraphParser.infer_format_from_path(validated_path)
     
     try:
         with open(validated_path, 'r', encoding='utf-8') as f:
@@ -1098,10 +1120,22 @@ def parse_ttl_file(file_path: str, id_prefix: int = 1000000000000, force_large_f
         logger.error(f"Error reading file {validated_path}: {e}")
         raise IOError(f"Error reading file: {e}")
     
-    return parse_ttl_content(ttl_content, id_prefix, force_large_file=force_large_file)
+    return parse_ttl_content(
+        ttl_content,
+        id_prefix,
+        force_large_file=force_large_file,
+        rdf_format=format_hint,
+        source_path=str(validated_path),
+    )
 
 
-def parse_ttl_content(ttl_content: str, id_prefix: int = 1000000000000, force_large_file: bool = False) -> Tuple[Dict[str, Any], str]:
+def parse_ttl_content(
+    ttl_content: str,
+    id_prefix: int = 1000000000000,
+    force_large_file: bool = False,
+    rdf_format: Optional[str] = None,
+    source_path: Optional[Union[str, Path]] = None,
+) -> Tuple[Dict[str, Any], str]:
     """
     Parse TTL content and return the Fabric Ontology definition.
     
@@ -1123,11 +1157,17 @@ def parse_ttl_content(ttl_content: str, id_prefix: int = 1000000000000, force_la
     id_prefix = InputValidator.validate_id_prefix(id_prefix)
     
     converter = RDFToFabricConverter(id_prefix=id_prefix)
-    entity_types, relationship_types = converter.parse_ttl(ttl_content, force_large_file=force_large_file)
+    entity_types, relationship_types = converter.parse_ttl(
+        ttl_content,
+        force_large_file=force_large_file,
+        rdf_format=rdf_format,
+        source_path=source_path,
+    )
     
     # Try to extract ontology name from the TTL
     graph = Graph()
-    graph.parse(data=ttl_content, format='turtle')
+    format_name = RDFGraphParser.resolve_format(rdf_format, source_path)
+    graph.parse(data=ttl_content, format=format_name)
     
     ontology_name = "ImportedOntology"
     for s in graph.subjects(RDF.type, OWL.Ontology):
@@ -1150,7 +1190,9 @@ def parse_ttl_content(ttl_content: str, id_prefix: int = 1000000000000, force_la
 def parse_ttl_with_result(
     ttl_content: str, 
     id_prefix: int = 1000000000000, 
-    force_large_file: bool = False
+    force_large_file: bool = False,
+    rdf_format: Optional[str] = None,
+    source_path: Optional[Union[str, Path]] = None,
 ) -> Tuple[Dict[str, Any], str, ConversionResult]:
     """
     Parse TTL content and return the Fabric Ontology definition with detailed conversion result.
@@ -1178,14 +1220,21 @@ def parse_ttl_with_result(
     converter = RDFToFabricConverter(id_prefix=id_prefix)
     
     # Get detailed conversion result
-    result = converter.parse_ttl(ttl_content, force_large_file=force_large_file, return_result=True)
+    result = converter.parse_ttl(
+        ttl_content,
+        force_large_file=force_large_file,
+        return_result=True,
+        rdf_format=rdf_format,
+        source_path=source_path,
+    )
     
     # Type assertion for mypy
     assert isinstance(result, ConversionResult), "Expected ConversionResult when return_result=True"
     
     # Try to extract ontology name from the TTL
     graph = Graph()
-    graph.parse(data=ttl_content, format='turtle')
+    format_name = RDFGraphParser.resolve_format(rdf_format, source_path)
+    graph.parse(data=ttl_content, format=format_name)
     
     ontology_name = "ImportedOntology"
     for s in graph.subjects(RDF.type, OWL.Ontology):
@@ -1212,7 +1261,8 @@ def parse_ttl_with_result(
 def parse_ttl_file_with_result(
     file_path: str, 
     id_prefix: int = 1000000000000, 
-    force_large_file: bool = False
+    force_large_file: bool = False,
+    rdf_format: Optional[str] = None,
 ) -> Tuple[Dict[str, Any], str, ConversionResult]:
     """
     Parse a TTL file and return the Fabric Ontology definition with detailed conversion result.
@@ -1238,6 +1288,7 @@ def parse_ttl_file_with_result(
     # Validate inputs upfront with security checks
     validated_path = InputValidator.validate_input_ttl_path(file_path)
     id_prefix = InputValidator.validate_id_prefix(id_prefix)
+    format_hint = rdf_format or RDFGraphParser.infer_format_from_path(validated_path)
     
     try:
         with open(validated_path, 'r', encoding='utf-8') as f:
@@ -1258,4 +1309,10 @@ def parse_ttl_file_with_result(
         logger.error(f"Error reading file {validated_path}: {e}")
         raise IOError(f"Error reading file: {e}")
     
-    return parse_ttl_with_result(ttl_content, id_prefix, force_large_file=force_large_file)
+    return parse_ttl_with_result(
+        ttl_content,
+        id_prefix,
+        force_large_file=force_large_file,
+        rdf_format=format_hint,
+        source_path=str(validated_path),
+    )

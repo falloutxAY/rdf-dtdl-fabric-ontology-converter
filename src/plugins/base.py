@@ -69,27 +69,27 @@ class OntologyPlugin(ABC):
         get_streaming_adapter(): Return streaming adapter for large files
     
     Example:
-        >>> class JSONLDPlugin(OntologyPlugin):
+        >>> class ExamplePlugin(OntologyPlugin):
         ...     @property
         ...     def format_name(self) -> str:
-        ...         return "jsonld"
-        ...     
+        ...         return "example"
+        ...
         ...     @property
         ...     def display_name(self) -> str:
-        ...         return "JSON-LD"
-        ...     
+        ...         return "Example Format"
+        ...
         ...     @property
         ...     def file_extensions(self) -> Set[str]:
-        ...         return {".jsonld", ".json-ld"}
-        ...     
+        ...         return {".ex"}
+        ...
         ...     def get_parser(self):
-        ...         return JSONLDParser()
-        ...     
+        ...         return ExampleParser()
+        ...
         ...     def get_validator(self):
-        ...         return JSONLDValidator()
-        ...     
+        ...         return ExampleValidator()
+        ...
         ...     def get_converter(self):
-        ...         return JSONLDConverter()
+        ...         return ExampleConverter()
     """
     
     # =========================================================================
@@ -105,7 +105,7 @@ class OntologyPlugin(ABC):
         Used in CLI commands (--format <name>) and internal registration.
         Should be lowercase, alphanumeric, no spaces.
         
-        Examples: "rdf", "dtdl", "jsonld", "shacl"
+        Examples: "rdf", "dtdl", "shacl"
         """
         pass
     
@@ -117,7 +117,7 @@ class OntologyPlugin(ABC):
         
         Used in help text, error messages, and UI.
         
-        Examples: "RDF/OWL TTL", "DTDL v4", "JSON-LD 1.1"
+        Examples: "RDF/OWL TTL", "DTDL v4", "SHACL"
         """
         pass
     
@@ -129,7 +129,7 @@ class OntologyPlugin(ABC):
         
         Extensions should include the leading dot and be lowercase.
         
-        Examples: {".ttl", ".rdf", ".owl"}, {".json"}, {".jsonld"}
+        Examples: {".ttl", ".rdf", ".owl"}, {".json"}, {".shacl"}
         """
         pass
     

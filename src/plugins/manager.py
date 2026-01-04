@@ -406,7 +406,7 @@ class PluginManager:
         return loaded
     
     def _load_builtin_plugins(self) -> None:
-        """Load built-in RDF, DTDL, and JSON-LD plugins."""
+        """Load built-in RDF and DTDL plugins."""
         # Try to load RDF plugin
         try:
             from .builtin.rdf_plugin import RDFPlugin
@@ -425,14 +425,7 @@ class PluginManager:
         except Exception as e:
             logger.error(f"Failed to load DTDL plugin: {e}")
         
-        # Try to load JSON-LD plugin
-        try:
-            from .builtin.jsonld_plugin import JSONLDPlugin
-            self.register_plugin(JSONLDPlugin())
-        except ImportError as e:
-            logger.debug(f"Could not load built-in JSON-LD plugin: {e}")
-        except Exception as e:
-            logger.error(f"Failed to load JSON-LD plugin: {e}")
+        logger.debug("JSON-LD plugin removed; JSON-LD handled by RDF pipeline")
     
     def _load_entrypoint_plugins(self) -> None:
         """Load plugins from setuptools entry points."""

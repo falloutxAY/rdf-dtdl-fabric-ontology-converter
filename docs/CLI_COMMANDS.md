@@ -18,7 +18,7 @@ This document provides a comprehensive reference for all CLI commands available 
 All format-specific operations use a unified verb with a `--format` flag:
 
 ```bash
-python -m src.main <command> --format {rdf,dtdl,jsonld} <path> [options]
+python -m src.main <command> --format {rdf,dtdl} <path> [options]
 ```
 
 | Command | Description |
@@ -51,9 +51,8 @@ The converter supports multiple ontology formats via a plugin system:
 
 | Format | Extensions | Description |
 |--------|------------|-------------|
-| `rdf` | `.ttl`, `.rdf`, `.owl` | RDF/OWL ontologies in Turtle format |
+| `rdf` | `.ttl`, `.rdf`, `.owl`, `.nt`, `.nq`, `.trig`, `.n3`, `.jsonld` | RDF/OWL ontologies (Turtle, RDF/XML, N-Triples, N-Quads, TriG, Notation3, JSON-LD via rdflib) |
 | `dtdl` | `.json`, `.dtdl` | Digital Twins Definition Language v2/v3/v4 |
-| `jsonld` | `.jsonld` | JSON-LD linked data format |
 
 Use the `plugin list` command to see all available formats.
 
@@ -76,6 +75,10 @@ python -m src.main validate --format rdf ./ontologies/ --recursive
 # Save validation report
 python -m src.main validate --format rdf ontology.ttl --output report.json
 python -m src.main validate --format rdf ontology.ttl --save-report
+
+# Alternate RDF serializations
+python -m src.main validate --format rdf ontology.rdf
+python -m src.main validate --format rdf metrics.nt
 
 # Validate DTDL files
 python -m src.main validate --format dtdl models/
@@ -232,11 +235,11 @@ python -m src.main delete 12345678-1234-1234-1234-123456789012 --force
 
 ### compare
 
-Compare two TTL files for semantic equivalence.
+Compare two RDF files (any supported serialization) for semantic equivalence.
 
 ```bash
 python -m src.main compare original.ttl exported.ttl
-python -m src.main compare original.ttl exported.ttl --verbose
+python -m src.main compare ontology.rdf exported.ttl --verbose
 ```
 
 ### test
@@ -260,13 +263,16 @@ python -m src.main plugin list
 
 # Example output:
 # Available Plugins:
-# ┌─────────┬─────────────┬─────────┬────────────────────────┐
-# │ Format  │ Name        │ Version │ Extensions             │
-# ├─────────┼─────────────┼─────────┼────────────────────────┤
-# │ rdf     │ RDF/OWL     │ 1.0.0   │ .ttl, .rdf, .owl       │
-# │ dtdl    │ DTDL        │ 1.0.0   │ .json, .dtdl           │
-# │ jsonld  │ JSON-LD     │ 1.0.0   │ .jsonld                │
-# └─────────┴─────────────┴─────────┴────────────────────────┘
+# ┌─────────┬──────────────────────┬─────────┬────────────────────────┐
+# │ Format  │ Name                 │ Version │ Extensions             │
+# ├─────────┼──────────────────────┼─────────┼────────────────────────┤
+# │ rdf     │ RDF/OWL              │ 1.0.0   │ .ttl, .rdf, .owl,      │
+# │         │                      │         │ .nt, .n3, .trig,       │
+# │         │                      │         │ .jsonld, …             │
+# │ dtdl    │ DTDL                 │ 1.0.0   │ .json, .dtdl           │
+# └─────────┴──────────────────────┴─────────┴────────────────────────┘
+
+> JSON-LD is represented in the RDF row via the `.jsonld` extension; no standalone JSON-LD plugin is registered.
 ```
 
 ### plugin info
@@ -275,37 +281,38 @@ Show detailed information about a specific plugin.
 
 ```bash
 # Show plugin details
-python -m src.main plugin info jsonld
+python -m src.main plugin info rdf
 
 # Example output:
-# Plugin: JSON-LD
-# Format Name: jsonld
+# Plugin: RDF/OWL
+# Format Name: rdf
 # Version: 1.0.0
 # Author: Fabric Ontology Team
-# Extensions: .jsonld
-# Dependencies: (none)
+# Extensions: .ttl, .rdf, .owl, .nt, .n3, .trig, .nq, .nquads, .trix, .hext,
+#             .html, .xhtml, .htm, .jsonld
+# Dependencies: rdflib>=6.0.0
 #
 # Description:
-# JSON-LD (JavaScript Object Notation for Linked Data) plugin
-# for converting JSON-LD schemas to Microsoft Fabric ontology format.
+# RDF/Turtle plugin used for all RDF serializations, including `.jsonld` files
+# parsed through rdflib's JSON-LD loader.
 ```
 
 ### Using Plugins
 
-Once a plugin is loaded, use its format name with standard commands:
+Once a plugin is loaded, use its format name with standard commands (currently
+`rdf` or `dtdl`). JSON-LD files should be processed with the RDF plugin—the
+converter automatically detects `.jsonld` extensions, or you can explicitly set
+`--format rdf`.
 
 ```bash
-# Validate JSON-LD file
-python -m src.main validate --format jsonld schema.jsonld
+# Validate JSON-LD file via RDF plugin
+python -m src.main validate --format rdf schema.jsonld
 
-# Convert JSON-LD file
-python -m src.main convert --format jsonld schema.jsonld
-
-# Convert with output file
-python -m src.main convert --format jsonld schema.jsonld -o fabric_output.json
+# Convert JSON-LD file via RDF plugin
+python -m src.main convert --format rdf schema.jsonld -o fabric_output.json
 
 # Upload to Fabric
-python -m src.main upload --format jsonld schema.jsonld --workspace my-workspace
+python -m src.main upload --format rdf schema.jsonld --workspace my-workspace
 ```
 
 ### Auto-Detection
