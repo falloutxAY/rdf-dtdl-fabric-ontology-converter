@@ -84,7 +84,7 @@ src/
 └── plugins/             # Plugin system
 
 tests/                   # Test suites
-samples/                 # Sample ontologies (rdf/, dtdl/, cdm/, jsonld/)
+samples/                 # Sample ontologies (rdf/, dtdl/, cdm/)
 docs/                    # Documentation
 ```
 
