@@ -5,8 +5,10 @@ This document provides a comprehensive reference for all CLI commands available 
 ## Table of Contents
 
 - [Command Structure](#command-structure)
+- [Supported Formats](#supported-formats)
 - [Unified Commands](#unified-commands)
 - [Common Commands](#common-commands)
+- [Plugin Commands](#plugin-commands)
 - [Streaming Mode](#streaming-mode)
 - [Exit Codes](#exit-codes)
 - [See Also](#see-also)
@@ -16,7 +18,7 @@ This document provides a comprehensive reference for all CLI commands available 
 All format-specific operations use a unified verb with a `--format` flag:
 
 ```bash
-python -m src.main <command> --format {rdf,dtdl} <path> [options]
+python -m src.main <command> --format {rdf,dtdl,jsonld} <path> [options]
 ```
 
 | Command | Description |
@@ -35,6 +37,25 @@ Common workspace commands do not require a format flag:
 | `delete` | Delete an ontology |
 | `compare` | Compare two TTL files |
 | `test` | Test with sample ontology |
+
+Plugin management commands:
+
+| Command | Description |
+|---------|-------------|
+| `plugin list` | List available plugins |
+| `plugin info` | Show plugin details |
+
+## Supported Formats
+
+The converter supports multiple ontology formats via a plugin system:
+
+| Format | Extensions | Description |
+|--------|------------|-------------|
+| `rdf` | `.ttl`, `.rdf`, `.owl` | RDF/OWL ontologies in Turtle format |
+| `dtdl` | `.json`, `.dtdl` | Digital Twins Definition Language v2/v3/v4 |
+| `jsonld` | `.jsonld` | JSON-LD linked data format |
+
+Use the `plugin list` command to see all available formats.
 
 ## Unified Commands
 
@@ -225,6 +246,81 @@ Test the converter with a sample ontology.
 ```bash
 python -m src.main test
 python -m src.main test --upload-test  # Also upload to Fabric
+```
+
+## Plugin Commands
+
+### plugin list
+
+List all available format plugins.
+
+```bash
+# List all plugins
+python -m src.main plugin list
+
+# Example output:
+# Available Plugins:
+# ┌─────────┬─────────────┬─────────┬────────────────────────┐
+# │ Format  │ Name        │ Version │ Extensions             │
+# ├─────────┼─────────────┼─────────┼────────────────────────┤
+# │ rdf     │ RDF/OWL     │ 1.0.0   │ .ttl, .rdf, .owl       │
+# │ dtdl    │ DTDL        │ 1.0.0   │ .json, .dtdl           │
+# │ jsonld  │ JSON-LD     │ 1.0.0   │ .jsonld                │
+# └─────────┴─────────────┴─────────┴────────────────────────┘
+```
+
+### plugin info
+
+Show detailed information about a specific plugin.
+
+```bash
+# Show plugin details
+python -m src.main plugin info jsonld
+
+# Example output:
+# Plugin: JSON-LD
+# Format Name: jsonld
+# Version: 1.0.0
+# Author: Fabric Ontology Team
+# Extensions: .jsonld
+# Dependencies: (none)
+#
+# Description:
+# JSON-LD (JavaScript Object Notation for Linked Data) plugin
+# for converting JSON-LD schemas to Microsoft Fabric ontology format.
+```
+
+### Using Plugins
+
+Once a plugin is loaded, use its format name with standard commands:
+
+```bash
+# Validate JSON-LD file
+python -m src.main validate --format jsonld schema.jsonld
+
+# Convert JSON-LD file
+python -m src.main convert --format jsonld schema.jsonld
+
+# Convert with output file
+python -m src.main convert --format jsonld schema.jsonld -o fabric_output.json
+
+# Upload to Fabric
+python -m src.main upload --format jsonld schema.jsonld --workspace my-workspace
+```
+
+### Auto-Detection
+
+The converter can auto-detect the format based on file extension:
+
+```bash
+# Format detected from .jsonld extension
+python -m src.main validate schema.jsonld
+
+# Format detected from .ttl extension
+python -m src.main validate ontology.ttl
+
+# Explicit format overrides auto-detection
+python -m src.main validate --format rdf custom.txt
 ```
 
 ## Streaming Mode

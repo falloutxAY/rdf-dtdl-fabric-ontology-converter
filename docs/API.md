@@ -9,6 +9,10 @@ This document provides detailed API documentation for the RDF/DTDL to Microsoft 
   - [Data Models](#data-models)
   - [Validators](#validators)
   - [Streaming Engine](#streaming-engine)
+- [Plugin System](#plugin-system)
+  - [Plugin Base Classes](#plugin-base-classes)
+  - [Plugin Manager](#plugin-manager)
+  - [Common Layer](#common-layer)
 - [RDF/OWL Conversion](#rdfowl-conversion)
   - [RDF Converter](#rdf-converter)
   - [RDF Components](#rdf-components)
@@ -674,6 +678,331 @@ if should_use_streaming("large_file.json", threshold_mb=50):
 # Get configured threshold
 threshold = get_streaming_threshold()  # Default: 100 MB
 ```
+
+---
+
+## Plugin System
+
+The plugin system provides extensibility for adding new ontology formats.
+
+### Plugin Base Classes
+
+#### `OntologyPlugin`
+
+Abstract base class for all format plugins.
+
+```python
+from plugins.base import OntologyPlugin
+from plugins.protocols import ParserProtocol, ValidatorProtocol, ConverterProtocol
+from typing import Set, Dict, List, Optional
+
+class MyFormatPlugin(OntologyPlugin):
+    """Plugin for custom ontology format."""
+    
+    @property
+    def format_name(self) -> str:
+        """Unique identifier for the format (lowercase)."""
+        return "myformat"
+    
+    @property
+    def display_name(self) -> str:
+        """Human-readable name."""
+        return "MyFormat"
+    
+    @property
+    def file_extensions(self) -> Set[str]:
+        """Supported file extensions (with dot)."""
+        return {".myf", ".myformat"}
+    
+    @property
+    def version(self) -> str:
+        """Plugin version."""
+        return "1.0.0"
+    
+    @property
+    def author(self) -> str:
+        """Plugin author."""
+        return "Your Name"
+    
+    @property
+    def description(self) -> str:
+        """Plugin description."""
+        return "Support for MyFormat ontology files"
+    
+    @property
+    def dependencies(self) -> List[str]:
+        """Required Python packages."""
+        return []
+    
+    def create_parser(self) -> ParserProtocol:
+        """Create parser instance."""
+        return MyFormatParser()
+    
+    def create_validator(self) -> ValidatorProtocol:
+        """Create validator instance."""
+        return MyFormatValidator()
+    
+    def create_converter(self) -> ConverterProtocol:
+        """Create converter instance."""
+        return MyFormatConverter()
+    
+    def get_type_mappings(self) -> Dict[str, str]:
+        """Return type mappings from source types to Fabric types."""
+        return {"string": "String", "integer": "BigInt"}
+```
+
+**Abstract Methods:**
+
+| Method | Return Type | Description |
+|--------|-------------|-------------|
+| `format_name` | `str` | Unique format identifier |
+| `display_name` | `str` | Human-readable name |
+| `file_extensions` | `Set[str]` | Supported extensions |
+| `create_parser()` | `ParserProtocol` | Create parser instance |
+| `create_validator()` | `ValidatorProtocol` | Create validator instance |
+| `create_converter()` | `ConverterProtocol` | Create converter instance |
+
+---
+
+### Plugin Protocols
+
+#### `ParserProtocol`
+
+Protocol for parsing source format files.
+
+```python
+from typing import Protocol, Any, Optional, Dict
+
+class ParserProtocol(Protocol):
+    def parse(self, content: str, file_path: Optional[str] = None) -> Dict[str, Any]:
+        """Parse content string."""
+        ...
+    
+    def parse_file(self, file_path: str) -> Dict[str, Any]:
+        """Parse a file."""
+        ...
+```
+
+#### `ValidatorProtocol`
+
+Protocol for validating source format documents.
+
+```python
+from typing import Protocol, Optional
+from common.validation import ValidationResult
+
+class ValidatorProtocol(Protocol):
+    def validate(self, content: str, file_path: Optional[str] = None) -> ValidationResult:
+        """Validate content and return results."""
+        ...
+```
+
+#### `ConverterProtocol`
+
+Protocol for converting source format to Fabric.
+
+```python
+from typing import Protocol
+from models import ConversionResult
+
+class ConverterProtocol(Protocol):
+    def convert(
+        self,
+        content: str,
+        id_prefix: int = 1000000000000,
+        **kwargs
+    ) -> ConversionResult:
+        """Convert content to Fabric format."""
+        ...
+```
+
+---
+
+### Plugin Manager
+
+#### `PluginManager`
+
+Central manager for plugin discovery and registration.
+
+```python
+from plugins.manager import PluginManager
+
+# Get singleton instance
+manager = PluginManager.get_instance()
+
+# Load all plugins
+manager.load_plugins()
+
+# Get specific plugin
+plugin = manager.get_plugin("jsonld")
+if plugin:
+    converter = plugin.create_converter()
+    result = converter.convert(content)
+
+# List all registered plugins
+for name, plugin in manager.list_plugins().items():
+    print(f"{name}: {plugin.display_name} v{plugin.version}")
+
+# Get plugin by file extension
+plugin = manager.get_plugin_by_extension(".jsonld")
+
+# Register custom plugin
+from my_package import MyPlugin
+manager.register(MyPlugin())
+```
+
+**Methods:**
+
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `get_instance()` | `PluginManager` | Get singleton instance |
+| `load_plugins()` | `None` | Load built-in and discovered plugins |
+| `register(plugin)` | `None` | Register a plugin instance |
+| `unregister(format_name)` | `bool` | Unregister a plugin |
+| `get_plugin(name)` | `Optional[OntologyPlugin]` | Get plugin by format name |
+| `get_plugin_by_extension(ext)` | `Optional[OntologyPlugin]` | Get plugin by file extension |
+| `list_plugins()` | `Dict[str, OntologyPlugin]` | List all registered plugins |
+| `is_registered(name)` | `bool` | Check if format is registered |
+
+---
+
+### Common Layer
+
+Shared infrastructure for plugin implementations.
+
+#### `ValidationResult`
+
+Unified validation result model.
+
+```python
+from common.validation import ValidationResult, Severity, IssueCategory
+
+result = ValidationResult(format_name="jsonld", source_path="schema.jsonld")
+
+# Add issues
+result.add_error(
+    IssueCategory.SYNTAX_ERROR,
+    "Invalid JSON syntax",
+    location="line 10",
+    details={"line": 10, "column": 5}
+)
+
+result.add_warning(
+    IssueCategory.FABRIC_COMPATIBILITY,
+    "Property name too long, will be truncated",
+    recommendation="Use shorter property names"
+)
+
+result.add_info(IssueCategory.CUSTOM, "Processing 50 types")
+
+# Check results
+print(result.is_valid)        # False (has errors)
+print(result.error_count)     # 1
+print(result.warning_count)   # 1
+print(result.get_summary())   # Human-readable summary
+```
+
+**Attributes:**
+
+| Name | Type | Description |
+|------|------|-------------|
+| `format_name` | `str` | Format identifier |
+| `source_path` | `Optional[str]` | Source file path |
+| `issues` | `List[ValidationIssue]` | All issues |
+| `statistics` | `Dict[str, Any]` | Additional statistics |
+
+**Properties:**
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `is_valid` | `bool` | True if no errors |
+| `error_count` | `int` | Number of errors |
+| `warning_count` | `int` | Number of warnings |
+| `info_count` | `int` | Number of info messages |
+
+#### `IssueCategory`
+
+Categories for validation issues.
+
+```python
+from common.validation import IssueCategory
+
+IssueCategory.SYNTAX_ERROR          # Format/syntax problems
+IssueCategory.MISSING_REQUIRED      # Missing required elements
+IssueCategory.INVALID_VALUE         # Invalid property values
+IssueCategory.NAME_TOO_LONG         # Names exceed limits
+IssueCategory.INVALID_CHARACTER     # Unsupported characters
+IssueCategory.UNSUPPORTED_CONSTRUCT # Unsupported features
+IssueCategory.FABRIC_COMPATIBILITY  # Fabric-specific issues
+IssueCategory.CUSTOM                # Plugin-specific issues
+```
+
+#### `Severity`
+
+Severity levels for issues.
+
+```python
+from common.validation import Severity
+
+Severity.ERROR    # Blocks conversion
+Severity.WARNING  # Allows conversion, but notes concern
+Severity.INFO     # Informational only
+```
+
+#### `IDGenerator`
+
+Consistent ID generation for entities and relationships.
+
+```python
+from common.id_generator import get_id_generator
+
+id_gen = get_id_generator()
+id_gen.reset(1000000000000)  # Set starting ID
+
+entity_id = id_gen.next_id()      # "1000000000000"
+property_id = id_gen.next_id()    # "1000000000001"
+```
+
+#### `TypeRegistry`
+
+Central type mapping infrastructure.
+
+```python
+from common.type_registry import get_type_registry
+
+registry = get_type_registry()
+
+# Register format-specific mappings
+registry.register_mappings("jsonld", {
+    "http://schema.org/Text": "String",
+    "http://schema.org/Number": "Double",
+})
+
+# Get Fabric type
+fabric_type = registry.get_fabric_type("jsonld", "http://schema.org/Text")
+# Returns: "String"
+```
+
+---
+
+### Built-in Plugins
+
+| Plugin | Format Name | Extensions | Description |
+|--------|-------------|------------|-------------|
+| `RDFPlugin` | `rdf` | `.ttl`, `.rdf`, `.owl` | RDF/OWL ontologies |
+| `DTDLPlugin` | `dtdl` | `.json`, `.dtdl` | DTDL v2/v3/v4 |
+| `JSONLDPlugin` | `jsonld` | `.jsonld` | JSON-LD linked data |
+
+```python
+from plugins.builtin import RDFPlugin, DTDLPlugin, JSONLDPlugin
+
+# Use directly
+jsonld = JSONLDPlugin()
+converter = jsonld.create_converter()
+result = converter.convert(jsonld_content, id_prefix=5000)
+```
+
+For detailed plugin development instructions, see [PLUGIN_GUIDE.md](PLUGIN_GUIDE.md).
 
 ---
 

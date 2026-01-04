@@ -1,0 +1,56 @@
+{
+    "@context": {
+        "schema": "https://schema.org/",
+        "Product": "schema:Product",
+        "Organization": "schema:Organization",
+        "name": "schema:name",
+        "description": "schema:description",
+        "price": {
+            "@id": "schema:price",
+            "@type": "http://www.w3.org/2001/XMLSchema#decimal"
+        },
+        "manufacturer": {
+            "@id": "schema:manufacturer",
+            "@type": "@id"
+        },
+        "sku": "schema:sku",
+        "inStock": {
+            "@id": "schema:inStock",
+            "@type": "http://www.w3.org/2001/XMLSchema#boolean"
+        },
+        "stockCount": {
+            "@id": "schema:inventoryLevel",
+            "@type": "http://www.w3.org/2001/XMLSchema#integer"
+        }
+    },
+    "@graph": [
+        {
+            "@id": "org:acme",
+            "@type": "Organization",
+            "name": "Acme Corporation",
+            "description": "A leading manufacturer of quality products"
+        },
+        {
+            "@id": "product:widget-100",
+            "@type": "Product",
+            "name": "Premium Widget",
+            "description": "Our best-selling widget with enhanced features",
+            "sku": "WGT-100",
+            "price": 29.99,
+            "inStock": true,
+            "stockCount": 150,
+            "manufacturer": "org:acme"
+        },
+        {
+            "@id": "product:gadget-200",
+            "@type": "Product",
+            "name": "Super Gadget",
+            "description": "Advanced gadget for modern needs",
+            "sku": "GDT-200",
+            "price": 49.99,
+            "inStock": true,
+            "stockCount": 75,
+            "manufacturer": "org:acme"
+        }
+    ]
+}

@@ -1,0 +1,31 @@
+{
+    "@context": {
+        "schema": "https://schema.org/",
+        "name": "schema:name",
+        "email": "schema:email",
+        "birthDate": {
+            "@id": "schema:birthDate",
+            "@type": "http://www.w3.org/2001/XMLSchema#date"
+        },
+        "knows": {
+            "@id": "schema:knows",
+            "@type": "@id"
+        }
+    },
+    "@graph": [
+        {
+            "@id": "person:alice",
+            "@type": "schema:Person",
+            "name": "Alice Smith",
+            "email": "alice@example.com",
+            "birthDate": "1990-05-15"
+        },
+        {
+            "@id": "person:bob",
+            "@type": "schema:Person",
+            "name": "Bob Jones",
+            "email": "bob@example.com",
+            "knows": "person:alice"
+        }
+    ]
+}

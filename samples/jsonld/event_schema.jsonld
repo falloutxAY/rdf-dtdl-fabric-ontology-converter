@@ -1,0 +1,67 @@
+{
+    "@context": {
+        "schema": "https://schema.org/",
+        "Event": "schema:Event",
+        "Place": "schema:Place",
+        "PostalAddress": "schema:PostalAddress",
+        "name": "schema:name",
+        "description": "schema:description",
+        "startDate": {
+            "@id": "schema:startDate",
+            "@type": "http://www.w3.org/2001/XMLSchema#dateTime"
+        },
+        "endDate": {
+            "@id": "schema:endDate",
+            "@type": "http://www.w3.org/2001/XMLSchema#dateTime"
+        },
+        "location": {
+            "@id": "schema:location",
+            "@type": "@id"
+        },
+        "address": {
+            "@id": "schema:address",
+            "@type": "@id"
+        },
+        "streetAddress": "schema:streetAddress",
+        "addressLocality": "schema:addressLocality",
+        "addressRegion": "schema:addressRegion",
+        "postalCode": "schema:postalCode",
+        "addressCountry": "schema:addressCountry",
+        "maximumAttendeeCapacity": {
+            "@id": "schema:maximumAttendeeCapacity",
+            "@type": "http://www.w3.org/2001/XMLSchema#integer"
+        },
+        "isAccessibleForFree": {
+            "@id": "schema:isAccessibleForFree",
+            "@type": "http://www.w3.org/2001/XMLSchema#boolean"
+        }
+    },
+    "@graph": [
+        {
+            "@id": "address:convention-center",
+            "@type": "PostalAddress",
+            "streetAddress": "123 Main Street",
+            "addressLocality": "Seattle",
+            "addressRegion": "WA",
+            "postalCode": "98101",
+            "addressCountry": "USA"
+        },
+        {
+            "@id": "place:convention-center",
+            "@type": "Place",
+            "name": "Seattle Convention Center",
+            "address": "address:convention-center",
+            "maximumAttendeeCapacity": 5000
+        },
+        {
+            "@id": "event:tech-conference-2026",
+            "@type": "Event",
+            "name": "Tech Conference 2026",
+            "description": "Annual technology conference featuring the latest innovations",
+            "startDate": "2026-03-15T09:00:00Z",
+            "endDate": "2026-03-17T18:00:00Z",
+            "location": "place:convention-center",
+            "isAccessibleForFree": false
+        }
+    ]
+}

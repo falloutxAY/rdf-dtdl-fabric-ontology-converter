@@ -4,7 +4,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Code style: ruff](https://img.shields.io/badge/code%20style-ruff-000000.svg)](https://github.com/astral-sh/ruff)
 
-Convert RDF in TTL and DTDL to Microsoft Fabric Ontology format via the [Fabric Ontology REST API](https://learn.microsoft.com/rest/api/fabric/ontology/items).
+Convert RDF in TTL, DTDL, JSON-LD, and other ontology formats to Microsoft Fabric Ontology format via the [Fabric Ontology REST API](https://learn.microsoft.com/rest/api/fabric/ontology/items).
 
 ## Disclaimer
 
@@ -12,8 +12,10 @@ This is a **personal project** and is **not an official Microsoft product**. It 
 
 ## Features
 
-- **RDF TTL Import** – Convert Turtle based RDF to Fabric format
+- **RDF TTL Import** – Convert Turtle based RDF/OWL to Fabric format
 - **DTDL Import** – Convert Azure Digital Twins models (v2/v3/v4)
+- **JSON-LD Import** – Convert JSON-LD linked data schemas
+- **Plugin System** – Extensible architecture for adding new formats
 - **Export & Compare** – Export Fabric ontologies back to TTL for verification
 - **Pre-flight Validation** – Check compatibility before upload
 
@@ -72,7 +74,20 @@ See [docs/CONFIGURATION.md](docs/CONFIGURATION.md) for detailed configuration op
 All format-specific commands use unified verbs with a `--format` flag:
 
 ```powershell
-python -m src.main <command> --format {rdf,dtdl} <path> [options]
+python -m src.main <command> --format {rdf,dtdl,jsonld} <path> [options]
+```
+
+### Supported Formats
+
+| Format | Extensions | Description |
+|--------|------------|-------------|
+| `rdf` | `.ttl`, `.rdf`, `.owl` | RDF/OWL ontologies |
+| `dtdl` | `.json`, `.dtdl` | Digital Twins Definition Language v2/v3/v4 |
+| `jsonld` | `.jsonld` | JSON-LD linked data |
+
+```powershell
+# List available plugins
+python -m src.main plugin list
 ```
 
 ### Validation
@@ -83,6 +98,9 @@ python -m src.main validate --format rdf <file.ttl> --verbose
 
 # Validate DTDL models
 python -m src.main validate --format dtdl <path> --recursive
+
+# Validate JSON-LD
+python -m src.main validate --format jsonld <file.jsonld>
 ```
 
 ### Conversion
@@ -93,6 +111,9 @@ python -m src.main convert --format rdf <file.ttl> --output output.json
 
 # Convert DTDL to Fabric JSON
 python -m src.main convert --format dtdl <path> --recursive --output output.json
+
+# Convert JSON-LD to Fabric JSON
+python -m src.main convert --format jsonld <file.jsonld> --output output.json
 ```
 
 ### Upload to Fabric
@@ -136,9 +157,10 @@ For the complete command reference, see [docs/COMMANDS.md](docs/COMMANDS.md).
 
 ### 📚 User Guides
 - **[Configuration Guide](docs/CONFIGURATION.md)** – Detailed setup, authentication, and API configuration
-- **[Commands Reference](docs/COMMANDS.md)** – Complete command-line reference
+- **[Commands Reference](docs/CLI_COMMANDS.md)** – Complete command-line reference
 - **[RDF Guide](docs/RDF_GUIDE.md)** – RDF/OWL import, mapping, limitations, and examples
 - **[DTDL Guide](docs/DTDL_GUIDE.md)** – DTDL import, mapping, limitations, and examples
+- **[Plugin Guide](docs/PLUGIN_GUIDE.md)** – Creating custom format plugins
 - **[Troubleshooting](docs/TROUBLESHOOTING.md)** – Common issues and solutions
 
 ### 🛠️ Developer Guides  
@@ -160,6 +182,14 @@ src/
 │   ├── dtdl_converter.py     # DTDL → Fabric converter
 │   ├── dtdl_parser.py        # DTDL JSON parsing
 │   └── dtdl_validator.py     # DTDL validation
+├── plugins/                  # Plugin system
+│   ├── base.py               # Plugin base class
+│   ├── manager.py            # Plugin discovery/registration
+│   └── builtin/              # Built-in plugins (RDF, DTDL, JSON-LD)
+├── common/                   # Shared plugin infrastructure
+│   ├── validation.py         # Unified validation
+│   ├── type_registry.py      # Type mapping registry
+│   └── id_generator.py       # ID generation utilities
 ├── core/                     # Shared infrastructure
 │   ├── fabric_client.py      # Fabric API client
 │   ├── rate_limiter.py       # Token bucket rate limiting
@@ -174,11 +204,17 @@ tests/
 ├── core/                     # Fabric client, resilience, validation infrastructure
 ├── dtdl/                     # DTDL parser, validator, and edge cases
 ├── rdf/                      # RDF converter and validation suites
+├── plugins/                  # Plugin system tests
 ├── cli/                      # CLI parsing/formatting coverage
 ├── models/                   # Shared model tests
 ├── integration/              # Cross-format pipelines using sample data
 ├── fixtures/                 # Reusable TTL/DTDL/config fixtures
 └── run_tests.py              # Convenience launcher for pytest targets
+
+samples/
+├── rdf/                      # RDF/TTL sample ontologies
+├── dtdl/                     # DTDL sample models
+└── jsonld/                   # JSON-LD sample schemas
 ```
 
 For detailed architecture, see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).

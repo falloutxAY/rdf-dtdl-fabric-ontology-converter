@@ -1,0 +1,122 @@
+{
+    "@context": {
+        "@vocab": "https://schema.org/",
+        "xsd": "http://www.w3.org/2001/XMLSchema#",
+        "productId": {"@id": "identifier", "@type": "xsd:string"},
+        "productName": "name",
+        "description": "description",
+        "unitPrice": {"@id": "price", "@type": "xsd:decimal"},
+        "stockQuantity": {"@id": "inventoryLevel", "@type": "xsd:integer"},
+        "reorderLevel": {"@type": "xsd:integer"},
+        "isActive": {"@type": "xsd:boolean"},
+        "lastUpdated": {"@id": "dateModified", "@type": "xsd:dateTime"},
+        "category": "category",
+        "supplier": "manufacturer",
+        "warehouse": "containedIn"
+    },
+    "@graph": [
+        {
+            "@type": "Product",
+            "@id": "https://example.com/products/P001",
+            "productId": "P001",
+            "productName": "Wireless Mouse",
+            "description": "Ergonomic wireless mouse with USB receiver",
+            "unitPrice": 29.99,
+            "stockQuantity": 150,
+            "reorderLevel": 25,
+            "isActive": true,
+            "lastUpdated": "2024-01-15T10:30:00Z",
+            "category": {"@id": "https://example.com/categories/CAT001"},
+            "supplier": {"@id": "https://example.com/suppliers/SUP001"}
+        },
+        {
+            "@type": "Product",
+            "@id": "https://example.com/products/P002",
+            "productId": "P002",
+            "productName": "Mechanical Keyboard",
+            "description": "RGB mechanical keyboard with Cherry MX switches",
+            "unitPrice": 149.99,
+            "stockQuantity": 75,
+            "reorderLevel": 15,
+            "isActive": true,
+            "lastUpdated": "2024-01-14T14:00:00Z",
+            "category": {"@id": "https://example.com/categories/CAT001"},
+            "supplier": {"@id": "https://example.com/suppliers/SUP002"}
+        },
+        {
+            "@type": "Category",
+            "@id": "https://example.com/categories/CAT001",
+            "productId": "CAT001",
+            "productName": "Computer Peripherals",
+            "description": "Input devices and accessories for computers"
+        },
+        {
+            "@type": "Category",
+            "@id": "https://example.com/categories/CAT002",
+            "productId": "CAT002",
+            "productName": "Storage Devices",
+            "description": "Hard drives, SSDs, and external storage"
+        },
+        {
+            "@type": "Supplier",
+            "@id": "https://example.com/suppliers/SUP001",
+            "name": "TechCorp Electronics",
+            "description": "Premium electronics supplier",
+            "email": "contact@techcorp.example.com",
+            "telephone": "+1-555-0100"
+        },
+        {
+            "@type": "Supplier",
+            "@id": "https://example.com/suppliers/SUP002",
+            "name": "KeyboardMasters",
+            "description": "Specialist mechanical keyboard manufacturer",
+            "email": "sales@keyboardmasters.example.com"
+        },
+        {
+            "@type": "Warehouse",
+            "@id": "https://example.com/warehouses/WH001",
+            "name": "Main Distribution Center",
+            "address": {
+                "@type": "PostalAddress",
+                "streetAddress": "123 Commerce Ave",
+                "addressLocality": "Seattle",
+                "addressRegion": "WA",
+                "postalCode": "98101",
+                "addressCountry": "US"
+            },
+            "telephone": "+1-555-0200"
+        },
+        {
+            "@type": "Order",
+            "@id": "https://example.com/orders/ORD001",
+            "orderNumber": "ORD001",
+            "orderDate": "2024-01-16T09:00:00Z",
+            "orderStatus": "Processing",
+            "orderedItem": [
+                {
+                    "@type": "Product",
+                    "@id": "https://example.com/products/P001"
+                },
+                {
+                    "@type": "Product", 
+                    "@id": "https://example.com/products/P002"
+                }
+            ],
+            "customer": {"@id": "https://example.com/customers/CUST001"}
+        },
+        {
+            "@type": "Customer",
+            "@id": "https://example.com/customers/CUST001",
+            "name": "Acme Corporation",
+            "email": "purchasing@acme.example.com",
+            "telephone": "+1-555-0300",
+            "address": {
+                "@type": "PostalAddress",
+                "streetAddress": "456 Business Blvd",
+                "addressLocality": "San Francisco",
+                "addressRegion": "CA",
+                "postalCode": "94102"
+            }
+        }
+    ]
+}

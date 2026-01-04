@@ -427,6 +427,133 @@ from src.core import FabricConfig
 
 ---
 
+## Plugin Architecture
+
+The converter supports a plugin system that enables users to add new ontology formats
+beyond the built-in RDF and DTDL support.
+
+### Plugin System Components
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                        Plugin Manager                                │
+│  ┌──────────────────────────────────────────────────────────────┐   │
+│  │                     Plugin Registry                           │   │
+│  │  ┌──────────────┐  ┌──────────────┐  ┌────────────────────┐  │   │
+│  │  │Format Plugins│  │  Validators  │  │ Type Mapping Exts  │  │   │
+│  │  └──────────────┘  └──────────────┘  └────────────────────┘  │   │
+│  └──────────────────────────────────────────────────────────────┘   │
+└────────────────────────────────────────────────────────────────────┘
+                                │
+        ┌───────────────────────┼───────────────────────┐
+        │                       │                       │
+        ▼                       ▼                       ▼
+┌───────────────┐     ┌───────────────┐     ┌─────────────────┐
+│  RDF Plugin   │     │  DTDL Plugin  │     │  JSON-LD Plugin │
+│  (Built-in)   │     │  (Built-in)   │     │  (Built-in)     │
+└───────────────┘     └───────────────┘     └─────────────────┘
+```
+
+### Plugin Structure
+
+Each plugin provides three core components:
+
+```
+src/plugins/
+├── __init__.py              # Package exports
+├── base.py                  # OntologyPlugin ABC
+├── protocols.py             # Parser, Validator, Converter protocols
+├── manager.py               # PluginManager for discovery/registration
+├── discovery.py             # Auto-discovery of plugins
+│
+├── builtin/                 # Built-in plugin implementations
+│   ├── __init__.py
+│   ├── rdf_plugin.py        # RDF/TTL/OWL format
+│   ├── dtdl_plugin.py       # DTDL v2/v3/v4 format
+│   └── jsonld_plugin.py     # JSON-LD format
+│
+src/common/                  # Shared infrastructure for plugins
+├── __init__.py
+├── type_registry.py         # Common type mapping infrastructure
+├── id_generator.py          # Standardized ID generation
+└── validation.py            # Unified validation result models
+```
+
+### Plugin Base Class
+
+```python
+from plugins.base import OntologyPlugin
+
+class MyFormatPlugin(OntologyPlugin):
+    """Plugin for custom ontology format."""
+    
+    @property
+    def format_name(self) -> str:
+        return "myformat"  # CLI format identifier
+    
+    @property
+    def display_name(self) -> str:
+        return "My Format"  # Human-readable name
+    
+    @property
+    def file_extensions(self) -> Set[str]:
+        return {".myf", ".myformat"}
+    
+    def create_parser(self) -> ParserProtocol:
+        return MyFormatParser()
+    
+    def create_validator(self) -> ValidatorProtocol:
+        return MyFormatValidator()
+    
+    def create_converter(self) -> ConverterProtocol:
+        return MyFormatConverter()
+```
+
+### Common Layer
+
+The `src/common/` module provides shared infrastructure:
+
+- **TypeRegistry**: Central type mapping with format-specific extensions
+- **IDGenerator**: Consistent entity/relationship ID generation
+- **ValidationResult**: Unified validation reporting model
+
+### Plugin Discovery
+
+Plugins are automatically discovered via:
+
+1. **Built-in plugins**: Loaded from `src/plugins/builtin/`
+2. **Installed packages**: Entry point group `fabric_ontology.plugins`
+3. **Custom directories**: Via `--plugin-dir` CLI flag or config
+
+### Using Plugins
+
+**CLI Integration:**
+```bash
+# Use built-in JSON-LD plugin
+python -m src.main validate --format jsonld schema.jsonld
+python -m src.main convert --format jsonld schema.jsonld
+
+# List available plugins
+python -m src.main plugin list
+```
+
+**Programmatic Usage:**
+```python
+from plugins import PluginManager
+
+manager = PluginManager()
+manager.load_plugins()
+
+# Get specific plugin
+jsonld_plugin = manager.get_plugin("jsonld")
+converter = jsonld_plugin.create_converter()
+result = converter.convert(content, id_prefix=1)
+```
+
+For detailed plugin development instructions, see [PLUGIN_GUIDE.md](PLUGIN_GUIDE.md).
+
+---
+
 ## Design Patterns
 
 ### 1. Command Pattern (CLI)
