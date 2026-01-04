@@ -12,35 +12,18 @@ import argparse
 import json
 import logging
 import os
-import sys
 from pathlib import Path
 from typing import Any, List, Optional, Tuple
 
-# Ensure src directory is in path for late imports
-_src_dir = str(Path(__file__).parent.parent.parent)
-if _src_dir not in sys.path:
-    sys.path.insert(0, _src_dir)
-
 from .base import BaseCommand, print_conversion_summary
-
-try:
-    from ..helpers import (
-        load_config,
-        get_default_config_path,
-        setup_logging,
-        print_header,
-        print_footer,
-        confirm_action,
-    )
-except ImportError:
-    from cli.helpers import (
-        load_config,
-        get_default_config_path,
-        setup_logging,
-        print_header,
-        print_footer,
-        confirm_action,
-    )
+from ..helpers import (
+    load_config,
+    get_default_config_path,
+    setup_logging,
+    print_header,
+    print_footer,
+    confirm_action,
+)
 
 
 logger = logging.getLogger(__name__)

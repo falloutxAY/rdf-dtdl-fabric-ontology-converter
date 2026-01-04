@@ -28,76 +28,37 @@ from dataclasses import dataclass
 
 from rdflib import Graph, RDF, RDFS, OWL, URIRef
 
-# Import refactored components - try relative first, then absolute for direct execution
-try:
-    from .rdf_parser import MemoryManager, RDFGraphParser
-    from .property_extractor import (
-        ClassExtractor,
-        DataPropertyExtractor,
-        ObjectPropertyExtractor,
-        EntityIdentifierSetter,
-    )
-    from .type_mapper import TypeMapper, XSD_TO_FABRIC_TYPE
-    from .uri_utils import URIUtils
-    from .class_resolver import ClassResolver
-    from .fabric_serializer import FabricSerializer
-    from ..core.validators import (
-        InputValidator,
-        FabricLimitsValidator,
-        EntityIdPartsInferrer,
-    )
-    from ..core.compliance import (
-        RDFOWLComplianceValidator,
-        FabricComplianceChecker,
-        ConversionReportGenerator,
-        ConversionReport,
-    )
-    from ..models import (
-        EntityType,
-        EntityTypeProperty,
-        RelationshipType,
-        RelationshipEnd,
-        ConversionResult,
-        SkippedItem,
-    )
-except ImportError:
-    from rdf.rdf_parser import MemoryManager, RDFGraphParser
-    from rdf.property_extractor import (
-        ClassExtractor,
-        DataPropertyExtractor,
-        ObjectPropertyExtractor,
-        EntityIdentifierSetter,
-    )
-    from rdf.type_mapper import TypeMapper, XSD_TO_FABRIC_TYPE
-    from rdf.uri_utils import URIUtils
-    from rdf.class_resolver import ClassResolver
-    from rdf.fabric_serializer import FabricSerializer
-    from core.validators import (
-        InputValidator,
-        FabricLimitsValidator,
-        EntityIdPartsInferrer,
-    )
-    try:
-        from core.compliance import (
-            RDFOWLComplianceValidator,
-            FabricComplianceChecker,
-            ConversionReportGenerator,
-            ConversionReport,
-        )
-    except ImportError:
-        # Define fallback if compliance not available
-        RDFOWLComplianceValidator = None  # type: ignore[assignment, misc]
-        FabricComplianceChecker = None  # type: ignore[assignment, misc]
-        ConversionReportGenerator = None  # type: ignore[assignment, misc]
-        ConversionReport = None  # type: ignore[assignment, misc]
-    from models import (
-        EntityType,
-        EntityTypeProperty,
-        RelationshipType,
-        RelationshipEnd,
-        ConversionResult,
-        SkippedItem,
-    )
+# Import refactored components
+from .rdf_parser import MemoryManager, RDFGraphParser
+from .property_extractor import (
+    ClassExtractor,
+    DataPropertyExtractor,
+    ObjectPropertyExtractor,
+    EntityIdentifierSetter,
+)
+from .type_mapper import TypeMapper, XSD_TO_FABRIC_TYPE
+from .uri_utils import URIUtils
+from .class_resolver import ClassResolver
+from .fabric_serializer import FabricSerializer
+from core.validators import (
+    InputValidator,
+    FabricLimitsValidator,
+    EntityIdPartsInferrer,
+)
+from core.compliance import (
+    RDFOWLComplianceValidator,
+    FabricComplianceChecker,
+    ConversionReportGenerator,
+    ConversionReport,
+)
+from shared.models import (
+    EntityType,
+    EntityTypeProperty,
+    RelationshipType,
+    RelationshipEnd,
+    ConversionResult,
+    SkippedItem,
+)
 
 # Type aliases for clarity
 FabricType = str  # One of: "String", "Boolean", "DateTime", "BigInt", "Double", "Int", "Long", "Float", "Decimal"

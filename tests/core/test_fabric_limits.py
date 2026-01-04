@@ -24,7 +24,7 @@ from src.core.validators import (
     FabricLimitValidationError,
     EntityIdPartsInferrer,
 )
-from src.models import EntityType, EntityTypeProperty, RelationshipType, RelationshipEnd
+from shared.models import EntityType, EntityTypeProperty, RelationshipType, RelationshipEnd
 from src.constants import FabricLimits, EntityIdPartsConfig
 
 

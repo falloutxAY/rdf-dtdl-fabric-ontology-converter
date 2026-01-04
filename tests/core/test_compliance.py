@@ -26,7 +26,7 @@ from src.core.compliance import (
     OWL_CONSTRUCT_SUPPORT,
     DTDL_FEATURE_SUPPORT,
 )
-from src.models import (
+from shared.models import (
     EntityType,
     EntityTypeProperty,
     RelationshipType,
@@ -265,7 +265,7 @@ class TestConversionWarning:
             feature="Command",
             source_construct="DTDL Command",
             details="Commands are not converted to Fabric",
-            workaround="Enable include_commands option"
+            workaround="Set command_mode=PROPERTY"
         )
         
         assert warning.feature == "Command"

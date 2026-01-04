@@ -28,15 +28,9 @@ from .helpers import (
     confirm_action,
 )
 
-
-try:  # Prefer absolute import when repository root is on sys.path
-    from models import ConversionResult
-    from models.base import ConverterProtocol
-    from constants import ExitCode
-except ImportError:  # pragma: no cover - fallback when running as package
-    from ..models import ConversionResult  # type: ignore
-    from ..models.base import ConverterProtocol  # type: ignore
-    from ..constants import ExitCode  # type: ignore
+from shared.models import ConversionResult
+from shared.models.base import ConverterProtocol
+from constants import ExitCode
 
 
 logger = logging.getLogger(__name__)

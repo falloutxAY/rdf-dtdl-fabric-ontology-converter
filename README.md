@@ -103,48 +103,56 @@ For complete syntax and options, see [docs/CLI_COMMANDS.md](docs/CLI_COMMANDS.md
 ```
 src/
 ├── main.py                   # CLI entry point
-├── rdf/                      # RDF/OWL/TTL format support
-│   ├── rdf_converter.py      # Main RDF → Fabric converter
-│   ├── preflight_validator.py# Pre-conversion validation
-│   ├── fabric_to_ttl.py      # Fabric → TTL export
-│   └── ...                   # Type mapping, parsing, serialization
-├── dtdl/                     # DTDL v2/v3/v4 format support
-│   ├── dtdl_converter.py     # DTDL → Fabric converter
-│   ├── dtdl_parser.py        # DTDL JSON parsing
-│   └── dtdl_validator.py     # DTDL validation
-├── plugins/                  # Plugin system
-│   ├── base.py               # Plugin base class
-│   ├── manager.py            # Plugin discovery/registration
-│   └── builtin/              # Built-in plugins (RDF + DTDL)
-├── common/                   # Shared plugin infrastructure
-│   ├── validation.py         # Unified validation
-│   ├── type_registry.py      # Type mapping registry
-│   └── id_generator.py       # ID generation utilities
-├── core/                     # Shared infrastructure
-│   ├── fabric_client.py      # Fabric API client
-│   ├── rate_limiter.py       # Token bucket rate limiting
+├── constants.py              # Shared literals and defaults
+├── app/
+│   └── cli/                  # User-facing CLI layer
+│       ├── commands.py       # Command registry / dispatcher
+│       ├── format.py         # Format detection helpers
+│       ├── helpers.py        # Logging + config utilities
+│       ├── parsers.py        # Argparse configuration
+│       └── commands/         # Command implementations
+│           ├── base.py       # BaseCommand + protocols
+│           ├── common.py     # list/get/delete/test/compare
+│           ├── rdf.py        # RDF-specific helpers
+│           ├── dtdl.py       # DTDL-specific helpers
+│           └── unified.py    # validate/convert/upload/export
+├── formats/                  # Format pipelines (new home for converters)
+│   ├── base.py               # FormatPipeline contract
+│   ├── rdf/                  # RDF implementation (converter, validator, exporter)
+│   └── dtdl/                 # DTDL implementation (parser, converter, mapper)
+├── shared/                   # Cross-format models and utilities
+│   ├── models/               # ConversionResult, Fabric types, base protocols
+│   └── utilities/            # Validation, ID generation, type registry
+├── core/                     # Fabric client + resilience primitives
+│   ├── fabric_client.py      # REST client with retry/lro handling
+│   ├── rate_limiter.py       # Token bucket throttling
 │   ├── circuit_breaker.py    # Fault tolerance
-│   ├── cancellation.py       # Graceful shutdown
-│   ├── validators.py         # Input validation, SSRF protection
-│   └── streaming.py          # Memory-efficient processing
-├── models/                   # Shared data models
-└── cli/                      # Command handlers & parsers
+│   ├── cancellation.py       # Graceful shutdown tokens
+│   ├── validators.py         # Fabric limit enforcement
+│   ├── memory.py             # Memory safety + heuristics
+│   └── streaming.py          # Shared streaming engine
+├── plugins/                  # Plugin base + discovery
+│   ├── base.py
+│   ├── manager.py
+│   └── builtin/              # Built-in RDF + DTDL plugins
+├── rdf/                      # Legacy shim → formats.rdf (for back-compat)
+├── dtdl/                     # Legacy shim → formats.dtdl (for back-compat)
+└── logs/                     # Default log output directory
 
 tests/
-├── core/                     # Fabric client, resilience, validation infrastructure
-├── dtdl/                     # DTDL parser, validator, and edge cases
-├── rdf/                      # RDF converter and validation suites
-├── plugins/                  # Plugin system tests
-├── cli/                      # CLI parsing/formatting coverage
-├── models/                   # Shared model tests
-├── integration/              # Cross-format pipelines using sample data
-├── fixtures/                 # Reusable TTL/DTDL/config fixtures
-└── run_tests.py              # Convenience launcher for pytest targets
+├── core/                     # Fabric client, auth, resilience
+├── dtdl/                     # DTDL parser/validator/converter coverage
+├── rdf/                      # RDF conversion and validation suites
+├── plugins/                  # Plugin contract tests
+├── integration/              # End-to-end flows + CLI smoke tests
+├── fixtures/                 # Sample ontologies + config helpers
+├── run_tests.py              # Convenience launcher for pytest
+└── __init__.py               # Pytest package marker
 
 samples/
 ├── rdf/                      # RDF/TTL sample ontologies
 ├── dtdl/                     # DTDL sample models
-└── jsonld/                   # JSON-LD sample schemas (parsed via the RDF pipeline)
+└── jsonld/                   # JSON-LD sample schemas (via RDF pipeline)
 ```
 
 For detailed architecture, see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).

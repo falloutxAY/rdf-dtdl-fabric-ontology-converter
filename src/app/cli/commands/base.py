@@ -7,48 +7,21 @@ as well as protocol definitions for dependency injection.
 
 import argparse
 import logging
-import sys
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Any, Dict, Optional, Protocol
 
-# Ensure src directory is in path for late imports
-_src_dir = str(Path(__file__).parent.parent.parent)
-if _src_dir not in sys.path:
-    sys.path.insert(0, _src_dir)
-
-try:
-    from ..helpers import (
-        load_config,
-        get_default_config_path,
-        setup_logging,
-        print_header,
-        print_footer,
-        confirm_action,
-    )
-except ImportError:
-    from cli.helpers import (
-        load_config,
-        get_default_config_path,
-        setup_logging,
-        print_header,
-        print_footer,
-        confirm_action,
-    )
-
-try:
-    from models import ConversionResult
-    from models.base import ConverterProtocol
-    from constants import ExitCode
-except ImportError:
-    try:
-        from ...models import ConversionResult
-        from ...models.base import ConverterProtocol
-        from ...constants import ExitCode
-    except ImportError:
-        from src.models import ConversionResult
-        from src.models.base import ConverterProtocol
-        from src.constants import ExitCode
+from ..helpers import (
+    load_config,
+    get_default_config_path,
+    setup_logging,
+    print_header,
+    print_footer,
+    confirm_action,
+)
+from shared.models import ConversionResult
+from shared.models.base import ConverterProtocol
+from constants import ExitCode
 
 
 logger = logging.getLogger(__name__)

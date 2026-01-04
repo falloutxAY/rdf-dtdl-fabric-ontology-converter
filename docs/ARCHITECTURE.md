@@ -90,56 +90,77 @@ The converter follows a layered architecture with clear separation of concerns:
 
 ## Component Architecture
 
-### 1. CLI Layer (`src/cli/`)
+### 1. CLI Layer (`src/app/cli/`)
 
 **Responsibility:** User interface and command dispatch
-
-**Components:**
-- `commands/` - Modular command implementations:
-  - `base.py` - BaseCommand ABC and protocol interfaces
-  - `common.py` - Common commands (list, get, delete, test, compare)
-  - `unified.py` - Unified commands (validate, convert, upload, export) with format dispatch
-- `format.py` - Format enum and service factory registry
-- `helpers.py` - Utility functions for CLI operations
-- `parsers.py` - Argument parsing with shared flag builders
-
-**Key Features:**
-- Command pattern for extensibility
-- Consistent error handling and exit codes
-- Progress indicators for long-running operations
-- Graceful cancellation support (Ctrl+C)
-
-### 2. Converter Layer
-
-#### 2.1 RDF Pipeline (`src/rdf/`)
-
-**PreflightValidator** (`rdf/preflight_validator.py`)
-- Scans TTL files before conversion
-- Detects unsupported OWL constructs (restrictions, property chains)
-- Validates file size and estimates memory requirements
-- Generates detailed validation reports
-
-**RDFToFabricConverter** (`rdf/rdf_converter.py`) - Facade/Orchestrator
-- Main entry point for RDF to Fabric conversion
-- Uses composition pattern delegating to extracted components:
-  - `rdf/rdf_parser.py` - TTL parsing with memory management
-  - `rdf/property_extractor.py` - Class/property extraction
-  - `rdf/type_mapper.py` - XSD to Fabric type mapping
-  - `rdf/uri_utils.py` - URI parsing and name extraction
-  - `rdf/class_resolver.py` - OWL class expression resolution
-  - `rdf/fabric_serializer.py` - Fabric API JSON serialization
-- Handles OWL/RDFS constructs:
-  - `owl:Class` → EntityType
-  - `owl:DatatypeProperty` → EntityTypeProperty
-  - `owl:ObjectProperty` → RelationshipType
-  - `rdfs:subClassOf` → inheritance
-
-**RDF Converter Components** (`src/rdf/`)
-- `rdf_parser.py` - MemoryManager and RDFGraphParser for TTL parsing
-- `property_extractor.py` - ClassExtractor, DataPropertyExtractor, ObjectPropertyExtractor
-- `type_mapper.py` - TypeMapper for XSD to Fabric type mapping
-- `uri_utils.py` - URIUtils for URI parsing and name extraction
-- `class_resolver.py` - ClassResolver for OWL class expression resolution
+```
+src/
+├── main.py                    # Entry point
+├── constants.py               # Centralized constants
+│
+├── app/
+│   └── cli/                   # User-facing CLI layer
+│       ├── commands.py
+│       ├── helpers.py
+│       ├── format.py
+│       ├── parsers.py
+│       └── commands/
+│           ├── base.py        # BaseCommand + protocols
+│           ├── common.py      # List, Get, Delete, Compare
+│           ├── rdf.py         # RDF-specific commands
+│           ├── dtdl.py        # DTDL-specific commands
+│           └── unified.py     # Format-agnostic workflows
+│
+├── formats/                   # Format pipelines
+│   ├── base.py                # FormatPipeline contract
+│   ├── rdf/                   # RDF implementation
+│   │   ├── rdf_converter.py
+│   │   ├── preflight_validator.py
+│   │   ├── rdf_parser.py
+│   │   └── ...
+│   └── dtdl/                  # DTDL implementation
+│       ├── dtdl_parser.py
+│       ├── dtdl_validator.py
+│       ├── dtdl_converter.py
+│       ├── dtdl_models.py
+│       └── dtdl_type_mapper.py
+│
+├── shared/
+│   ├── models/                # Shared dataclasses
+│   │   ├── base.py
+│   │   ├── conversion.py
+│   │   └── fabric_types.py
+│   └── utilities/
+│       ├── id_generator.py
+│       └── type_registry.py
+│
+├── core/                      # Infrastructure + Fabric client
+│   ├── __init__.py            # Back-compat exports
+│   ├── auth.py
+│   ├── cancellation.py
+│   ├── circuit_breaker.py
+│   ├── compliance/
+│   ├── platform/
+│   │   ├── fabric_client.py
+│   │   └── auth.py / http.py helpers
+│   ├── services/
+│   │   ├── streaming.py
+│   │   ├── memory.py
+│   │   └── lro_handler.py
+│   ├── rate_limiter.py
+│   ├── streaming.py           # Legacy import path
+│   └── validators.py
+│
+├── plugins/
+│   ├── base.py                # OntologyPlugin ABC
+│   ├── manager.py             # Plugin discovery
+│   └── builtin/
+│       ├── rdf_plugin.py
+│       └── dtdl_plugin.py
+│
+├── dtdl/                      # Legacy facade → formats.dtdl
+└── rdf/                       # Legacy facade → formats.rdf
+```
 - `fabric_serializer.py` - FabricSerializer for Fabric API JSON creation
 
 **FabricToTTLExporter** (`rdf/fabric_to_ttl.py`)
@@ -147,7 +168,7 @@ The converter follows a layered architecture with clear separation of concerns:
 - Preserves class hierarchy
 - Generates valid RDF/OWL syntax
 
-#### 2.2 DTDL Pipeline (`src/dtdl/`)
+#### 2.2 DTDL Pipeline (`src/formats/dtdl/`)
 
 **DTDLParser** (`dtdl_parser.py`)
 - Parses DTDL v2, v3, and v4 JSON files
@@ -173,7 +194,11 @@ The converter follows a layered architecture with clear separation of concerns:
 - Flattens components to properties
 - Maps `scaledDecimal` to JSON-encoded strings
 
-### 3. Shared Models (`src/models/`)
+> **Compatibility Note:** Existing imports that reference `src.dtdl.*` continue to work
+> via shims that proxy to the `formats.dtdl` modules, so downstream tooling does not need
+> to change immediately.
+
+### 3. Shared Models (`src/shared/models/`)
 
 **Purpose:** Single source of truth for data structures
 
@@ -349,59 +374,72 @@ The converter follows a layered architecture with clear separation of concerns:
 
 ```
 src/
-├── __init__.py
-├── main.py                    # Entry point
-├── constants.py               # Centralized constants
+├── main.py                    # Entry point (`python -m src.main`)
+├── constants.py               # Shared literals + defaults
 │
-├── rdf/                       # RDF/OWL/TTL format support
-│   ├── __init__.py            # Package exports
-│   ├── rdf_converter.py       # Main RDF → Fabric converter
-│   ├── preflight_validator.py # Pre-conversion validation
-│   ├── fabric_to_ttl.py       # Fabric → TTL export
-│   ├── rdf_parser.py          # TTL parsing with memory management
-│   ├── property_extractor.py  # Class/property extraction
-│   ├── type_mapper.py         # XSD → Fabric type mapping
-│   ├── uri_utils.py           # URI resolution
-│   ├── class_resolver.py      # OWL class handling
-│   └── fabric_serializer.py   # JSON serialization
+├── app/                       # User-facing experience layer
+│   └── cli/
+│       ├── commands.py        # Command registry + dispatcher
+│       ├── format.py          # Format detection utilities
+│       ├── helpers.py         # Logging/config helpers
+│       ├── parsers.py         # Argparse configuration
+│       └── commands/          # Command implementations
+│           ├── base.py        # BaseCommand + protocols
+│           ├── common.py      # list/get/delete/test/compare
+│           ├── unified.py     # validate/convert/upload/export
+│           ├── rdf.py         # RDF helpers
+│           └── dtdl.py        # DTDL helpers
 │
-├── dtdl/                      # DTDL v2/v3/v4 format support
-│   ├── __init__.py            # Package exports
-│   ├── cli.py                 # DTDL-specific commands
-│   ├── dtdl_parser.py         # Parse DTDL JSON
-│   ├── dtdl_validator.py      # Validate DTDL structure
-│   ├── dtdl_converter.py      # DTDL → Fabric conversion
-│   ├── dtdl_models.py         # DTDL data structures
-│   └── dtdl_type_mapper.py    # DTDL type mapping
+├── formats/                   # Format pipelines (new home for converters)
+│   ├── base.py                # FormatPipeline contract
+│   ├── rdf/
+│   │   ├── rdf_converter.py
+│   │   ├── preflight_validator.py
+│   │   ├── fabric_to_ttl.py
+│   │   ├── rdf_parser.py
+│   │   ├── property_extractor.py
+│   │   ├── type_mapper.py
+│   │   └── fabric_serializer.py
+│   └── dtdl/
+│       ├── dtdl_parser.py
+│       ├── dtdl_validator.py
+│       ├── dtdl_converter.py
+│       ├── dtdl_models.py
+│       └── dtdl_type_mapper.py
 │
-├── core/                      # Shared infrastructure
-│   ├── __init__.py            # Package exports
-│   ├── fabric_client.py       # Fabric API client
-│   ├── rate_limiter.py        # Token bucket rate limiting
-│   ├── circuit_breaker.py     # Fault tolerance
-│   ├── cancellation.py        # Graceful shutdown
-│   ├── memory.py              # Memory management
-│   ├── streaming.py           # Memory-efficient processing
-│   ├── validators.py          # Input validation, SSRF protection
-│   ├── compliance.py          # DTDL/RDF compliance validation
-│   ├── auth.py                # Azure authentication helpers
-│   ├── http_client.py         # HTTP utilities
-│   └── lro_handler.py         # Long-running operation handling
+├── shared/                    # Cross-format models + utilities
+│   ├── models/
+│   │   ├── base.py
+│   │   ├── fabric_types.py
+│   │   └── conversion.py
+│   └── utilities/
+│       ├── validation.py
+│       ├── type_registry.py
+│       └── id_generator.py
 │
-├── models/                    # Shared data models
-│   ├── __init__.py
-│   ├── base.py                # Abstract converter interface
-│   ├── fabric_types.py        # EntityType, RelationshipType
-│   └── conversion.py          # ConversionResult, ValidationResult
+├── core/                      # Fabric client + resilience primitives
+│   ├── fabric_client.py
+│   ├── rate_limiter.py
+│   ├── circuit_breaker.py
+│   ├── cancellation.py
+│   ├── memory.py
+│   ├── streaming.py
+│   ├── validators.py
+│   ├── auth.py
+│   ├── http_client.py
+│   └── lro_handler.py
 │
-└── cli/                       # Command-line interface
-    ├── commands/              # Modular command implementations
-    │   ├── base.py            # BaseCommand ABC
-    │   ├── common.py          # List, Get, Delete, Test, Compare
-    │   └── unified.py         # Unified commands with format dispatch
-    ├── format.py              # Format enum and service factories
-    ├── helpers.py             # CLI utilities
-    └── parsers.py             # Argument parsing with shared flags
+├── plugins/                   # Plugin base + discovery
+│   ├── base.py
+│   ├── manager.py
+│   ├── protocols.py
+│   └── builtin/
+│       ├── rdf_plugin.py
+│       └── dtdl_plugin.py
+│
+├── rdf/                       # Back-compat shim → formats.rdf
+├── dtdl/                      # Back-compat shim → formats.dtdl
+└── logs/                      # Default application logs directory
 ```
 
 ### Recommended Import Patterns
@@ -409,20 +447,23 @@ src/
 **Format-based imports:**
 ```python
 # RDF format
-from rdf import RDFToFabricConverter, PreflightValidator, parse_ttl_content
+from formats.rdf.rdf_converter import RDFToFabricConverter
+from formats.rdf.preflight_validator import PreflightValidator
 
-# DTDL format  
-from dtdl import DTDLParser, DTDLValidator
+# DTDL format
+from formats.dtdl.dtdl_parser import DTDLParser
+from formats.dtdl.dtdl_validator import DTDLValidator
 
 # Core infrastructure
-from core import FabricConfig, FabricOntologyClient, CircuitBreaker, CancellationToken
+from core.fabric_client import FabricOntologyClient
+from core.cancellation import CancellationToken
+from core.circuit_breaker import CircuitBreaker
 ```
 
-**Package-level imports:**
+**Back-compat imports (still supported):**
 ```python
-from src import RDFToFabricConverter
-from src.rdf import parse_ttl_content
-from src.core import FabricConfig
+from rdf import RDFToFabricConverter           # Proxies to formats.rdf
+from dtdl import DTDLParser                    # Proxies to formats.dtdl
 ```
 
 ---
@@ -466,19 +507,16 @@ src/plugins/
 ├── __init__.py              # Package exports
 ├── base.py                  # OntologyPlugin ABC
 ├── protocols.py             # Parser, Validator, Converter protocols
-├── manager.py               # PluginManager for discovery/registration
-├── discovery.py             # Auto-discovery of plugins
-│
-├── builtin/                 # Built-in plugin implementations
-│   ├── __init__.py
-│   ├── rdf_plugin.py        # RDF/TTL/OWL (includes JSON-LD)
-│   └── dtdl_plugin.py       # DTDL v2/v3/v4 format
-│
-src/common/                  # Shared infrastructure for plugins
-├── __init__.py
+├── manager.py               # PluginManager (singleton)
+└── builtin/                 # Built-in plugin implementations
+    ├── __init__.py
+    ├── rdf_plugin.py        # RDF/TTL/OWL (includes JSON-LD)
+    └── dtdl_plugin.py       # DTDL v2/v3/v4 format
+
+src/shared/utilities/        # Shared infrastructure leveraged by plugins
+├── validation.py            # ValidationResult + helpers
 ├── type_registry.py         # Common type mapping infrastructure
-├── id_generator.py          # Standardized ID generation
-└── validation.py            # Unified validation result models
+└── id_generator.py          # Standardized ID generation
 ```
 
 ### Plugin Base Class
@@ -511,13 +549,13 @@ class MyFormatPlugin(OntologyPlugin):
         return MyFormatConverter()
 ```
 
-### Common Layer
+### Shared Utilities Layer
 
-The `src/common/` module provides shared infrastructure:
+The `src/shared/utilities/` module provides shared infrastructure:
 
 - **TypeRegistry**: Central type mapping with format-specific extensions
 - **IDGenerator**: Consistent entity/relationship ID generation
-- **ValidationResult**: Unified validation reporting model
+- **Validation**: Unified validation reporting model (`ValidationResult`, `IssueCategory`, etc.)
 
 ### Plugin Discovery
 
@@ -541,10 +579,10 @@ python -m src.main plugin list
 
 **Programmatic Usage:**
 ```python
-from plugins import PluginManager
+from plugins.manager import PluginManager
 
-manager = PluginManager()
-manager.load_plugins()
+manager = PluginManager.get_instance()
+manager.discover_plugins()
 
 # Get a specific plugin (e.g., RDF)
 rdf_plugin = manager.get_plugin("rdf")
@@ -647,9 +685,9 @@ token.register_callback(close_connections)
 
 1. **Create converter module:**
    ```python
-   # src/newformat/converter.py
-   from src.models.base import BaseConverter
-   from src.models.conversion import ConversionResult
+   # src/formats/newformat/converter.py
+   from shared.models.base import BaseConverter
+   from shared.models.conversion import ConversionResult
    
    class NewFormatConverter(BaseConverter):
        @property
@@ -661,24 +699,23 @@ token.register_callback(close_connections)
            pass
    ```
 
-2. **Add CLI commands:**
+2. **Expose via plugin:** (preferred)
    ```python
-   # src/cli/commands.py
-   def newformat_import_command(args):
-       converter = NewFormatConverter()
-       result = converter.convert_file(args.file)
-       # Upload to Fabric
+   # src/plugins/builtin/newformat_plugin.py
+   class NewFormatPlugin(OntologyPlugin):
+       def get_converter(self):
+           from formats.newformat.converter import NewFormatConverter
+           return NewFormatConverter()
    ```
 
-3. **Register command:**
-   ```python
-   # src/cli/parsers.py
-   parser.add_parser('newformat-import', ...)
-   ```
+3. **Wire up CLI (if needed):**
+   - Add format enum/extension mapping in `src/app/cli/format.py`
+   - Ensure plugin discovery (`PluginManager`) finds the new plugin
+   - CLI commands automatically dispatch once the format is registered
 
 ### Adding Custom Type Mapping
 
-Extend `type_mapper.py` with new XSD types:
+Extend `formats/rdf/type_mapper.py` with new XSD types:
 
 ```python
 XSD_TO_FABRIC_TYPE[str(XSD.gYear)] = "String"
@@ -687,7 +724,7 @@ XSD_TO_FABRIC_TYPE[str(XSD.gMonthDay)] = "String"
 
 ### Adding Custom Validation Rules
 
-Extend `PreflightValidator` or `DTDLValidator`:
+Extend `formats.rdf.preflight_validator.PreflightValidator` or `formats.dtdl.dtdl_validator.DTDLValidator`:
 
 ```python
 class CustomValidator(PreflightValidator):

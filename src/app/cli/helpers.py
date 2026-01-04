@@ -466,3 +466,30 @@ def confirm_action(
         return default
     
     return response in ('y', 'yes')
+
+
+def resolve_dtdl_converter_modes(args: Any) -> Tuple[Any, Any]:
+    """Resolve DTDL converter mode enums from CLI arguments.
+
+    Args:
+        args: Argument namespace or object with component_mode/command_mode attributes.
+
+    Returns:
+        Tuple of (ComponentMode, CommandMode) enums.
+    """
+    from formats.dtdl import ComponentMode, CommandMode  # Local import to avoid cycles
+
+    component_mode_value = getattr(args, 'component_mode', ComponentMode.SKIP.value)
+    command_mode_value = getattr(args, 'command_mode', CommandMode.SKIP.value)
+
+    try:
+        component_mode = ComponentMode(component_mode_value)
+    except ValueError as exc:  # pragma: no cover - argparse should prevent this
+        raise ValueError(f"Unsupported component mode: {component_mode_value}") from exc
+
+    try:
+        command_mode = CommandMode(command_mode_value)
+    except ValueError as exc:  # pragma: no cover - argparse should prevent this
+        raise ValueError(f"Unsupported command mode: {command_mode_value}") from exc
+
+    return component_mode, command_mode

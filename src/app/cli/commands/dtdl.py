@@ -10,38 +10,32 @@ This module contains commands for DTDL file operations:
 import argparse
 import json
 import logging
-import sys
 from pathlib import Path
-from typing import Any, List, Optional, Tuple
+from typing import Any, Dict, Optional
 
-# Ensure src directory is in path for late imports
-_src_dir = str(Path(__file__).parent.parent.parent)
-if _src_dir not in sys.path:
-    sys.path.insert(0, _src_dir)
-
+from core import (
+    FabricConfig,
+    FabricOntologyClient,
+    StreamConfig,
+    DTDLStreamAdapter,
+)
+from formats.dtdl import DTDLParser, DTDLToFabricConverter, DTDLValidator
+from ..helpers import resolve_dtdl_converter_modes
 from .base import BaseCommand, print_conversion_summary
-
-try:
-    from ..helpers import (
-        load_config,
-        get_default_config_path,
-        setup_logging,
-        print_header,
-        print_footer,
-        confirm_action,
-    )
-except ImportError:
-    from cli.helpers import (
-        load_config,
-        get_default_config_path,
-        setup_logging,
-        print_header,
-        print_footer,
-        confirm_action,
-    )
 
 
 logger = logging.getLogger(__name__)
+
+
+def _get_converter_kwargs(args: argparse.Namespace) -> Dict[str, Any]:
+    """Build keyword arguments for DTDLToFabricConverter from CLI args."""
+    namespace = getattr(args, 'namespace', 'usertypes')
+    component_mode, command_mode = resolve_dtdl_converter_modes(args)
+    return {
+        "namespace": namespace,
+        "component_mode": component_mode,
+        "command_mode": command_mode,
+    }
 
 
 class DTDLValidateCommand(BaseCommand):
@@ -49,22 +43,17 @@ class DTDLValidateCommand(BaseCommand):
     
     def execute(self, args: argparse.Namespace) -> int:
         """Execute DTDL validation."""
-        from pathlib import Path
-        
-        # Import DTDL modules
-        try:
-            from dtdl.dtdl_parser import DTDLParser, ParseError
-            from dtdl.dtdl_validator import DTDLValidator
-        except ImportError:
-            print("Error: DTDL module not found. Ensure src/dtdl/ exists.")
-            return 1
-        
-        path = Path(args.path)
+        self.setup_logging_from_config()
+        path = Path(args.path).expanduser()
+        if not path.exists():
+            print(f"Error: Path does not exist: {path}")
+            return 2
+
         parser = DTDLParser()
         validator = DTDLValidator()
-        
+
         print(f"Validating DTDL at: {path}")
-        
+
         try:
             if path.is_file():
                 result = parser.parse_file(str(path))
@@ -72,25 +61,21 @@ class DTDLValidateCommand(BaseCommand):
                 recursive = getattr(args, 'recursive', False)
                 result = parser.parse_directory(str(path), recursive=recursive)
             else:
-                print(f"Error: Path does not exist: {path}")
+                print(f"Error: Path is neither file nor directory: {path}")
                 return 2
-        except ParseError as e:
-            print(f"Parse error: {e}")
+        except Exception as exc:
+            print(f"Unexpected error parsing DTDL: {exc}")
             return 2
-        except Exception as e:
-            print(f"Unexpected error parsing: {e}")
-            return 2
-        
+
         if result.errors:
             print(f"Found {len(result.errors)} parse errors:")
             for error in result.errors[:10]:
                 print(f"  - {error}")
             if not getattr(args, 'continue_on_error', False):
                 return 2
-        
+
         print(f"Parsed {len(result.interfaces)} interfaces")
-        
-        # Validate
+
         validation_result = validator.validate(result.interfaces)
         
         # Build report data
@@ -165,148 +150,140 @@ class DTDLConvertCommand(BaseCommand):
     
     def execute(self, args: argparse.Namespace) -> int:
         """Execute DTDL conversion."""
-        from pathlib import Path
-        import json
-        
-        # Import DTDL modules
-        try:
-            from dtdl.dtdl_parser import DTDLParser
-            from dtdl.dtdl_validator import DTDLValidator
-            from dtdl.dtdl_converter import DTDLToFabricConverter
-        except ImportError:
-            print("Error: DTDL module not found. Ensure src/dtdl/ exists.")
-            return 1
-        
-        path = Path(args.path)
+        self.setup_logging_from_config()
+        path = Path(args.path).expanduser()
+        if not path.exists():
+            print(f"Error: Path does not exist: {path}")
+            return 2
+
         use_streaming = getattr(args, 'streaming', False)
         force_memory = getattr(args, 'force_memory', False)
-        
-        # Check file size for streaming suggestion
+
         if path.is_file():
             file_size_mb = path.stat().st_size / (1024 * 1024)
             if file_size_mb > 100 and not use_streaming and not force_memory:
                 print(f"⚠️  Large file detected ({file_size_mb:.1f} MB). Consider using --streaming.")
-        
-        # Use streaming mode if requested
+
         if use_streaming:
             return self._convert_with_streaming(args, path)
-        
-        # Parse
+
         print(f"Parsing DTDL files from: {path}")
         parser = DTDLParser()
-        
+
         try:
             if path.is_file():
                 result = parser.parse_file(str(path))
-            else:
+            elif path.is_dir():
                 recursive = getattr(args, 'recursive', False)
                 result = parser.parse_directory(str(path), recursive=recursive)
-        except Exception as e:
-            print(f"Parse error: {e}")
+            else:
+                print(f"Error: Path is neither file nor directory: {path}")
+                return 2
+        except Exception as exc:
+            print(f"Parse error: {exc}")
             return 2
-        
+
         if result.errors:
             print(f"Parse errors: {len(result.errors)}")
+            for error in result.errors[:5]:
+                print(f"  - {error}")
             return 2
-        
+
         print(f"Parsed {len(result.interfaces)} interfaces")
-        
-        # Validate
+
         validator = DTDLValidator()
         validation_result = validator.validate(result.interfaces)
-        
+
         if validation_result.errors:
             print(f"Validation errors: {len(validation_result.errors)}")
             for error in validation_result.errors[:5]:
                 print(f"  - {error.message}")
             return 1
-        
-        # Convert
-        converter = DTDLToFabricConverter(
-            namespace=getattr(args, 'namespace', 'usertypes'),
-            flatten_components=getattr(args, 'flatten_components', False),
-        )
-        
+
+        converter = DTDLToFabricConverter(**_get_converter_kwargs(args))
+
         conversion_result = converter.convert(result.interfaces)
         ontology_name = getattr(args, 'ontology_name', None) or path.stem
         definition = converter.to_fabric_definition(conversion_result, ontology_name)
-        
-        # Save output
+
         output_path = Path(getattr(args, 'output', None) or f"{ontology_name}_fabric.json")
         with open(output_path, 'w', encoding='utf-8') as f:
             json.dump(definition, f, indent=2)
-        
+
         print_conversion_summary(conversion_result, heading="CONVERSION SUMMARY")
         print(f"  Output: {output_path}")
-        
-        # Save mapping if requested
+
         if getattr(args, 'save_mapping', False):
             mapping_path = output_path.with_suffix('.mapping.json')
             with open(mapping_path, 'w', encoding='utf-8') as f:
                 json.dump(converter.get_dtmi_mapping(), f, indent=2)
             print(f"  DTMI mapping: {mapping_path}")
-        
+
         return 0
     
     def _convert_with_streaming(self, args, path) -> int:
         """Convert DTDL files using streaming mode."""
-        import json
-        from pathlib import Path
-        
-        try:
-            from core.streaming import (
-                StreamingEngine,
-                DTDLStreamReader,
-                DTDLChunkProcessor,
-                StreamConfig,
-            )
-        except ImportError:
-            print("Error: Streaming module not available. Try without --streaming.")
-            return 1
-        
         print("Using streaming mode for conversion...")
-        
+
+        converter_kwargs = _get_converter_kwargs(args)
+        ontology_name = getattr(args, 'ontology_name', None) or path.stem
+
         config = StreamConfig(
             chunk_size=10000,
             memory_threshold_mb=100.0,
             enable_progress=True,
         )
-        
-        engine = StreamingEngine(
-            reader=DTDLStreamReader(),
-            processor=DTDLChunkProcessor(
-                namespace=getattr(args, 'namespace', 'usertypes'),
-                flatten_components=getattr(args, 'flatten_components', False),
-            ),
-            config=config
+
+        adapter = DTDLStreamAdapter(
+            config=config,
+            ontology_name=ontology_name,
+            namespace=converter_kwargs["namespace"],
+            component_mode=converter_kwargs["component_mode"],
+            command_mode=converter_kwargs["command_mode"],
         )
-        
+
         def progress_callback(items_processed: int) -> None:
             if items_processed % 1000 == 0:
                 print(f"  Processed {items_processed:,} items...")
-        
+
         try:
-            result = engine.process_file(str(path), progress_callback=progress_callback)
-            
-            if not result.success:
-                print(f"Streaming conversion failed: {result.error}")
-                return 1
-            
-            ontology_name = getattr(args, 'ontology_name', None) or path.stem
-            output_path = Path(getattr(args, 'output', None) or f"{ontology_name}_fabric.json")
-            
-            with open(output_path, 'w', encoding='utf-8') as f:
-                json.dump(result.data, f, indent=2)
-            
-            print(f"Streaming conversion complete!")
-            print(result.stats.get_summary())
-            print(f"  Output: {output_path}")
-            
-            return 0
-            
-        except Exception as e:
-            print(f"Streaming conversion error: {e}")
+            result = adapter.convert_streaming(
+                str(path),
+                progress_callback=progress_callback,
+            )
+        except Exception as exc:
+            print(f"Streaming conversion error: {exc}")
             return 1
+
+        if not result.success:
+            error_message = result.error_message or "unknown error"
+            print(f"Streaming conversion failed: {error_message}")
+            return 1
+
+        payload = result.data or {}
+        definition = payload.get("definition")
+        conversion_result = payload.get("conversion_result")
+
+        if definition is None or conversion_result is None:
+            print("Streaming conversion returned no definition from adapter.")
+            return 1
+
+        output_path = Path(getattr(args, 'output', None) or f"{ontology_name}_fabric.json")
+        with open(output_path, 'w', encoding='utf-8') as f:
+            json.dump(definition, f, indent=2)
+
+        print("Streaming conversion complete!")
+        print_conversion_summary(conversion_result, heading="CONVERSION SUMMARY")
+        print(result.stats.get_summary())
+        print(f"  Output: {output_path}")
+
+        if getattr(args, 'save_mapping', False) and payload.get("dtmi_mapping"):
+            mapping_path = output_path.with_suffix('.mapping.json')
+            with open(mapping_path, 'w', encoding='utf-8') as f:
+                json.dump(payload["dtmi_mapping"], f, indent=2)
+            print(f"  DTMI mapping: {mapping_path}")
+
+        return 0
 
 
 class DTDLImportCommand(BaseCommand):
@@ -314,83 +291,73 @@ class DTDLImportCommand(BaseCommand):
     
     def execute(self, args: argparse.Namespace) -> int:
         """Execute DTDL import pipeline."""
-        from pathlib import Path
-        import json
-        
-        # Import DTDL modules
-        try:
-            from dtdl.dtdl_parser import DTDLParser
-            from dtdl.dtdl_validator import DTDLValidator
-            from dtdl.dtdl_converter import DTDLToFabricConverter
-        except ImportError:
-            print("Error: DTDL module not found. Ensure src/dtdl/ exists.")
-            return 1
-        
-        path = Path(args.path)
+        if getattr(args, 'config', None):
+            self.config_path = args.config
+        self.setup_logging_from_config()
+
+        path = Path(args.path).expanduser()
+        if not path.exists():
+            print(f"Error: Path does not exist: {path}")
+            return 2
+
         ontology_name = getattr(args, 'ontology_name', None) or path.stem
         use_streaming = getattr(args, 'streaming', False)
         force_memory = getattr(args, 'force_memory', False)
-        
+
         print(f"=== DTDL Import: {path} ===")
-        
-        # Check file size for streaming suggestion
+
         if path.is_file():
             file_size_mb = path.stat().st_size / (1024 * 1024)
             if file_size_mb > 100 and not use_streaming and not force_memory:
                 print(f"⚠️  Large file detected ({file_size_mb:.1f} MB). Consider using --streaming.")
-        
-        # Use streaming mode if requested
+
         if use_streaming:
             return self._import_with_streaming(args, path, ontology_name)
-        
-        # Step 1: Parse
+
         print("\nStep 1: Parsing DTDL files...")
         parser = DTDLParser()
-        
+
         try:
             if path.is_file():
                 result = parser.parse_file(str(path))
-            else:
+            elif path.is_dir():
                 recursive = getattr(args, 'recursive', False)
                 result = parser.parse_directory(str(path), recursive=recursive)
-        except Exception as e:
-            print(f"  ✗ Parse error: {e}")
+            else:
+                print(f"  ✗ Invalid path: {path}")
+                return 2
+        except Exception as exc:
+            print(f"  ✗ Parse error: {exc}")
             return 2
-        
+
         if result.errors:
             print(f"  ✗ Parse errors: {len(result.errors)}")
             for error in result.errors[:5]:
                 print(f"    - {error}")
             return 2
-        
+
         print(f"  ✓ Parsed {len(result.interfaces)} interfaces")
-        
-        # Step 2: Validate
+
         print("\nStep 2: Validating...")
         validator = DTDLValidator()
         validation_result = validator.validate(result.interfaces)
-        
+
         if validation_result.errors:
             print(f"  ✗ Validation errors: {len(validation_result.errors)}")
             for error in validation_result.errors[:5]:
                 print(f"    - {error.message}")
             return 1
-        
+
         print("  ✓ Validation passed")
-        
-        # Step 3: Convert
+
         print("\nStep 3: Converting to Fabric format...")
-        converter = DTDLToFabricConverter(
-            namespace=getattr(args, 'namespace', 'usertypes'),
-            flatten_components=getattr(args, 'flatten_components', False),
-        )
-        
+        converter = DTDLToFabricConverter(**_get_converter_kwargs(args))
+
         conversion_result = converter.convert(result.interfaces)
         definition = converter.to_fabric_definition(conversion_result, ontology_name)
-        
+
         print_conversion_summary(conversion_result, heading="CONVERSION SUMMARY")
-        
-        # Step 4: Upload (or dry-run)
+
         if getattr(args, 'dry_run', False):
             print("\nStep 4: Dry run - saving to file...")
             output_path = Path(getattr(args, 'output', None) or f"{ontology_name}_fabric.json")
@@ -399,26 +366,10 @@ class DTDLImportCommand(BaseCommand):
             print(f"  ✓ Definition saved to: {output_path}")
         else:
             print("\nStep 4: Uploading to Fabric...")
-            
-            try:
-                from core import FabricOntologyClient, FabricConfig
-            except ImportError:
-                print("  ✗ Could not import FabricOntologyClient")
+            client = self._get_fabric_client(args)
+            if client is None:
                 return 1
-            
-            # Load config
-            config_path = getattr(args, 'config', None) or str(Path(__file__).parent.parent.parent / "config.json")
-            try:
-                config = FabricConfig.from_file(config_path)
-            except FileNotFoundError:
-                print(f"  ✗ Config file not found: {config_path}")
-                return 1
-            except Exception as e:
-                print(f"  ✗ Error loading config: {e}")
-                return 1
-            
-            client = FabricOntologyClient(config)
-            
+
             try:
                 result = client.create_ontology(
                     display_name=ontology_name,
@@ -427,66 +378,64 @@ class DTDLImportCommand(BaseCommand):
                 )
                 ontology_id = result.get('id') if isinstance(result, dict) else result
                 print(f"  ✓ Upload successful! Ontology ID: {ontology_id}")
-            except Exception as e:
-                print(f"  ✗ Upload failed: {e}")
+            except Exception as exc:
+                print(f"  ✗ Upload failed: {exc}")
                 return 1
-        
+
         print("\n=== Import complete ===")
         return 0
     
     def _import_with_streaming(self, args, path, ontology_name: str) -> int:
         """Import DTDL files using streaming mode."""
-        import json
-        from pathlib import Path
-        
-        try:
-            from core.streaming import (
-                StreamingEngine,
-                DTDLStreamReader,
-                DTDLChunkProcessor,
-                StreamConfig,
-            )
-        except ImportError:
-            print("Error: Streaming module not available. Try without --streaming.")
-            return 1
-        
         print("Using streaming mode for import...")
-        
+
+        converter_kwargs = _get_converter_kwargs(args)
         config = StreamConfig(
             chunk_size=10000,
             memory_threshold_mb=100.0,
             enable_progress=True,
         )
-        
-        engine = StreamingEngine(
-            reader=DTDLStreamReader(),
-            processor=DTDLChunkProcessor(
-                namespace=getattr(args, 'namespace', 'usertypes'),
-                flatten_components=getattr(args, 'flatten_components', False),
-            ),
-            config=config
+
+        adapter = DTDLStreamAdapter(
+            config=config,
+            ontology_name=ontology_name,
+            namespace=converter_kwargs["namespace"],
+            component_mode=converter_kwargs["component_mode"],
+            command_mode=converter_kwargs["command_mode"],
         )
-        
+
         def progress_callback(items_processed: int) -> None:
             if items_processed % 1000 == 0:
                 print(f"  Processed {items_processed:,} items...")
-        
+
         try:
-            result = engine.process_file(str(path), progress_callback=progress_callback)
-            
-            if not result.success:
-                print(f"Streaming conversion failed: {result.error}")
-                return 1
-            
-            definition = result.data
-            print(f"Streaming conversion complete!")
-            print(result.stats.get_summary())
-            
-        except Exception as e:
-            print(f"Streaming conversion error: {e}")
+            result = adapter.convert_streaming(
+                str(path),
+                progress_callback=progress_callback,
+            )
+        except Exception as exc:
+            print(f"Streaming conversion error: {exc}")
             return 1
-        
-        # Handle dry-run or upload
+
+        if not result.success:
+            error_message = result.error_message or "unknown error"
+            print(f"Streaming conversion failed: {error_message}")
+            return 1
+
+        payload = result.data or {}
+        definition = payload.get("definition")
+        conversion_result = payload.get("conversion_result")
+
+        if conversion_result is not None:
+            print_conversion_summary(conversion_result, heading="CONVERSION SUMMARY")
+
+        if definition is None:
+            print("Streaming conversion returned no definition from adapter.")
+            return 1
+
+        print("Streaming conversion complete!")
+        print(result.stats.get_summary())
+
         if getattr(args, 'dry_run', False):
             print("\nDry run - saving to file...")
             output_path = Path(getattr(args, 'output', None) or f"{ontology_name}_fabric.json")
@@ -495,25 +444,10 @@ class DTDLImportCommand(BaseCommand):
             print(f"  ✓ Definition saved to: {output_path}")
         else:
             print("\nUploading to Fabric...")
-            
-            try:
-                from core import FabricOntologyClient, FabricConfig
-            except ImportError:
-                print("  ✗ Could not import FabricOntologyClient")
+            client = self._get_fabric_client(args)
+            if client is None:
                 return 1
-            
-            config_path = getattr(args, 'config', None) or str(Path(__file__).parent.parent.parent / "config.json")
-            try:
-                fabric_config = FabricConfig.from_file(config_path)
-            except FileNotFoundError:
-                print(f"  ✗ Config file not found: {config_path}")
-                return 1
-            except Exception as e:
-                print(f"  ✗ Error loading config: {e}")
-                return 1
-            
-            client = FabricOntologyClient(fabric_config)
-            
+
             try:
                 upload_result = client.create_ontology(
                     display_name=ontology_name,
@@ -522,9 +456,34 @@ class DTDLImportCommand(BaseCommand):
                 )
                 ontology_id = upload_result.get('id') if isinstance(upload_result, dict) else upload_result
                 print(f"  ✓ Upload successful! Ontology ID: {ontology_id}")
-            except Exception as e:
-                print(f"  ✗ Upload failed: {e}")
+            except Exception as exc:
+                print(f"  ✗ Upload failed: {exc}")
                 return 1
-        
+
         print("\n=== Import complete ===")
         return 0
+
+    def _get_fabric_client(self, args: argparse.Namespace) -> Optional[FabricOntologyClient]:
+        """Resolve Fabric configuration and return a client instance."""
+        if getattr(args, 'config', None):
+            self.config_path = args.config
+
+        try:
+            config_data = self.config
+        except (FileNotFoundError, PermissionError, ValueError, IOError) as exc:
+            print(f"  ✗ {exc}")
+            return None
+
+        try:
+            fabric_config = FabricConfig.from_dict(config_data)
+        except Exception as exc:
+            print(f"  ✗ Invalid Fabric configuration: {exc}")
+            return None
+
+        logger.debug("Loaded Fabric config from %s", self.config_path)
+
+        if not fabric_config.workspace_id or fabric_config.workspace_id == "YOUR_WORKSPACE_ID":
+            print("  ✗ Configuration Error: Please configure your Fabric workspace_id in config.json")
+            return None
+
+        return FabricOntologyClient(fabric_config)

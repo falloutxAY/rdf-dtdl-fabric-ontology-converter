@@ -130,11 +130,11 @@ def _register_defaults() -> None:
     """Register default factories for RDF and DTDL."""
     # RDF validators/converters
     def rdf_validator():
-        from ..rdf import PreflightValidator
+        from rdf import PreflightValidator
         return PreflightValidator()
 
     def rdf_converter():
-        from ..rdf import RDFToFabricConverter
+        from rdf import RDFToFabricConverter
         return RDFToFabricConverter()
 
     register_validator(Format.RDF, rdf_validator)
@@ -142,11 +142,11 @@ def _register_defaults() -> None:
 
     # DTDL validators/converters
     def dtdl_validator():
-        from ..dtdl.dtdl_validator import DTDLValidator
+        from dtdl.dtdl_validator import DTDLValidator
         return DTDLValidator()
 
     def dtdl_converter():
-        from ..dtdl.dtdl_converter import DTDLToFabricConverter
+        from dtdl.dtdl_converter import DTDLToFabricConverter
         return DTDLToFabricConverter()
 
     register_validator(Format.DTDL, dtdl_validator)

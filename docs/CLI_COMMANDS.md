@@ -119,8 +119,11 @@ python -m src.main convert --format dtdl models/ --ontology-name MyDigitalTwin
 # Save DTMI mapping for reference
 python -m src.main convert --format dtdl models/ --save-mapping
 
-# Flatten components into parent entities
-python -m src.main convert --format dtdl models/ --flatten-components
+# Control component handling
+python -m src.main convert --format dtdl models/ --component-mode separate
+
+# Emit Fabric CommandType entities for DTDL commands
+python -m src.main convert --format dtdl models/ --command-mode entity
 ```
 
 **Options:**
@@ -136,7 +139,8 @@ python -m src.main convert --format dtdl models/ --flatten-components
 | `--allow-relative-up` | | Allow `..` in paths within current directory |
 | `--save-report` | `-s` | Save conversion report |
 | `--namespace` | | Namespace for entity types (DTDL, default: `usertypes`) |
-| `--flatten-components` | | Flatten component properties into parent (DTDL) |
+| `--component-mode` | | Handle components: `skip`, `separate`, `flatten` (DTDL) |
+| `--command-mode` | | Handle commands: `skip`, `entity`, `property` (DTDL) |
 | `--save-mapping` | | Save DTMI to Fabric ID mapping file (DTDL) |
 
 ### upload
@@ -183,7 +187,8 @@ python -m src.main upload --format dtdl ./models/ --namespace custom_ns
 | `--dry-run` | | Convert but do not upload |
 | `--output` | `-o` | Output file path for dry-run mode |
 | `--namespace` | | Namespace for entity types (DTDL, default: `usertypes`) |
-| `--flatten-components` | | Flatten component properties into parent (DTDL) |
+| `--component-mode` | | Handle components: `skip`, `separate`, `flatten` (DTDL) |
+| `--command-mode` | | Handle commands: `skip`, `entity`, `property` (DTDL) |
 | `--continue-on-error` | | Continue on parse errors |
 
 ### export

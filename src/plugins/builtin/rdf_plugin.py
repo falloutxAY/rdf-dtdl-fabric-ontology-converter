@@ -9,19 +9,6 @@ from typing import Any, Dict, List, Optional, Set
 
 from ..base import OntologyPlugin
 
-# Existing RDF modules
-try:
-    from ...rdf.rdf_parser import RDFGraphParser
-    from ...rdf.preflight_validator import PreflightValidator
-    from ...rdf.rdf_converter import RDFToFabricConverter
-    from ...rdf.type_mapper import XSD_TO_FABRIC_TYPE
-except ImportError:
-    # Fallback for standalone reference
-    RDFGraphParser = None  # type: ignore
-    PreflightValidator = None  # type: ignore
-    RDFToFabricConverter = None  # type: ignore
-    XSD_TO_FABRIC_TYPE = {}
-
 
 class RDFPlugin(OntologyPlugin):
     """
@@ -78,25 +65,35 @@ class RDFPlugin(OntologyPlugin):
     
     def get_parser(self) -> Any:
         """Return RDF parser."""
-        if RDFGraphParser is None:
+        try:
+            from rdf import RDFGraphParser
+            return RDFGraphParser()
+        except ImportError:
             raise ImportError("RDF modules not available")
-        return RDFGraphParser()
     
     def get_validator(self) -> Any:
         """Return RDF validator."""
-        if PreflightValidator is None:
+        try:
+            from rdf import PreflightValidator
+            return PreflightValidator()
+        except ImportError:
             raise ImportError("RDF modules not available")
-        return PreflightValidator()
     
     def get_converter(self) -> Any:
         """Return RDF converter."""
-        if RDFToFabricConverter is None:
+        try:
+            from rdf import RDFToFabricConverter
+            return RDFToFabricConverter()
+        except ImportError:
             raise ImportError("RDF modules not available")
-        return RDFToFabricConverter()
     
     def get_type_mappings(self) -> Dict[str, str]:
         """Return XSD to Fabric type mappings."""
-        return XSD_TO_FABRIC_TYPE
+        try:
+            from rdf import XSD_TO_FABRIC_TYPE
+            return XSD_TO_FABRIC_TYPE
+        except ImportError:
+            return {}
     
     def register_cli_arguments(self, parser: Any) -> None:
         """Add RDF-specific CLI arguments."""

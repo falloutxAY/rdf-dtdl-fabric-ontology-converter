@@ -18,32 +18,18 @@ from rdflib.term import Node
 from tqdm import tqdm
 
 # Import from sibling modules
-try:
-    from .type_mapper import TypeMapper, XSD_TO_FABRIC_TYPE
-    from .uri_utils import URIUtils
-    from .class_resolver import ClassResolver
-except ImportError:
-    from rdf.type_mapper import TypeMapper, XSD_TO_FABRIC_TYPE
-    from rdf.uri_utils import URIUtils
-    from rdf.class_resolver import ClassResolver
+from .type_mapper import TypeMapper, XSD_TO_FABRIC_TYPE
+from .uri_utils import URIUtils
+from .class_resolver import ClassResolver
 
 # Import models
-try:
-    from ..models import (
-        EntityType,
-        EntityTypeProperty,
-        RelationshipType,
-        RelationshipEnd,
-        SkippedItem,
-    )
-except ImportError:
-    from models import (
-        EntityType,
-        EntityTypeProperty,
-        RelationshipType,
-        RelationshipEnd,
-        SkippedItem,
-    )
+from shared.models import (
+    EntityType,
+    EntityTypeProperty,
+    RelationshipType,
+    RelationshipEnd,
+    SkippedItem,
+)
 
 logger = logging.getLogger(__name__)
 

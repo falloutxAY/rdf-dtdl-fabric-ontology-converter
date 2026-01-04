@@ -238,6 +238,14 @@ class DTDLParser:
         self._parse_json_content(data, source_name, result)
         
         return result
+
+    def parse_interface_dict(
+        self,
+        data: Dict[str, Any],
+        source: str = "<stream>"
+    ) -> Optional[DTDLInterface]:
+        """Parse a single interface dictionary (utility for streaming)."""
+        return self._parse_interface(data, source)
     
     def _parse_json_content(
         self,

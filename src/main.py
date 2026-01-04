@@ -39,35 +39,19 @@ Architecture:
 
 import sys
 
-# Use try/except for imports to support both module and direct execution
-try:
-    # When running as module: python -m src.main
-    from .cli import (
-        create_argument_parser,
-        ValidateCommand,
-        ConvertCommand,
-        UploadCommand,
-        ExportCommand,
-        ListCommand,
-        GetCommand,
-        DeleteCommand,
-        TestCommand,
-        CompareCommand,
-    )
-except ImportError:
-    # When running directly: python src/main.py (from project root)
-    from cli import (
-        create_argument_parser,
-        ValidateCommand,
-        ConvertCommand,
-        UploadCommand,
-        ExportCommand,
-        ListCommand,
-        GetCommand,
-        DeleteCommand,
-        TestCommand,
-        CompareCommand,
-    )
+# CLI lives under the app namespace
+from .app.cli import (
+    create_argument_parser,
+    ValidateCommand,
+    ConvertCommand,
+    UploadCommand,
+    ExportCommand,
+    ListCommand,
+    GetCommand,
+    DeleteCommand,
+    TestCommand,
+    CompareCommand,
+)
 
 
 # Command mapping from command name to Command class

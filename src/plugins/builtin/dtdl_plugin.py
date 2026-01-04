@@ -10,20 +10,6 @@ from typing import Any, Dict, List, Optional, Set
 
 from ..base import OntologyPlugin
 
-# Existing DTDL modules
-try:
-    from ...dtdl.dtdl_parser import DTDLParser
-    from ...dtdl.dtdl_validator import DTDLValidator
-    from ...dtdl.dtdl_converter import DTDLToFabricConverter
-    from ...dtdl.dtdl_type_mapper import PRIMITIVE_TYPE_MAP, FabricValueType
-except ImportError:
-    # Fallback for standalone reference
-    DTDLParser = None  # type: ignore
-    DTDLValidator = None  # type: ignore
-    DTDLToFabricConverter = None  # type: ignore
-    PRIMITIVE_TYPE_MAP = {}
-    FabricValueType = None  # type: ignore
-
 
 class DTDLPlugin(OntologyPlugin):
     """
@@ -63,29 +49,37 @@ class DTDLPlugin(OntologyPlugin):
     
     def get_parser(self) -> Any:
         """Return DTDL parser."""
-        if DTDLParser is None:
+        try:
+            from dtdl import DTDLParser
+            return DTDLParser()
+        except ImportError:
             raise ImportError("DTDL modules not available")
-        return DTDLParser()
     
     def get_validator(self) -> Any:
         """Return DTDL validator."""
-        if DTDLValidator is None:
+        try:
+            from dtdl import DTDLValidator
+            return DTDLValidator()
+        except ImportError:
             raise ImportError("DTDL modules not available")
-        return DTDLValidator()
     
     def get_converter(self) -> Any:
         """Return DTDL converter."""
-        if DTDLToFabricConverter is None:
+        try:
+            from dtdl import DTDLToFabricConverter
+            return DTDLToFabricConverter()
+        except ImportError:
             raise ImportError("DTDL modules not available")
-        return DTDLToFabricConverter()
     
     def get_type_mappings(self) -> Dict[str, str]:
         """Return DTDL to Fabric type mappings."""
-        if not PRIMITIVE_TYPE_MAP:
+        try:
+            from dtdl import PRIMITIVE_TYPE_MAP
+            # Convert FabricValueType enum values to string
+            return {k: v.value if hasattr(v, 'value') else str(v) 
+                    for k, v in PRIMITIVE_TYPE_MAP.items()}
+        except ImportError:
             return {}
-        # Convert FabricValueType enum values to string
-        return {k: v.value if hasattr(v, 'value') else str(v) 
-                for k, v in PRIMITIVE_TYPE_MAP.items()}
     
     def register_cli_arguments(self, parser: Any) -> None:
         """Add DTDL-specific CLI arguments."""

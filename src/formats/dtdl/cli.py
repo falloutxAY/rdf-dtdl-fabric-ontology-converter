@@ -1,18 +1,15 @@
 """
-DTDL CLI Commands
+Legacy DTDL CLI entry point (deprecated).
 
-Command-line interface commands for DTDL import operations:
-- dtdl-validate: Validate DTDL files/folders
-- dtdl-convert: Convert DTDL to Fabric JSON format
-- dtdl-upload: Upload converted DTDL to Fabric Ontology
-- dtdl-import: Combined validate + convert + upload
-
-Usage:
-    python -m src.dtdl.cli dtdl-validate path/to/models --recursive
-    python -m src.dtdl.cli dtdl-convert path/to/models -o output.json
-    python -m src.dtdl.cli dtdl-upload output.json --ontology-name MyOntology
-    python -m src.dtdl.cli dtdl-import path/to/models --ontology-name MyOntology
+This module intentionally raises an informative error to direct users to the
+unified CLI commands under ``src/app/cli``. It is kept only to provide a
+clear runtime message for anyone invoking ``python -m src.dtdl.cli``.
 """
+
+raise ImportError(
+    "The legacy 'src.dtdl.cli' entry point has been removed. Use the unified "
+    "CLI commands (e.g., `python -m src.main convert --format dtdl ...`) instead."
+)
 
 import argparse
 import json
@@ -639,11 +636,6 @@ def create_parser() -> argparse.ArgumentParser:
         help='Skip validation step'
     )
     convert_parser.add_argument(
-        '--flatten-components',
-        action='store_true',
-        help='Flatten component properties into parent entity'
-    )
-    convert_parser.add_argument(
         '--include-commands',
         action='store_true',
         help='Include commands as properties'
@@ -714,11 +706,6 @@ def create_parser() -> argparse.ArgumentParser:
         '--recursive', '-r',
         action='store_true',
         help='Recursively process subdirectories'
-    )
-    import_parser.add_argument(
-        '--flatten-components',
-        action='store_true',
-        help='Flatten component properties into parent entity'
     )
     import_parser.add_argument(
         '--dry-run',

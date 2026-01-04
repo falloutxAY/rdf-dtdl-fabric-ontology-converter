@@ -24,7 +24,7 @@ from src.plugins import (
     ExporterProtocol,
 )
 from src.plugins.protocols import is_parser, is_validator, is_converter, is_exporter
-from src.common import (
+from shared.utilities import (
     TypeMappingRegistry,
     get_type_registry,
     IDGenerator,
@@ -34,7 +34,7 @@ from src.common import (
     Severity,
     IssueCategory,
 )
-from src.common.id_generator import DEFAULT_PREFIX
+from shared.utilities.id_generator import DEFAULT_PREFIX
 
 
 class TestOntologyPluginBase:
@@ -324,6 +324,11 @@ class TestBuiltinPlugins:
     
     def test_rdf_plugin_components(self):
         """RDF plugin provides working components."""
+        try:
+            import rdflib  # noqa: F401
+        except ImportError:
+            pytest.skip("rdflib not installed - RDF plugin components unavailable")
+        
         manager = PluginManager.get_instance()
         manager.discover_plugins()
         
@@ -601,7 +606,7 @@ class TestCLIFormatIntegration:
         """Reset plugin manager and format module state before each test."""
         PluginManager.reset_instance()
         # Reset the module-level plugin manager cache in format.py
-        import src.cli.format as format_module
+        import app.cli.format as format_module
         format_module._plugin_manager = None
         yield
         PluginManager.reset_instance()
@@ -609,21 +614,21 @@ class TestCLIFormatIntegration:
     
     def test_get_validator_uses_plugin(self):
         """Test that get_validator uses plugin system."""
-        from src.cli.format import Format, get_validator
+        from app.cli.format import Format, get_validator
         
         validator = get_validator(Format.RDF)
         assert validator is not None
     
     def test_get_converter_uses_plugin(self):
         """Test that get_converter uses plugin system."""
-        from src.cli.format import Format, get_converter
+        from app.cli.format import Format, get_converter
         
         converter = get_converter(Format.RDF)
         assert converter is not None
     
     def test_infer_format_from_path(self):
         """Test format inference from file path."""
-        from src.cli.format import infer_format_from_path, Format
+        from app.cli.format import infer_format_from_path, Format
         
         assert infer_format_from_path("test.ttl") == Format.RDF
         assert infer_format_from_path("test.rdf") == Format.RDF
@@ -631,7 +636,7 @@ class TestCLIFormatIntegration:
     
     def test_list_supported_formats(self):
         """Test listing supported formats."""
-        from src.cli.format import list_supported_formats
+        from app.cli.format import list_supported_formats
         
         formats = list_supported_formats()
         
@@ -640,7 +645,7 @@ class TestCLIFormatIntegration:
     
     def test_list_supported_extensions(self):
         """Test listing supported extensions."""
-        from src.cli.format import list_supported_extensions
+        from app.cli.format import list_supported_extensions
         
         extensions = list_supported_extensions()
         

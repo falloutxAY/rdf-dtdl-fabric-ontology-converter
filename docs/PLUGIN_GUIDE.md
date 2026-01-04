@@ -169,7 +169,7 @@ class MyFormatParser:
 ### Step 3: Implement the Validator
 
 ```python
-from common.validation import ValidationResult, Severity, IssueCategory
+from shared.utilities.validation import ValidationResult, Severity, IssueCategory
 
 class MyFormatValidator:
     """Validator for MyFormat documents."""
@@ -360,7 +360,7 @@ MYFORMAT_TYPE_MAPPINGS = {
 Use the unified validation framework for consistent error reporting:
 
 ```python
-from common.validation import ValidationResult, Severity, IssueCategory
+from shared.utilities.validation import ValidationResult, Severity, IssueCategory
 
 def validate(self, content: str, file_path: Optional[str] = None) -> ValidationResult:
     result = ValidationResult(format_name=self.format_name, source_path=file_path)
@@ -529,7 +529,7 @@ from plugins.manager import PluginManager
 from mypackage.myformat_plugin import MyFormatPlugin
 
 manager = PluginManager.get_instance()
-manager.register(MyFormatPlugin())
+manager.register_plugin(MyFormatPlugin())
 ```
 
 ## CLI Integration
@@ -541,7 +541,7 @@ handles plugin discovery, but the CLI layer needs explicit format registration.
 
 To enable CLI commands for your new format, you must update **three files**:
 
-#### 1. Update Format Enum (`src/cli/format.py`)
+#### 1. Update Format Enum (`src/app/cli/format.py`)
 
 Add your format to the `Format` enum and register validators/converters.
 
@@ -558,11 +558,11 @@ def _register_defaults() -> None:
     
     # MyFormat validators/converters
     def myformat_validator():
-        from ..plugins.builtin.myformat_plugin import MyFormatValidator
+        from plugins.builtin.myformat_plugin import MyFormatValidator
         return MyFormatValidator()
 
     def myformat_converter():
-        from ..plugins.builtin.myformat_plugin import MyFormatConverter
+        from plugins.builtin.myformat_plugin import MyFormatConverter
         return MyFormatConverter()
 
     register_validator(Format.MYFORMAT, myformat_validator)
@@ -579,7 +579,7 @@ if ext in MYFORMAT_EXTENSIONS:
 return RDF_EXTENSIONS | DTDL_EXTENSIONS | MYFORMAT_EXTENSIONS
 ```
 
-#### 2. Update CLI Argument Parser (`src/cli/parsers.py`)
+#### 2. Update CLI Argument Parser (`src/app/cli/parsers.py`)
 
 Add your format to the `--format` choices:
 
@@ -594,7 +594,7 @@ def add_format_flag(parser: argparse.ArgumentParser, required: bool = True) -> N
     )
 ```
 
-#### 3. Update Unified Commands (`src/cli/commands/unified.py`)
+#### 3. Update Unified Commands (`src/app/cli/commands/unified.py`)
 
 Add handlers for validate, convert, and upload commands:
 
@@ -616,7 +616,7 @@ def execute(self, args: argparse.Namespace) -> int:
 # Add the handler method:
 def _validate_myformat(self, args: argparse.Namespace) -> int:
     """Delegate to MyFormat validation logic."""
-    from ...plugins.builtin.myformat_plugin import MyFormatValidator
+    from plugins.builtin.myformat_plugin import MyFormatValidator
     # ... implementation
 ```
 
@@ -854,7 +854,7 @@ def validate(self, content: str, file_path: Optional[str] = None) -> ValidationR
 ### 3. Consistent ID Generation
 
 ```python
-from common.id_generator import get_id_generator
+from shared.utilities.id_generator import get_id_generator
 
 class MyConverter:
     def __init__(self):

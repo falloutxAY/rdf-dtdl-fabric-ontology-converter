@@ -1,102 +1,21 @@
-"""
-DTDL (Digital Twins Definition Language) Import Module
+"""Backward-compatible facade for the relocated DTDL format package."""
 
-This module provides functionality to parse DTDL JSON/JSON-LD files and convert them
-to Microsoft Fabric Ontology API format.
+import sys
+from importlib import import_module
 
-Key Components:
-- dtdl_parser: Parse DTDL files (single, array, directory)
-- dtdl_validator: Validate DTDL structure and references
-- dtdl_converter: Convert DTDL to Fabric Ontology format
+from formats import dtdl as _formats_dtdl
+from formats.dtdl import *  # type: ignore[F403]
 
-Usage:
-    from dtdl import DTDLParser, DTDLValidator, DTDLToFabricConverter
-    
-    parser = DTDLParser()
-    interfaces = parser.parse_file("model.json")
-    
-    validator = DTDLValidator()
-    errors = validator.validate(interfaces)
-    
-    converter = DTDLToFabricConverter()
-    result = converter.convert(interfaces)
-"""
-
-from .dtdl_models import (
-    DTDLInterface,
-    DTDLProperty,
-    DTDLTelemetry,
-    DTDLRelationship,
-    DTDLComponent,
-    DTDLCommand,
-    DTDLCommandPayload,
-    DTDLEnum,
-    DTDLEnumValue,
-    DTDLObject,
-    DTDLArray,
-    DTDLMap,
-    DTDLContext,
-    DTDLScaledDecimal,
-    DTDLPrimitiveSchema,
-    GEOSPATIAL_SCHEMA_DTMIS,
-    SCALED_DECIMAL_SCHEMA_DTMI,
+_BRIDGED_SUBMODULES = (
+	"dtdl_converter",
+	"dtdl_models",
+	"dtdl_parser",
+	"dtdl_type_mapper",
+	"dtdl_validator",
 )
 
-from .dtdl_parser import DTDLParser
-from .dtdl_validator import DTDLValidator, DTDLValidationError
-from .dtdl_converter import (
-    DTDLToFabricConverter,
-    DTDL_TO_FABRIC_TYPE,
-    ComponentMode,
-    CommandMode,
-    ScaledDecimalMode,
-    ScaledDecimalValue,
-)
-from .dtdl_type_mapper import (
-    DTDLTypeMapper,
-    TypeMappingResult,
-    FabricValueType,
-    PRIMITIVE_TYPE_MAP,
-    flatten_object_fields,
-    get_semantic_type_info,
-)
+for _module_name in _BRIDGED_SUBMODULES:
+	_module = import_module(f"formats.dtdl.{_module_name}")
+	sys.modules[f"{__name__}.{_module_name}"] = _module
 
-__all__ = [
-    # Models
-    'DTDLInterface',
-    'DTDLProperty',
-    'DTDLTelemetry',
-    'DTDLRelationship',
-    'DTDLComponent',
-    'DTDLCommand',
-    'DTDLCommandPayload',
-    'DTDLEnum',
-    'DTDLEnumValue',
-    'DTDLObject',
-    'DTDLArray',
-    'DTDLMap',
-    'DTDLContext',
-    'DTDLScaledDecimal',
-    'DTDLPrimitiveSchema',
-    # DTDL v4 Schema DTMIs
-    'GEOSPATIAL_SCHEMA_DTMIS',
-    'SCALED_DECIMAL_SCHEMA_DTMI',
-    # Core classes
-    'DTDLParser',
-    'DTDLValidator',
-    'DTDLValidationError',
-    'DTDLToFabricConverter',
-    'DTDL_TO_FABRIC_TYPE',
-    # Converter mode enums
-    'ComponentMode',
-    'CommandMode',
-    'ScaledDecimalMode',
-    'ScaledDecimalValue',
-    # Type Mapper
-    'DTDLTypeMapper',
-    'TypeMappingResult',
-    'FabricValueType',
-    'PRIMITIVE_TYPE_MAP',
-    'flatten_object_fields',
-    'get_semantic_type_info',
-]
+__all__ = getattr(_formats_dtdl, "__all__", [])

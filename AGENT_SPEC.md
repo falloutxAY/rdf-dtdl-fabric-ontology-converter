@@ -20,7 +20,7 @@ User Input → CLI → Plugin System → Format Converter → Fabric Client → 
 **Key Principles:**
 1. **Plugin-based extensibility** - New formats added via plugin system, not core modifications
 2. **Protocol-driven** - All components implement protocols (Parser, Validator, Converter)
-3. **Shared models** - Single source of truth in `src/models/`
+3. **Shared models** - Single source of truth in `src/shared/models/`
 4. **Resilience-first** - Rate limiting, circuit breakers, graceful degradation
 5. **Type safety** - Protocols and dataclasses throughout
 
@@ -29,7 +29,7 @@ User Input → CLI → Plugin System → Format Converter → Fabric Client → 
 1. **This document** - Decision framework and architecture overview
 2. [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) - Detailed system design
 3. [docs/PLUGIN_GUIDE.md](docs/PLUGIN_GUIDE.md) - How to add new formats
-4. **Source code** - Start with `src/plugins/base.py` and `src/models/base.py`
+4. **Source code** - Start with `src/plugins/base.py` and `src/shared/models/base.py`
 
 ---
 
@@ -46,10 +46,10 @@ Question: What kind of change is needed?
 │  └─> Create new plugin → See "Adding New Format Plugin" below
 │
 ├─ Add new CLI command
-│  └─> Add to src/cli/commands/ → See "Adding CLI Command" below
+│  └─> Add to src/app/cli/commands/ → See "Adding CLI Command" below
 │
 ├─ Modify conversion logic for existing format
-│  └─> Modify format-specific converter (src/rdf/, src/dtdl/)
+│  └─> Modify format-specific converter (src/formats/rdf/, src/formats/dtdl/)
 │
 ├─ Add new property type or validation rule
 │  └─> Update type mapper + validator → See "Extending Type System" below
@@ -88,7 +88,7 @@ Question: What kind of change is needed?
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                     CLI Layer (src/cli/)                         │
+│                CLI Layer (src/app/cli/)                          │
 │  Entry point → Argument parsing → Command dispatch              │
 │  📄 Key: parsers.py, commands/*.py                              │
 └─────────────────────────┬───────────────────────────────────────┘
@@ -103,7 +103,8 @@ Question: What kind of change is needed?
          │                │                │
 ┌────────▼────────┐ ┌─────▼──────┐ ┌──────▼──────┐
 │  RDF Pipeline   │ │DTDL Pipeline│ │JSON-LD Pipe │
-│  (src/rdf/)     │ │(src/dtdl/)  │ │             │
+│ (src/formats/   │ │(src/formats/│ │(handled via │
+│   rdf/)         │ │   dtdl/)    │ │  RDF plugin)│
 │  📄 Key:        │ │📄 Key:      │ │             │
 │  rdf_converter  │ │dtdl_convert │ │             │
 └────────┬────────┘ └─────┬──────┘ └──────┬──────┘
@@ -111,7 +112,7 @@ Question: What kind of change is needed?
          └────────────────┼────────────────┘
                           │
 ┌─────────────────────────▼───────────────────────────────────────┐
-│                Shared Models (src/models/)                       │
+│             Shared Models (src/shared/models/)                   │
 │  EntityType, RelationshipType, ConversionResult                 │
 │  📄 Key: fabric_types.py, conversion.py, base.py               │
 └─────────────────────────┬───────────────────────────────────────┘
@@ -135,10 +136,11 @@ Question: What kind of change is needed?
 |-----------|---------|----------------|
 | `src/plugins/` | Plugin system core | Adding new protocols or plugin discovery logic |
 | `src/plugins/builtin/` | Built-in format plugins | Adding new ontology format |
-| `src/models/` | Shared data models | Adding new data structures used across formats |
+| `src/formats/` | Format pipelines (RDF, DTDL, future) | Modifying converters/validators for a format |
+| `src/shared/models/` | Shared data models | Adding new data structures used across formats |
 | `src/core/` | Fabric client & resilience | Changing API interaction, rate limiting, auth |
-| `src/cli/` | Command-line interface | Adding new commands or modifying CLI behavior |
-| `src/common/` | Shared utilities | Adding validation, type registry, ID generation |
+| `src/app/cli/` | Command-line interface | Adding new commands or modifying CLI behavior |
+| `src/shared/utilities/` | Shared utilities | Adding validation, type registry, ID generation |
 | `tests/` | Test suites | Every code change requires corresponding tests |
 | `docs/` | Documentation | Every user-facing or architectural change |
 
@@ -146,10 +148,10 @@ Question: What kind of change is needed?
 
 | Task | Primary Files | Secondary Files |
 |------|---------------|-----------------|
-| **Add format plugin** | `plugins/builtin/myformat_plugin.py` | `plugins/__init__.py` |
-| **Add CLI command** | `cli/commands/mycommand.py` | `cli/parsers.py`, `main.py` |
-| **Modify type mapping** | `rdf/type_mapper.py` or `dtdl/dtdl_type_mapper.py` | `common/type_registry.py` |
-| **Add validation rule** | Format validator (e.g., `rdf/preflight_validator.py`) | `common/validation.py` |
+| **Add format plugin** | `src/plugins/builtin/myformat_plugin.py` | `src/plugins/__init__.py` |
+| **Add CLI command** | `src/app/cli/commands/mycommand.py` | `src/app/cli/parsers.py`, `src/main.py` |
+| **Modify type mapping** | `src/formats/rdf/type_mapper.py` or `src/formats/dtdl/dtdl_type_mapper.py` | `src/shared/utilities/type_registry.py` |
+| **Add validation rule** | Format validator (e.g., `src/formats/rdf/preflight_validator.py`) | `src/shared/utilities/validation.py` |
 | **Change API behavior** | `core/fabric_client.py` | `core/rate_limiter.py`, `core/circuit_breaker.py` |
 
 **📚 Complete Structure:** [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) - Module Structure section
@@ -232,7 +234,7 @@ class RDFPlugin(OntologyPlugin):
         return RDFMerger()
 ```
 
-4. **Create Implementation (e.g., `src/rdf/rdf_merger.py`):**
+4. **Create Implementation (e.g., `src/formats/rdf/rdf_merger.py`):**
 ```python
 class RDFMerger:
     """Merge multiple RDF/TTL files."""
@@ -242,7 +244,7 @@ class RDFMerger:
         pass
 ```
 
-5. **Add CLI Support (`src/cli/commands/unified.py`):**
+5. **Add CLI Support (`src/app/cli/commands/unified.py`):**
 ```python
 class UnifiedMergeCommand(BaseCommand):
     """Merge multiple ontology files."""
@@ -295,7 +297,7 @@ Understanding these patterns is critical for making architectural decisions:
 | **Plugin (Behavioral)** | `plugins/base.py` | Extensible format support | Adding new ontology format |
 | **Singleton** | `plugins/manager.py` | Single plugin registry | Never - already implemented |
 | **Facade** | `rdf/rdf_converter.py` | Simplify complex subsystems | Orchestrating multiple specialized components |
-| **Factory** | `cli/format.py` | Create format-specific services | Adding format-specific CLI variations |
+| **Factory** | `src/app/cli/format.py` | Create format-specific services | Adding format-specific CLI variations |
 | **Strategy** | All converters | Swap algorithms at runtime | Different conversion strategies |
 | **Circuit Breaker** | `core/circuit_breaker.py` | Fault tolerance | Protecting external API calls |
 | **Token Bucket** | `core/rate_limiter.py` | Rate limiting | Controlling API request rate |
@@ -335,15 +337,15 @@ Understanding these patterns is critical for making architectural decisions:
 **Agent Checklist:**
 - [ ] Is this format-specific? → No, works on Fabric definitions
 - [ ] Does it use existing protocol? → No, creates new operation
-- [ ] Where does it fit? → `src/cli/commands/common.py` (workspace operations)
+- [ ] Where does it fit? → `src/app/cli/commands/common.py` (workspace operations)
 
 **Implementation Steps:**
 
-1. **Create command class:** `CompareCommand` in `src/cli/commands/common.py`
-2. **Add parser:** `add_compare_parser()` in `src/cli/parsers.py`
+1. **Create command class:** `CompareCommand` in `src/app/cli/commands/common.py`
+2. **Add parser:** `add_compare_parser()` in `src/app/cli/parsers.py`
 3. **Register in main:** Import and add to `src/main.py`
 4. **Implement logic:** Fetch two ontologies, generate diff
-5. **Write tests:** `tests/cli/test_compare_command.py`
+5. **Write tests:** `tests/integration/test_cli_compare.py`
 6. **Update docs:** [docs/CLI_COMMANDS.md](docs/CLI_COMMANDS.md)
 
 **📚 CLI Reference:** [docs/CLI_COMMANDS.md](docs/CLI_COMMANDS.md)
@@ -359,15 +361,15 @@ Understanding these patterns is critical for making architectural decisions:
 
 **Implementation Steps:**
 
-1. **Update RDF type mapper:** `src/rdf/type_mapper.py` → Add XSD to GeoPoint mapping
-2. **Update DTDL type mapper:** `src/dtdl/dtdl_type_mapper.py` → Add DTDL to GeoPoint mapping
+1. **Update RDF type mapper:** `src/formats/rdf/type_mapper.py` → Add XSD to GeoPoint mapping
+2. **Update DTDL type mapper:** `src/formats/dtdl/dtdl_type_mapper.py` → Add DTDL to GeoPoint mapping
 3. **Update validators:** Add GeoPoint validation rules
 4. **Add tests:** Test conversion from all formats
 5. **Update docs:** Add type to mapping tables in format guides
 
 **Files to Modify:**
-- `src/rdf/type_mapper.py`
-- `src/dtdl/dtdl_type_mapper.py`
+- `src/formats/rdf/type_mapper.py`
+- `src/formats/dtdl/dtdl_type_mapper.py`
 - `tests/rdf/test_converter.py` (add test cases)
 - `tests/dtdl/test_dtdl.py` (add test cases)
 - [docs/RDF_GUIDE.md](docs/RDF_GUIDE.md) (update type mapping table)
@@ -396,7 +398,7 @@ Understanding these patterns is critical for making architectural decisions:
 
 ## 📊 Data Models Quick Reference
 
-### Core Types (`src/models/fabric_types.py`)
+### Core Types (`src/shared/models/fabric_types.py`)
 
 ```python
 @dataclass
@@ -416,7 +418,7 @@ class RelationshipType:
     cardinality: str  # "one-to-one", "one-to-many", "many-to-many"
 ```
 
-### Result Types (`src/models/conversion.py`)
+### Result Types (`src/shared/models/conversion.py`)
 
 ```python
 @dataclass
@@ -435,7 +437,7 @@ class ValidationResult:
     issues: List[ValidationIssue]
 ```
 
-**📚 Complete Type Definitions:** See `src/models/` directory
+**📚 Complete Type Definitions:** See `src/shared/models/` directory
 
 **📚 Type Mapping Tables:** 
 - RDF: [docs/RDF_GUIDE.md](docs/RDF_GUIDE.md) - Type Mapping section

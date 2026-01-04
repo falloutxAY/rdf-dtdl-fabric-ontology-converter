@@ -120,9 +120,24 @@ def add_dtdl_specific_flags(parser: argparse.ArgumentParser) -> None:
         help='Namespace for entity types (default: usertypes)'
     )
     parser.add_argument(
-        '--flatten-components',
-        action='store_true',
-        help='Flatten component properties into parent entity'
+        '--component-mode',
+        choices=['skip', 'separate', 'flatten'],
+        default='skip',
+        help=(
+            "How to handle DTDL components: 'skip' ignores them, 'separate' creates "
+            "child entity types with relationships, 'flatten' inlines component "
+            "properties into the parent."
+        )
+    )
+    parser.add_argument(
+        '--command-mode',
+        choices=['skip', 'entity', 'property'],
+        default='skip',
+        help=(
+            "How to handle DTDL commands: 'skip' ignores them, 'entity' creates "
+            "Fabric CommandType entities, 'property' stores a serialized command "
+            "definition as a string property."
+        )
     )
     parser.add_argument(
         '--save-mapping',

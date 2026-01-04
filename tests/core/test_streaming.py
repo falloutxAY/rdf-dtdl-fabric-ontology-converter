@@ -646,6 +646,18 @@ class TestDTDLStreamAdapter:
         assert adapter.ontology_name == "TestOntology"
         assert adapter.namespace == "custom_ns"
 
+    def test_convert_streaming_produces_definition(self, sample_dtdl_file):
+        """Ensure adapter returns Fabric definition payload."""
+        adapter = DTDLStreamAdapter(ontology_name="TestOntology")
+        result = adapter.convert_streaming(sample_dtdl_file)
+
+        assert result.success is True
+        payload = result.data
+        assert payload is not None
+        assert "definition" in payload
+        assert isinstance(payload["definition"], dict)
+        assert payload["conversion_result"].entity_types
+
 
 # ============================================================================
 # Utility Function Tests

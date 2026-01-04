@@ -101,7 +101,7 @@ class TestCommonLayerPerformance:
 
     def test_id_generator_performance(self):
         """Test ID generation is fast."""
-        from src.common.id_generator import IDGenerator
+        from shared.utilities.id_generator import IDGenerator
         
         gen = IDGenerator()
         
@@ -116,7 +116,7 @@ class TestCommonLayerPerformance:
 
     def test_validation_result_performance(self):
         """Test ValidationResult operations are fast."""
-        from src.common.validation import ValidationResult, IssueCategory
+        from shared.utilities.validation import ValidationResult, IssueCategory
         
         # Create result and add many issues
         result = ValidationResult(format_name="test")
@@ -149,7 +149,7 @@ class TestCommonLayerPerformance:
 
     def test_type_registry_performance(self):
         """Test type registry lookup is fast."""
-        from src.common.type_registry import TypeMappingRegistry
+        from shared.utilities.type_registry import TypeMappingRegistry
         
         registry = TypeMappingRegistry()
         

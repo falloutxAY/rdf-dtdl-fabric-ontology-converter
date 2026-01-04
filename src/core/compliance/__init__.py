@@ -1000,7 +1000,7 @@ class FabricComplianceChecker:
         )
         
         # Import Fabric limits
-        from ..constants import FabricLimits
+        from constants import FabricLimits
         
         entity_ids = {e.id for e in entity_types}
         

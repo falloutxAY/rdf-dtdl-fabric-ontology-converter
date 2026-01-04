@@ -32,8 +32,10 @@ Usage:
 
 import logging
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional, Set, Type
+from typing import Any, Dict, List, Optional, Set, Type, TYPE_CHECKING
 
+if TYPE_CHECKING:  # pragma: no cover - import for type hints only
+    from formats.base import FormatPipeline
 from .protocols import (
     ParserProtocol,
     ValidatorProtocol,
@@ -175,6 +177,18 @@ class OntologyPlugin(ABC):
             Converter instance implementing ConverterProtocol.
         """
         pass
+
+    def create_pipeline(self) -> FormatPipeline:
+        """Return a ready-to-use pipeline description for this format."""
+        from formats.base import FormatPipeline  # Local import to avoid circular dependency
+
+        return FormatPipeline(
+            format_name=self.format_name,
+            parser=self.get_parser(),
+            validator=self.get_validator(),
+            converter=self.get_converter(),
+            exporter=self.get_exporter(),
+        )
     
     # =========================================================================
     # Optional Properties
@@ -303,7 +317,7 @@ class OntologyPlugin(ABC):
         Register format-specific CLI arguments.
         
         Override to add arguments specific to this format
-        (e.g., DTDL's --flatten-components).
+        (e.g., DTDL's --component-mode / --command-mode).
         
         Args:
             parser: argparse.ArgumentParser subparser.
@@ -338,10 +352,13 @@ class OntologyPlugin(ABC):
         Returns:
             List of missing dependency names.
         """
+        import re
         missing = []
         for dep in self.dependencies:
+            # Extract package name from version specifier (e.g., "rdflib>=6.0.0" -> "rdflib")
+            package_name = re.split(r'[<>=!~\[]', dep)[0].strip()
             try:
-                __import__(dep)
+                __import__(package_name)
             except ImportError:
                 missing.append(dep)
         return missing

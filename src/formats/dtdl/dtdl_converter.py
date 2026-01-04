@@ -38,60 +38,25 @@ from .dtdl_models import (
 )
 
 # Import shared Fabric models
-try:
-    from ..models import (
-        EntityType,
-        EntityTypeProperty,
-        RelationshipType,
-        RelationshipEnd,
-        ConversionResult,
-        SkippedItem,
-    )
-    from ..core.validators import (
-        FabricLimitsValidator,
-        EntityIdPartsInferrer,
-    )
-    from ..core.compliance import (
-        DTDLComplianceValidator,
-        FabricComplianceChecker,
-        ConversionReportGenerator,
-        ConversionReport,
-        DTDLVersion,
-    )
-except ImportError:
-    # Fallback for direct script execution without sys.path manipulation
-    from models import (  # type: ignore[import-not-found]
-        EntityType,
-        EntityTypeProperty,
-        RelationshipType,
-        RelationshipEnd,
-        ConversionResult,
-        SkippedItem,
-    )
-    try:
-        from core.validators import (  # type: ignore[import-not-found]
-            FabricLimitsValidator,
-            EntityIdPartsInferrer,
-        )
-    except ImportError:
-        # Define fallback if validators not available
-        FabricLimitsValidator = None  # type: ignore[assignment, misc]
-        EntityIdPartsInferrer = None  # type: ignore[assignment, misc]
-    try:
-        from core.compliance import (  # type: ignore[import-not-found]
-            DTDLComplianceValidator,
-            FabricComplianceChecker,
-            ConversionReportGenerator,
-            ConversionReport,
-            DTDLVersion,
-        )
-    except ImportError:
-        # Define fallback if compliance not available
-        DTDLComplianceValidator = None  # type: ignore[assignment, misc]
-        FabricComplianceChecker = None  # type: ignore[assignment, misc]
-        ConversionReportGenerator = None  # type: ignore[assignment, misc]
-        ConversionReport = None  # type: ignore[assignment, misc]
-        DTDLVersion = None  # type: ignore[assignment, misc]
+from shared.models import (
+    EntityType,
+    EntityTypeProperty,
+    RelationshipType,
+    RelationshipEnd,
+    ConversionResult,
+    SkippedItem,
+)
+from core.validators import (
+    FabricLimitsValidator,
+    EntityIdPartsInferrer,
+)
+from core.compliance import (
+    DTDLComplianceValidator,
+    FabricComplianceChecker,
+    ConversionReportGenerator,
+    ConversionReport,
+    DTDLVersion,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -225,10 +190,8 @@ class DTDLToFabricConverter:
         self,
         id_prefix: int = 1000000000000,
         namespace: str = "usertypes",
-        flatten_components: bool = False,
-        include_commands: bool = False,
-        component_mode: Optional[ComponentMode] = None,
-        command_mode: Optional[CommandMode] = None,
+        component_mode: ComponentMode = ComponentMode.SKIP,
+        command_mode: CommandMode = CommandMode.SKIP,
         scaled_decimal_mode: ScaledDecimalMode = ScaledDecimalMode.JSON_STRING
     ):
         """
@@ -237,10 +200,6 @@ class DTDLToFabricConverter:
         Args:
             id_prefix: Base prefix for generated IDs
             namespace: Namespace for entity types
-            flatten_components: DEPRECATED - Use component_mode instead. 
-                               If True, flatten Component contents into parent.
-            include_commands: DEPRECATED - Use command_mode instead.
-                             If True, create properties for commands.
             component_mode: How to handle DTDL Components:
                 - FLATTEN: Flatten properties into parent entity
                 - SEPARATE: Create separate entity types with relationships
@@ -258,24 +217,8 @@ class DTDLToFabricConverter:
         self.namespace = namespace
         self.scaled_decimal_mode = scaled_decimal_mode
         
-        # Handle deprecated parameters with backward compatibility
-        if component_mode is not None:
-            self.component_mode = component_mode
-        elif flatten_components:
-            self.component_mode = ComponentMode.FLATTEN
-        else:
-            self.component_mode = ComponentMode.SKIP
-            
-        if command_mode is not None:
-            self.command_mode = command_mode
-        elif include_commands:
-            self.command_mode = CommandMode.PROPERTY
-        else:
-            self.command_mode = CommandMode.SKIP
-        
-        # Keep deprecated flags for backward compatibility
-        self.flatten_components = self.component_mode == ComponentMode.FLATTEN
-        self.include_commands = self.command_mode != CommandMode.SKIP
+        self.component_mode = component_mode
+        self.command_mode = command_mode
         
         # Mapping tables
         self._dtmi_to_fabric_id: Dict[str, str] = {}
@@ -635,7 +578,7 @@ class DTDLToFabricConverter:
             timeseries_properties.append(entity_prop)
         
         # Optionally process Commands
-        if self.include_commands:
+        if self.command_mode == CommandMode.PROPERTY:
             for command in interface.commands:
                 # Create a string property to represent the command
                 cmd_prop = EntityTypeProperty(
@@ -646,7 +589,7 @@ class DTDLToFabricConverter:
                 properties.append(cmd_prop)
         
         # Optionally flatten Components (legacy mode)
-        if self.flatten_components:
+        if self.component_mode == ComponentMode.FLATTEN:
             for component in interface.components:
                 component_props = self._flatten_component(component, fabric_id)
                 properties.extend(component_props)
