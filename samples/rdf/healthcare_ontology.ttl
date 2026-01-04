@@ -157,10 +157,15 @@
     rdfs:range :HealthcareProvider ;
     rdfs:label "scheduled with"@en .
 
-:forPatient a owl:ObjectProperty ;
-    rdfs:domain :Appointment, :MedicalRecord ;
+:appointmentForPatient a owl:ObjectProperty ;
+    rdfs:domain :Appointment ;
     rdfs:range :Patient ;
-    rdfs:label "for patient"@en .
+    rdfs:label "appointment for patient"@en .
+
+:recordForPatient a owl:ObjectProperty ;
+    rdfs:domain :MedicalRecord ;
+    rdfs:range :Patient ;
+    rdfs:label "record for patient"@en .
 
 :worksAt a owl:ObjectProperty ;
     rdfs:domain :HealthcareProvider ;
