@@ -42,50 +42,13 @@ DTDL supports semantic modeling, inheritance, and type composition to create ric
 
 ## DTDL Commands
 
-> **📘 For complete command reference, see [COMMANDS.md](COMMANDS.md#dtdl-commands)**
-
-This section shows the typical workflow for working with DTDL models.
-
-### Quick Workflow
-
 ```powershell
-# 1. Validate your DTDL models
+# Typical workflow
 python -m src.main validate --format dtdl ./models/ --recursive --verbose
-
-# 2. Convert to Fabric JSON (optional - for inspection)
-python -m src.main convert --format dtdl ./models/ --recursive --output fabric_output.json
-
-# 3. Upload to Fabric
-python -m src.main upload --format dtdl ./models/ --recursive --ontology-name "MyDigitalTwin"
+python -m src.main upload --format dtdl ./models/ --recursive
 ```
 
-### Available Commands
-
-| Command | Purpose |
-|---------|----------|
-| `validate --format dtdl` | Validate DTDL schema and structure |
-| `convert --format dtdl` | Convert DTDL to Fabric JSON (no upload) |
-| `upload --format dtdl` | Full pipeline: validate → convert → upload |
-
-### Common Options
-
-- `--format dtdl` - Specify DTDL format (required for unified commands)
-- `--recursive` - Process directories recursively
-- `--verbose` - Show detailed interface information
-- `--output` - Specify output file path
-- `--ontology-name` - Set the ontology name
-- `--namespace` - Custom namespace (default: `usertypes`)
-- `--flatten-components` - Flatten component properties into parent entities
-- `--dry-run` - Convert without uploading
-- `--streaming` - Use memory-efficient mode for large files (>100MB)
-- `--force-memory` - Skip memory safety checks for very large files
-
-**See [COMMANDS.md](COMMANDS.md#unified-commands) for:**
-- Complete command syntax and all options
-- Component and command handling modes
-- Streaming mode details for large files
-- Advanced configuration examples
-- Batch processing details
+**See [CLI_COMMANDS.md](CLI_COMMANDS.md) for complete syntax, options, and examples.**
 
 ## DTDL to Fabric Mapping
 

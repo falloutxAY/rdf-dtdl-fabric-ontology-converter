@@ -54,104 +54,33 @@ pip install -e .
 ## Quick Start
 
 ```powershell
-# 1. Configure (copy sample and edit with your Fabric workspace details)
-copy config.sample.json src\config.json
+# 1. Configure
+copy config.sample.json src\config.json  # Edit with your Fabric workspace details
 
-# 2. Validate an RDF/TTL ontology
+# 2. Validate
 python -m src.main validate --format rdf samples/rdf/sample_supply_chain_ontology.ttl
 
-# 3. Upload to Fabric
-python -m src.main upload --format rdf samples/rdf/sample_supply_chain_ontology.ttl --ontology-name "MyOntology"
-
-# 4. Import DTDL models
-python -m src.main upload --format dtdl samples/dtdl/ --recursive --ontology-name "MyDTDL"
+# 3. Upload
+python -m src.main upload --format rdf samples/rdf/sample_supply_chain_ontology.ttl
 ```
 
-See [docs/CONFIGURATION.md](docs/CONFIGURATION.md) for detailed configuration options.
+See [docs/CONFIGURATION.md](docs/CONFIGURATION.md) and [docs/CLI_COMMANDS.md](docs/CLI_COMMANDS.md) for complete options.
 
-## Common Commands
+## Command Overview
 
-All format-specific commands use unified verbs with a `--format` flag:
+All format-specific commands use unified verbs with `--format {rdf,dtdl,jsonld}`:
 
-```powershell
-python -m src.main <command> --format {rdf,dtdl,jsonld} <path> [options]
-```
+| Command | Description |
+|---------|-------------|
+| `validate` | Validate files for Fabric compatibility |
+| `convert` | Convert to Fabric JSON (no upload) |
+| `upload` | Validate, convert, and upload to Fabric |
+| `list` | List ontologies in workspace |
+| `export` | Export from Fabric to TTL (RDF only) |
+| `delete` | Delete ontology |
+| `plugin list` | Show available format plugins |
 
-### Supported Formats
-
-| Format | Extensions | Description |
-|--------|------------|-------------|
-| `rdf` | `.ttl`, `.rdf`, `.owl` | RDF/OWL ontologies |
-| `dtdl` | `.json`, `.dtdl` | Digital Twins Definition Language v2/v3/v4 |
-| `jsonld` | `.jsonld` | JSON-LD linked data |
-
-```powershell
-# List available plugins
-python -m src.main plugin list
-```
-
-### Validation
-
-```powershell
-# Validate RDF/TTL
-python -m src.main validate --format rdf <file.ttl> --verbose
-
-# Validate DTDL models
-python -m src.main validate --format dtdl <path> --recursive
-
-# Validate JSON-LD
-python -m src.main validate --format jsonld <file.jsonld>
-```
-
-### Conversion
-
-```powershell
-# Convert RDF to Fabric JSON (without upload)
-python -m src.main convert --format rdf <file.ttl> --output output.json
-
-# Convert DTDL to Fabric JSON
-python -m src.main convert --format dtdl <path> --recursive --output output.json
-
-# Convert JSON-LD to Fabric JSON
-python -m src.main convert --format jsonld <file.jsonld> --output output.json
-```
-
-### Upload to Fabric
-
-```powershell
-# Upload RDF ontology
-python -m src.main upload --format rdf <file.ttl> --ontology-name "OntologyName"
-
-# Upload DTDL models
-python -m src.main upload --format dtdl <path> --recursive --ontology-name "MyDTDL"
-```
-
-### Workspace Operations
-
-```powershell
-# List all ontologies
-python -m src.main list
-
-# Export Fabric ontology back to TTL
-python -m src.main export <ontology_id> --output exported.ttl
-
-# Delete an ontology
-python -m src.main delete <ontology_id>
-```
-
-### Large File Support
-
-```powershell
-# Use streaming mode for files >100MB
-python -m src.main upload --format rdf <large_file.ttl> --streaming
-python -m src.main convert --format dtdl <path> --streaming
-
-# Force processing for files >500MB (bypass memory checks)
-python -m src.main upload --format rdf <huge_file.ttl> --force-memory
-python -m src.main convert --format dtdl <large_models> --force-memory
-```
-
-For the complete command reference, see [docs/COMMANDS.md](docs/COMMANDS.md).
+For complete syntax and options, see [docs/CLI_COMMANDS.md](docs/CLI_COMMANDS.md).
 
 ## Documentation
 

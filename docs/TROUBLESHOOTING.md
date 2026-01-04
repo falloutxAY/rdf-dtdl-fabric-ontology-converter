@@ -103,39 +103,15 @@ Memory thresholds (guidance): file size ~3.5× RAM overhead; use streaming for l
     rdfs:label "Person" .
 ```
 
+For more examples, see [RDF_GUIDE.md](RDF_GUIDE.md).
+
 ## Enable Debug Logging
 
-Edit `src/config.json`:
-```json
-{
-  "logging": {
-    "level": "DEBUG",
-    "file": "logs/debug.log"
-  }
-}
-```
-
-Check logs:
-```powershell
-# Windows
-type logs\debug.log | findstr ERROR
-
-# Linux/Mac  
-grep ERROR logs/debug.log
-```
+Edit `src/config.json` to set logging level to DEBUG. See [CONFIGURATION.md](CONFIGURATION.md) for details.
 
 ## Testing Issues
 
-```powershell
-# Ensure pytest is installed
-pip install pytest
-
-# Run from project root
-python -m pytest tests/ -v
-
-# Run specific test
-python -m pytest tests/rdf/test_converter.py::test_name -v
-```
+See [TESTING.md](TESTING.md) for complete test suite documentation and troubleshooting.
 
 ## Path Issues
 

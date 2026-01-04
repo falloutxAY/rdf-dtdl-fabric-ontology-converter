@@ -44,50 +44,14 @@ RDF/OWL is widely used for semantic web applications, knowledge graphs, and data
 
 ## RDF Commands
 
-> **📘 For complete command reference, see [COMMANDS.md](COMMANDS.md#rdf-commands)**
-
-This section shows the typical workflow for working with RDF/TTL ontologies.
-
-### Quick Workflow
-
 ```powershell
-# 1. Validate your TTL file
+# Typical workflow
 python -m src.main validate --format rdf ontology.ttl --verbose
-
-# 2. Convert to Fabric JSON (optional - for inspection)
-python -m src.main convert --format rdf ontology.ttl --output fabric_output.json
-
-# 3. Upload to Fabric
-python -m src.main upload --format rdf ontology.ttl --ontology-name "MyOntology"
-
-# 4. Export back to TTL (optional - for verification)
+python -m src.main upload --format rdf ontology.ttl
 python -m src.main export <ontology-id> --output exported.ttl
 ```
 
-### Available Commands
-
-| Command | Purpose |
-|---------|----------|
-| `validate --format rdf` | Validate TTL syntax and Fabric compatibility |
-| `convert --format rdf` | Convert TTL to Fabric JSON (no upload) |
-| `upload --format rdf` | Full pipeline: validate → convert → upload |
-| `export` | Export Fabric ontology to TTL format |
-
-### Common Options
-
-- `--format rdf` - Specify RDF format (required for unified commands)
-- `--recursive` - Process directories recursively
-- `--verbose` - Show detailed output
-- `--output` - Specify output file path
-- `--streaming` - Use memory-efficient mode for large files (>100MB)
-- `--force-memory` - Skip memory safety checks for very large files
-- `--config` - Use custom configuration file
-
-**See [COMMANDS.md](COMMANDS.md#unified-commands) for:**
-- Complete command syntax and all options
-- Batch processing examples
-- Streaming mode details
-- Advanced configuration
+**See [CLI_COMMANDS.md](CLI_COMMANDS.md) for complete syntax, options, and examples.**
 
 ## RDF to Fabric Mapping
 

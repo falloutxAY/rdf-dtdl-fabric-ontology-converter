@@ -1455,7 +1455,7 @@ The converter automatically validates against these limits using `FabricLimitsVa
 
 ## CLI Commands
 
-The converter provides a comprehensive command-line interface for importing, validating, and managing ontologies. For detailed documentation on all available commands, options, and usage patterns, see [COMMANDS.md](COMMANDS.md).
+The converter provides a comprehensive command-line interface for importing, validating, and managing ontologies. For detailed documentation on all available commands, options, and usage patterns, see [CLI_COMMANDS.md](CLI_COMMANDS.md).
 
 ### Quick Reference
 
@@ -1498,7 +1498,7 @@ python -m src.main get <ontology_id> [--with-definition]
 python -m src.main delete <ontology_id> [--force]
 ```
 
-> **Note:** See [COMMANDS.md](COMMANDS.md) for complete documentation including all options, examples, and advanced usage patterns.
+> **Note:** See [CLI_COMMANDS.md](CLI_COMMANDS.md) for complete documentation including all options, examples, and advanced usage patterns.
 
 ---
 
