@@ -84,8 +84,7 @@ User interface and command dispatch:
 | Circuit Breaker | `circuit_breaker.py` | Fault tolerance |
 | Streaming | `streaming.py` | Large file processing |
 | Pipeline | `services/pipeline.py` | Formalized streaming pipeline |
-| Memory | `memory.py` | Memory safety checks |
-
+| Memory | `memory.py` | Memory safety checks || Schema Validator | `validators/fabric_schema.py` | Validate definitions before upload |
 ### Plugin System (`src/plugins/`)
 
 Extensible architecture for custom formats:

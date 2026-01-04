@@ -21,18 +21,48 @@ pytest -m samples        # Sample file tests
 pytest -m resilience     # Rate limiter, circuit breaker
 pytest -m security       # Security tests
 pytest -m slow           # Long-running tests
+pytest -m contract       # API contract validation tests
+pytest -m e2e            # End-to-end smoke tests
+pytest -m live           # Live Fabric API tests (opt-in)
 pytest -m "not slow"     # Skip slow tests
 ```
+
+## Live Integration Tests
+
+Live tests run against the real Fabric API. They are **disabled by default** to avoid accidental API calls.
+
+```powershell
+# Enable live tests with --run-live flag
+pytest tests/integration/test_fabric_live.py -v --run-live
+
+# Or set environment variable
+$env:FABRIC_LIVE_TESTS = "1"
+pytest tests/integration/ -v
+
+# Override workspace ID
+pytest --run-live --workspace-id "your-workspace-guid"
+```
+
+**Requirements for live tests:**
+- Valid Azure credentials (interactive browser or DefaultAzureCredential)
+- `workspace_id` configured in `config.json` or via `--workspace-id`
+- Network access to `api.fabric.microsoft.com`
+
+**Warning:** Live tests create, modify, and delete real ontologies in your workspace.
 
 ## Test Files
 
 | File | Purpose |
 |------|---------|
 | `tests/rdf/test_converter.py` | RDF conversion, type mapping |
+| `tests/rdf/test_rdf_formats.py` | All RDF format support (TTL, RDF/XML, N3, etc.) |
 | `tests/dtdl/test_dtdl.py` | DTDL parsing, validation, conversion |
 | `tests/core/test_resilience.py` | Rate limiter, circuit breaker |
-| `tests/core/test_fabric_client.py` | Fabric API client |
+| `tests/core/test_fabric_client.py` | Fabric API client (mocked) |
+| `tests/core/test_fabric_contract.py` | API contract validation with schema checks |
 | `tests/rdf/test_validation.py` | Pre-flight validation |
+| `tests/integration/test_fabric_live.py` | Live Fabric API tests (opt-in) |
+| `tests/e2e/test_upload_smoke.py` | End-to-end upload pipeline |
 
 ## Running Specific Tests
 
@@ -64,17 +94,23 @@ start htmlcov/index.html
 
 ```
 tests/
-├── conftest.py          # Shared fixtures
+├── conftest.py          # Shared fixtures, markers, CLI options
 ├── run_tests.py         # Test runner utility
 ├── fixtures/            # Test data
 │   ├── ttl_fixtures.py  # RDF samples
 │   ├── dtdl_fixtures.py # DTDL samples
-│   └── config_fixtures.py
+│   ├── config_fixtures.py
+│   └── fabric_responses.py  # Validated API mock responses
 ├── core/                # Infrastructure tests
+│   ├── test_fabric_client.py    # Mocked API tests
+│   └── test_fabric_contract.py  # Contract validation tests
 ├── rdf/                 # RDF converter tests
 ├── dtdl/                # DTDL converter tests
 ├── plugins/             # Plugin tests
-└── integration/         # End-to-end tests
+├── integration/         # Live API tests (opt-in)
+│   └── test_fabric_live.py
+└── e2e/                 # End-to-end smoke tests
+    └── test_upload_smoke.py
 ```
 
 ## Writing Tests

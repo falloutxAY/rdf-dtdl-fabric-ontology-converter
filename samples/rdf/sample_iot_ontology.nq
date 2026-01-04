@@ -1,0 +1,62 @@
+# IoT Device Management Ontology in N-Quads format
+# Each line is a quad: <subject> <predicate> <object> <graph> .
+# N-Quads supports named graphs (multiple graphs in one file)
+
+# Default graph - Core ontology
+<http://example.org/iot/IoTOntology> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/2002/07/owl#Ontology> <http://example.org/iot/core> .
+<http://example.org/iot/IoTOntology> <http://www.w3.org/2000/01/rdf-schema#label> "IoT Ontology (N-Quads)" <http://example.org/iot/core> .
+<http://example.org/iot/IoTOntology> <http://www.w3.org/2000/01/rdf-schema#comment> "Simple IoT device management ontology in N-Quads format" <http://example.org/iot/core> .
+
+# Device class in core graph
+<http://example.org/iot/Device> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/2002/07/owl#Class> <http://example.org/iot/core> .
+<http://example.org/iot/Device> <http://www.w3.org/2000/01/rdf-schema#label> "Device" <http://example.org/iot/core> .
+<http://example.org/iot/Device> <http://www.w3.org/2000/01/rdf-schema#comment> "An IoT device" <http://example.org/iot/core> .
+
+# Gateway class (subclass of Device)
+<http://example.org/iot/Gateway> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/2002/07/owl#Class> <http://example.org/iot/core> .
+<http://example.org/iot/Gateway> <http://www.w3.org/2000/01/rdf-schema#label> "Gateway" <http://example.org/iot/core> .
+<http://example.org/iot/Gateway> <http://www.w3.org/2000/01/rdf-schema#comment> "A gateway device" <http://example.org/iot/core> .
+<http://example.org/iot/Gateway> <http://www.w3.org/2000/01/rdf-schema#subClassOf> <http://example.org/iot/Device> <http://example.org/iot/core> .
+
+# Location class
+<http://example.org/iot/Location> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/2002/07/owl#Class> <http://example.org/iot/core> .
+<http://example.org/iot/Location> <http://www.w3.org/2000/01/rdf-schema#label> "Location" <http://example.org/iot/core> .
+<http://example.org/iot/Location> <http://www.w3.org/2000/01/rdf-schema#comment> "A physical location" <http://example.org/iot/core> .
+
+# Properties in properties graph
+<http://example.org/iot/deviceId> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/2002/07/owl#DatatypeProperty> <http://example.org/iot/properties> .
+<http://example.org/iot/deviceId> <http://www.w3.org/2000/01/rdf-schema#domain> <http://example.org/iot/Device> <http://example.org/iot/properties> .
+<http://example.org/iot/deviceId> <http://www.w3.org/2000/01/rdf-schema#range> <http://www.w3.org/2001/XMLSchema#string> <http://example.org/iot/properties> .
+<http://example.org/iot/deviceId> <http://www.w3.org/2000/01/rdf-schema#label> "Device ID" <http://example.org/iot/properties> .
+
+<http://example.org/iot/deviceName> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/2002/07/owl#DatatypeProperty> <http://example.org/iot/properties> .
+<http://example.org/iot/deviceName> <http://www.w3.org/2000/01/rdf-schema#domain> <http://example.org/iot/Device> <http://example.org/iot/properties> .
+<http://example.org/iot/deviceName> <http://www.w3.org/2000/01/rdf-schema#range> <http://www.w3.org/2001/XMLSchema#string> <http://example.org/iot/properties> .
+<http://example.org/iot/deviceName> <http://www.w3.org/2000/01/rdf-schema#label> "Device Name" <http://example.org/iot/properties> .
+
+<http://example.org/iot/status> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/2002/07/owl#DatatypeProperty> <http://example.org/iot/properties> .
+<http://example.org/iot/status> <http://www.w3.org/2000/01/rdf-schema#domain> <http://example.org/iot/Device> <http://example.org/iot/properties> .
+<http://example.org/iot/status> <http://www.w3.org/2000/01/rdf-schema#range> <http://www.w3.org/2001/XMLSchema#string> <http://example.org/iot/properties> .
+<http://example.org/iot/status> <http://www.w3.org/2000/01/rdf-schema#label> "Status" <http://example.org/iot/properties> .
+
+<http://example.org/iot/temperature> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/2002/07/owl#DatatypeProperty> <http://example.org/iot/properties> .
+<http://example.org/iot/temperature> <http://www.w3.org/2000/01/rdf-schema#domain> <http://example.org/iot/Device> <http://example.org/iot/properties> .
+<http://example.org/iot/temperature> <http://www.w3.org/2000/01/rdf-schema#range> <http://www.w3.org/2001/XMLSchema#double> <http://example.org/iot/properties> .
+<http://example.org/iot/temperature> <http://www.w3.org/2000/01/rdf-schema#label> "Temperature" <http://example.org/iot/properties> .
+
+<http://example.org/iot/locationName> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/2002/07/owl#DatatypeProperty> <http://example.org/iot/properties> .
+<http://example.org/iot/locationName> <http://www.w3.org/2000/01/rdf-schema#domain> <http://example.org/iot/Location> <http://example.org/iot/properties> .
+<http://example.org/iot/locationName> <http://www.w3.org/2000/01/rdf-schema#range> <http://www.w3.org/2001/XMLSchema#string> <http://example.org/iot/properties> .
+<http://example.org/iot/locationName> <http://www.w3.org/2000/01/rdf-schema#label> "Location Name" <http://example.org/iot/properties> .
+
+<http://example.org/iot/gatewayProtocol> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/2002/07/owl#DatatypeProperty> <http://example.org/iot/properties> .
+<http://example.org/iot/gatewayProtocol> <http://www.w3.org/2000/01/rdf-schema#domain> <http://example.org/iot/Gateway> <http://example.org/iot/properties> .
+<http://example.org/iot/gatewayProtocol> <http://www.w3.org/2000/01/rdf-schema#range> <http://www.w3.org/2001/XMLSchema#string> <http://example.org/iot/properties> .
+<http://example.org/iot/gatewayProtocol> <http://www.w3.org/2000/01/rdf-schema#label> "Gateway Protocol" <http://example.org/iot/properties> .
+
+# Relationships in relationships graph
+<http://example.org/iot/locatedAt> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/2002/07/owl#ObjectProperty> <http://example.org/iot/relationships> .
+<http://example.org/iot/locatedAt> <http://www.w3.org/2000/01/rdf-schema#domain> <http://example.org/iot/Device> <http://example.org/iot/relationships> .
+<http://example.org/iot/locatedAt> <http://www.w3.org/2000/01/rdf-schema#range> <http://example.org/iot/Location> <http://example.org/iot/relationships> .
+<http://example.org/iot/locatedAt> <http://www.w3.org/2000/01/rdf-schema#label> "Located At" <http://example.org/iot/relationships> .
+<http://example.org/iot/locatedAt> <http://www.w3.org/2000/01/rdf-schema#comment> "Device is located at a location" <http://example.org/iot/relationships> .

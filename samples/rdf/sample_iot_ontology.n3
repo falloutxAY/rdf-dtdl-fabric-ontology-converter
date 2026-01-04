@@ -1,0 +1,102 @@
+# IoT Device Management Ontology in Notation3 (N3) format
+# N3 extends Turtle with additional features like formulas and rules
+
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix iot: <http://example.org/iot/> .
+
+# Ontology declaration
+iot:IoTOntology a owl:Ontology ;
+    rdfs:label "IoT Ontology (N3)" ;
+    rdfs:comment "Simple IoT device management ontology in Notation3 format" .
+
+# =============================================================================
+# Classes
+# =============================================================================
+
+iot:Device a owl:Class ;
+    rdfs:label "Device" ;
+    rdfs:comment "An IoT device" .
+
+iot:Controller a owl:Class ;
+    rdfs:label "Controller" ;
+    rdfs:comment "A controller device that manages other devices" ;
+    rdfs:subClassOf iot:Device .
+
+iot:Location a owl:Class ;
+    rdfs:label "Location" ;
+    rdfs:comment "A physical location" .
+
+iot:Zone a owl:Class ;
+    rdfs:label "Zone" ;
+    rdfs:comment "A zone within a location" ;
+    rdfs:subClassOf iot:Location .
+
+# =============================================================================
+# Data Properties
+# =============================================================================
+
+iot:deviceId a owl:DatatypeProperty ;
+    rdfs:domain iot:Device ;
+    rdfs:range xsd:string ;
+    rdfs:label "Device ID" .
+
+iot:deviceName a owl:DatatypeProperty ;
+    rdfs:domain iot:Device ;
+    rdfs:range xsd:string ;
+    rdfs:label "Device Name" .
+
+iot:status a owl:DatatypeProperty ;
+    rdfs:domain iot:Device ;
+    rdfs:range xsd:string ;
+    rdfs:label "Status" .
+
+iot:temperature a owl:DatatypeProperty ;
+    rdfs:domain iot:Device ;
+    rdfs:range xsd:double ;
+    rdfs:label "Temperature" .
+
+iot:lastSeen a owl:DatatypeProperty ;
+    rdfs:domain iot:Device ;
+    rdfs:range xsd:dateTime ;
+    rdfs:label "Last Seen" .
+
+iot:locationName a owl:DatatypeProperty ;
+    rdfs:domain iot:Location ;
+    rdfs:range xsd:string ;
+    rdfs:label "Location Name" .
+
+iot:zoneType a owl:DatatypeProperty ;
+    rdfs:domain iot:Zone ;
+    rdfs:range xsd:string ;
+    rdfs:label "Zone Type" .
+
+iot:controllerMode a owl:DatatypeProperty ;
+    rdfs:domain iot:Controller ;
+    rdfs:range xsd:string ;
+    rdfs:label "Controller Mode" ;
+    rdfs:comment "Operating mode of the controller" .
+
+iot:maxDevices a owl:DatatypeProperty ;
+    rdfs:domain iot:Controller ;
+    rdfs:range xsd:integer ;
+    rdfs:label "Max Devices" ;
+    rdfs:comment "Maximum number of devices this controller can manage" .
+
+# =============================================================================
+# Object Properties
+# =============================================================================
+
+iot:locatedAt a owl:ObjectProperty ;
+    rdfs:domain iot:Device ;
+    rdfs:range iot:Location ;
+    rdfs:label "Located At" ;
+    rdfs:comment "Device is located at a location" .
+
+iot:controls a owl:ObjectProperty ;
+    rdfs:domain iot:Controller ;
+    rdfs:range iot:Device ;
+    rdfs:label "Controls" ;
+    rdfs:comment "Controller controls a device" .

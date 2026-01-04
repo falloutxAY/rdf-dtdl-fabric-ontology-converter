@@ -58,6 +58,22 @@ from fixtures import (
 )
 
 
+def pytest_addoption(parser):
+    """Add custom command-line options."""
+    parser.addoption(
+        "--run-live",
+        action="store_true",
+        default=False,
+        help="Run live integration tests against real Fabric API"
+    )
+    parser.addoption(
+        "--workspace-id",
+        action="store",
+        default=None,
+        help="Override workspace ID for live tests"
+    )
+
+
 def pytest_configure(config):
     """Register custom markers."""
     config.addinivalue_line("markers", "unit: Fast unit tests")
@@ -66,6 +82,33 @@ def pytest_configure(config):
     config.addinivalue_line("markers", "security: Security-related tests (path traversal, symlinks)")
     config.addinivalue_line("markers", "resilience: Rate limiting, circuit breaker, cancellation tests")
     config.addinivalue_line("markers", "samples: Tests using sample ontology files")
+    config.addinivalue_line("markers", "live: Live integration tests against real Fabric API")
+    config.addinivalue_line("markers", "contract: Contract tests validating API schema compliance")
+    config.addinivalue_line("markers", "e2e: End-to-end smoke tests")
+    
+    # Set environment variable if --run-live is passed
+    if config.getoption("--run-live"):
+        os.environ["FABRIC_LIVE_TESTS"] = "1"
+    
+    # Override workspace ID if provided
+    workspace_id = config.getoption("--workspace-id")
+    if workspace_id:
+        os.environ["FABRIC_WORKSPACE_ID"] = workspace_id
+
+
+def pytest_collection_modifyitems(config, items):
+    """Skip live tests unless explicitly enabled."""
+    if config.getoption("--run-live"):
+        # Don't skip live tests
+        return
+    
+    skip_live = pytest.mark.skip(
+        reason="Live tests disabled. Use --run-live to enable or set FABRIC_LIVE_TESTS=1"
+    )
+    
+    for item in items:
+        if "live" in item.keywords:
+            item.add_marker(skip_live)
 
 
 # =============================================================================

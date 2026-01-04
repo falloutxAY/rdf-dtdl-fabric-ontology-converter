@@ -1,0 +1,122 @@
+{
+  "@context": {
+    "rdf": "http://www.w3.org/1999/02/22-rdf-syntax-ns#",
+    "rdfs": "http://www.w3.org/2000/01/rdf-schema#",
+    "owl": "http://www.w3.org/2002/07/owl#",
+    "xsd": "http://www.w3.org/2001/XMLSchema#",
+    "iot": "http://example.org/iot/"
+  },
+  "@graph": [
+    {
+      "@id": "iot:IoTOntology",
+      "@type": "owl:Ontology",
+      "rdfs:label": "IoT Ontology (JSON-LD)",
+      "rdfs:comment": "Simple IoT device management ontology in JSON-LD format"
+    },
+    {
+      "@id": "iot:Device",
+      "@type": "owl:Class",
+      "rdfs:label": "Device",
+      "rdfs:comment": "An IoT device"
+    },
+    {
+      "@id": "iot:SmartMeter",
+      "@type": "owl:Class",
+      "rdfs:label": "Smart Meter",
+      "rdfs:comment": "A smart metering device",
+      "rdfs:subClassOf": {"@id": "iot:Device"}
+    },
+    {
+      "@id": "iot:Location",
+      "@type": "owl:Class",
+      "rdfs:label": "Location",
+      "rdfs:comment": "A physical location"
+    },
+    {
+      "@id": "iot:Building",
+      "@type": "owl:Class",
+      "rdfs:label": "Building",
+      "rdfs:comment": "A building structure",
+      "rdfs:subClassOf": {"@id": "iot:Location"}
+    },
+    {
+      "@id": "iot:deviceId",
+      "@type": "owl:DatatypeProperty",
+      "rdfs:domain": {"@id": "iot:Device"},
+      "rdfs:range": {"@id": "xsd:string"},
+      "rdfs:label": "Device ID"
+    },
+    {
+      "@id": "iot:deviceName",
+      "@type": "owl:DatatypeProperty",
+      "rdfs:domain": {"@id": "iot:Device"},
+      "rdfs:range": {"@id": "xsd:string"},
+      "rdfs:label": "Device Name"
+    },
+    {
+      "@id": "iot:status",
+      "@type": "owl:DatatypeProperty",
+      "rdfs:domain": {"@id": "iot:Device"},
+      "rdfs:range": {"@id": "xsd:string"},
+      "rdfs:label": "Status"
+    },
+    {
+      "@id": "iot:temperature",
+      "@type": "owl:DatatypeProperty",
+      "rdfs:domain": {"@id": "iot:Device"},
+      "rdfs:range": {"@id": "xsd:double"},
+      "rdfs:label": "Temperature"
+    },
+    {
+      "@id": "iot:lastSeen",
+      "@type": "owl:DatatypeProperty",
+      "rdfs:domain": {"@id": "iot:Device"},
+      "rdfs:range": {"@id": "xsd:dateTime"},
+      "rdfs:label": "Last Seen"
+    },
+    {
+      "@id": "iot:locationName",
+      "@type": "owl:DatatypeProperty",
+      "rdfs:domain": {"@id": "iot:Location"},
+      "rdfs:range": {"@id": "xsd:string"},
+      "rdfs:label": "Location Name"
+    },
+    {
+      "@id": "iot:meterReading",
+      "@type": "owl:DatatypeProperty",
+      "rdfs:domain": {"@id": "iot:SmartMeter"},
+      "rdfs:range": {"@id": "xsd:double"},
+      "rdfs:label": "Meter Reading"
+    },
+    {
+      "@id": "iot:meterUnit",
+      "@type": "owl:DatatypeProperty",
+      "rdfs:domain": {"@id": "iot:SmartMeter"},
+      "rdfs:range": {"@id": "xsd:string"},
+      "rdfs:label": "Meter Unit",
+      "rdfs:comment": "Unit of measurement (kWh, m3, etc.)"
+    },
+    {
+      "@id": "iot:buildingAddress",
+      "@type": "owl:DatatypeProperty",
+      "rdfs:domain": {"@id": "iot:Building"},
+      "rdfs:range": {"@id": "xsd:string"},
+      "rdfs:label": "Building Address"
+    },
+    {
+      "@id": "iot:floorCount",
+      "@type": "owl:DatatypeProperty",
+      "rdfs:domain": {"@id": "iot:Building"},
+      "rdfs:range": {"@id": "xsd:integer"},
+      "rdfs:label": "Floor Count"
+    },
+    {
+      "@id": "iot:locatedAt",
+      "@type": "owl:ObjectProperty",
+      "rdfs:domain": {"@id": "iot:Device"},
+      "rdfs:range": {"@id": "iot:Location"},
+      "rdfs:label": "Located At",
+      "rdfs:comment": "Device is located at a location"
+    }
+  ]
+}

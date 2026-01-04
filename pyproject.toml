@@ -18,9 +18,6 @@ classifiers = [
 ]
 dependencies = [
     "rdflib>=7.0.0",
-    "rdflib-jsonld>=0.6.2",
-    "rdflib-html>=0.1.2",
-    "rdflib-hextuples>=1.0.5",
     "azure-identity>=1.15.0",
     "requests>=2.31.0",
     "msal>=1.26.0",
@@ -40,6 +37,12 @@ dev = [
 Homepage = "https://github.com/your-org/fabric-ontology-importer"
 Documentation = "https://github.com/your-org/fabric-ontology-importer#readme"
 Issues = "https://github.com/your-org/fabric-ontology-importer/issues"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-dir]
+"" = "src"
 
 [tool.pytest.ini_options]
 minversion = "7.0"

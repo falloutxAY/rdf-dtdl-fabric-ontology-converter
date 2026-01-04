@@ -38,6 +38,14 @@ from .definition import (
     DefinitionValidationError,
     FabricDefinitionValidator,
 )
+from .fabric_schema import (
+    FabricSchemaValidator,
+    FabricSchemaValidationError,
+    SchemaValidationResult,
+    validate_fabric_definition,
+    validate_entity_type,
+    validate_relationship_type,
+)
 
 __all__ = [
     # Input validation
@@ -54,4 +62,11 @@ __all__ = [
     # Definition validation
     'DefinitionValidationError',
     'FabricDefinitionValidator',
+    # Schema validation
+    'FabricSchemaValidator',
+    'FabricSchemaValidationError',
+    'SchemaValidationResult',
+    'validate_fabric_definition',
+    'validate_entity_type',
+    'validate_relationship_type',
 ]

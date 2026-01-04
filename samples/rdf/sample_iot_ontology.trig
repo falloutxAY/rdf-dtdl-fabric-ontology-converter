@@ -1,0 +1,79 @@
+# IoT Device Management Ontology in TriG format
+# TriG extends Turtle with named graphs support
+
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix iot: <http://example.org/iot/> .
+
+# Core graph - Contains classes
+iot:core {
+    iot:IoTOntology rdf:type owl:Ontology ;
+        rdfs:label "IoT Ontology (TriG)" ;
+        rdfs:comment "Simple IoT device management ontology in TriG format" .
+
+    # Device class
+    iot:Device rdf:type owl:Class ;
+        rdfs:label "Device" ;
+        rdfs:comment "An IoT device" .
+
+    # EdgeDevice class (subclass of Device)
+    iot:EdgeDevice rdf:type owl:Class ;
+        rdfs:label "Edge Device" ;
+        rdfs:comment "An edge computing device" ;
+        rdfs:subClassOf iot:Device .
+
+    # Location class
+    iot:Location rdf:type owl:Class ;
+        rdfs:label "Location" ;
+        rdfs:comment "A physical location" .
+}
+
+# Properties graph - Contains data properties
+iot:properties {
+    iot:deviceId rdf:type owl:DatatypeProperty ;
+        rdfs:domain iot:Device ;
+        rdfs:range xsd:string ;
+        rdfs:label "Device ID" .
+
+    iot:deviceName rdf:type owl:DatatypeProperty ;
+        rdfs:domain iot:Device ;
+        rdfs:range xsd:string ;
+        rdfs:label "Device Name" .
+
+    iot:status rdf:type owl:DatatypeProperty ;
+        rdfs:domain iot:Device ;
+        rdfs:range xsd:string ;
+        rdfs:label "Status" .
+
+    iot:temperature rdf:type owl:DatatypeProperty ;
+        rdfs:domain iot:Device ;
+        rdfs:range xsd:double ;
+        rdfs:label "Temperature" .
+
+    iot:lastSeen rdf:type owl:DatatypeProperty ;
+        rdfs:domain iot:Device ;
+        rdfs:range xsd:dateTime ;
+        rdfs:label "Last Seen" .
+
+    iot:locationName rdf:type owl:DatatypeProperty ;
+        rdfs:domain iot:Location ;
+        rdfs:range xsd:string ;
+        rdfs:label "Location Name" .
+
+    iot:computePower rdf:type owl:DatatypeProperty ;
+        rdfs:domain iot:EdgeDevice ;
+        rdfs:range xsd:integer ;
+        rdfs:label "Compute Power" ;
+        rdfs:comment "Computing power in FLOPS" .
+}
+
+# Relationships graph - Contains object properties
+iot:relationships {
+    iot:locatedAt rdf:type owl:ObjectProperty ;
+        rdfs:domain iot:Device ;
+        rdfs:range iot:Location ;
+        rdfs:label "Located At" ;
+        rdfs:comment "Device is located at a location" .
+}

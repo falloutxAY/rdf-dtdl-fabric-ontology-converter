@@ -1,0 +1,72 @@
+# IoT Device Management Ontology in N-Triples format
+# Each line is a single triple: <subject> <predicate> <object> .
+
+# Ontology declaration
+<http://example.org/iot/IoTOntology> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/2002/07/owl#Ontology> .
+<http://example.org/iot/IoTOntology> <http://www.w3.org/2000/01/rdf-schema#label> "IoT Ontology (N-Triples)" .
+<http://example.org/iot/IoTOntology> <http://www.w3.org/2000/01/rdf-schema#comment> "Simple IoT device management ontology in N-Triples format" .
+
+# Device class
+<http://example.org/iot/Device> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/2002/07/owl#Class> .
+<http://example.org/iot/Device> <http://www.w3.org/2000/01/rdf-schema#label> "Device" .
+<http://example.org/iot/Device> <http://www.w3.org/2000/01/rdf-schema#comment> "An IoT device" .
+
+# Actuator class (subclass of Device)
+<http://example.org/iot/Actuator> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/2002/07/owl#Class> .
+<http://example.org/iot/Actuator> <http://www.w3.org/2000/01/rdf-schema#label> "Actuator" .
+<http://example.org/iot/Actuator> <http://www.w3.org/2000/01/rdf-schema#comment> "An actuator device" .
+<http://example.org/iot/Actuator> <http://www.w3.org/2000/01/rdf-schema#subClassOf> <http://example.org/iot/Device> .
+
+# Location class
+<http://example.org/iot/Location> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/2002/07/owl#Class> .
+<http://example.org/iot/Location> <http://www.w3.org/2000/01/rdf-schema#label> "Location" .
+<http://example.org/iot/Location> <http://www.w3.org/2000/01/rdf-schema#comment> "A physical location" .
+
+# deviceId datatype property
+<http://example.org/iot/deviceId> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/2002/07/owl#DatatypeProperty> .
+<http://example.org/iot/deviceId> <http://www.w3.org/2000/01/rdf-schema#domain> <http://example.org/iot/Device> .
+<http://example.org/iot/deviceId> <http://www.w3.org/2000/01/rdf-schema#range> <http://www.w3.org/2001/XMLSchema#string> .
+<http://example.org/iot/deviceId> <http://www.w3.org/2000/01/rdf-schema#label> "Device ID" .
+
+# deviceName datatype property
+<http://example.org/iot/deviceName> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/2002/07/owl#DatatypeProperty> .
+<http://example.org/iot/deviceName> <http://www.w3.org/2000/01/rdf-schema#domain> <http://example.org/iot/Device> .
+<http://example.org/iot/deviceName> <http://www.w3.org/2000/01/rdf-schema#range> <http://www.w3.org/2001/XMLSchema#string> .
+<http://example.org/iot/deviceName> <http://www.w3.org/2000/01/rdf-schema#label> "Device Name" .
+
+# status datatype property
+<http://example.org/iot/status> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/2002/07/owl#DatatypeProperty> .
+<http://example.org/iot/status> <http://www.w3.org/2000/01/rdf-schema#domain> <http://example.org/iot/Device> .
+<http://example.org/iot/status> <http://www.w3.org/2000/01/rdf-schema#range> <http://www.w3.org/2001/XMLSchema#string> .
+<http://example.org/iot/status> <http://www.w3.org/2000/01/rdf-schema#label> "Status" .
+
+# temperature datatype property
+<http://example.org/iot/temperature> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/2002/07/owl#DatatypeProperty> .
+<http://example.org/iot/temperature> <http://www.w3.org/2000/01/rdf-schema#domain> <http://example.org/iot/Device> .
+<http://example.org/iot/temperature> <http://www.w3.org/2000/01/rdf-schema#range> <http://www.w3.org/2001/XMLSchema#double> .
+<http://example.org/iot/temperature> <http://www.w3.org/2000/01/rdf-schema#label> "Temperature" .
+
+# lastSeen datatype property
+<http://example.org/iot/lastSeen> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/2002/07/owl#DatatypeProperty> .
+<http://example.org/iot/lastSeen> <http://www.w3.org/2000/01/rdf-schema#domain> <http://example.org/iot/Device> .
+<http://example.org/iot/lastSeen> <http://www.w3.org/2000/01/rdf-schema#range> <http://www.w3.org/2001/XMLSchema#dateTime> .
+<http://example.org/iot/lastSeen> <http://www.w3.org/2000/01/rdf-schema#label> "Last Seen" .
+
+# locationName datatype property
+<http://example.org/iot/locationName> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/2002/07/owl#DatatypeProperty> .
+<http://example.org/iot/locationName> <http://www.w3.org/2000/01/rdf-schema#domain> <http://example.org/iot/Location> .
+<http://example.org/iot/locationName> <http://www.w3.org/2000/01/rdf-schema#range> <http://www.w3.org/2001/XMLSchema#string> .
+<http://example.org/iot/locationName> <http://www.w3.org/2000/01/rdf-schema#label> "Location Name" .
+
+# actuatorType datatype property
+<http://example.org/iot/actuatorType> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/2002/07/owl#DatatypeProperty> .
+<http://example.org/iot/actuatorType> <http://www.w3.org/2000/01/rdf-schema#domain> <http://example.org/iot/Actuator> .
+<http://example.org/iot/actuatorType> <http://www.w3.org/2000/01/rdf-schema#range> <http://www.w3.org/2001/XMLSchema#string> .
+<http://example.org/iot/actuatorType> <http://www.w3.org/2000/01/rdf-schema#label> "Actuator Type" .
+
+# locatedAt object property
+<http://example.org/iot/locatedAt> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/2002/07/owl#ObjectProperty> .
+<http://example.org/iot/locatedAt> <http://www.w3.org/2000/01/rdf-schema#domain> <http://example.org/iot/Device> .
+<http://example.org/iot/locatedAt> <http://www.w3.org/2000/01/rdf-schema#range> <http://example.org/iot/Location> .
+<http://example.org/iot/locatedAt> <http://www.w3.org/2000/01/rdf-schema#label> "Located At" .
+<http://example.org/iot/locatedAt> <http://www.w3.org/2000/01/rdf-schema#comment> "Device is located at a location" .
