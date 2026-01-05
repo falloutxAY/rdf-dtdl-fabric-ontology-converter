@@ -20,9 +20,9 @@ from pathlib import Path
 from typing import Optional, Dict, Any, Literal, Tuple, List
 
 try:  # Prefer absolute import when running from project root
-    from constants import LoggingConfig
+    from src.constants import LoggingConfig
 except ImportError:  # pragma: no cover - fallback when running as package
-    from ..constants import LoggingConfig  # type: ignore
+    from ...constants import LoggingConfig  # type: ignore
 
 # Type alias for log levels
 LogLevel = Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
@@ -338,7 +338,7 @@ def load_config(config_path: str, strict_security: bool = False) -> Dict[str, An
         IOError: If there's an error reading the file.
     """
     # Import InputValidator here to avoid circular imports
-    from rdf import InputValidator
+    from src.rdf import InputValidator
     
     if not config_path:
         raise ValueError("config_path cannot be empty")

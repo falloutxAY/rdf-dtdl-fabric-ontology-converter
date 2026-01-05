@@ -45,20 +45,20 @@ from .uri_utils import URIUtils
 from .class_resolver import ClassResolver
 from .fabric_serializer import FabricSerializer
 from .streaming_converter import StreamingRDFConverter
-from core.validators import (
+from src.core.validators import (
     InputValidator,
     FabricLimitsValidator,
     EntityIdPartsInferrer,
     FabricDefinitionValidator,
     DefinitionValidationError,
 )
-from core.compliance import (
+from src.core.compliance import (
     RDFOWLComplianceValidator,
     FabricComplianceChecker,
     ConversionReportGenerator,
     ConversionReport,
 )
-from shared.models import (
+from src.shared.models import (
     EntityType,
     EntityTypeProperty,
     RelationshipType,

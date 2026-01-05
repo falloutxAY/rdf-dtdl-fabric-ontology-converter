@@ -38,7 +38,7 @@ from .dtdl_models import (
 )
 
 # Import shared Fabric models
-from shared.models import (
+from src.shared.models import (
     EntityType,
     EntityTypeProperty,
     RelationshipType,
@@ -46,11 +46,11 @@ from shared.models import (
     ConversionResult,
     SkippedItem,
 )
-from core.validators import (
+from src.core.validators import (
     FabricLimitsValidator,
     EntityIdPartsInferrer,
 )
-from core.compliance import (
+from src.core.compliance import (
     DTDLComplianceValidator,
     FabricComplianceChecker,
     ConversionReportGenerator,

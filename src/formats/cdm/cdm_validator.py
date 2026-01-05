@@ -34,7 +34,7 @@ import logging
 import re
 from typing import Any, Dict, List, Optional, Set
 
-from shared.utilities.validation import (
+from src.shared.utilities.validation import (
     IssueCategory,
     Severity,
     ValidationIssue,

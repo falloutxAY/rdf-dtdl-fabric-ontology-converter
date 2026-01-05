@@ -66,7 +66,7 @@ class RDFPlugin(OntologyPlugin):
     def get_parser(self) -> Any:
         """Return RDF parser."""
         try:
-            from rdf import RDFGraphParser
+            from src.rdf import RDFGraphParser
             return RDFGraphParser()
         except ImportError:
             raise ImportError("RDF modules not available")
@@ -74,7 +74,7 @@ class RDFPlugin(OntologyPlugin):
     def get_validator(self) -> Any:
         """Return RDF validator."""
         try:
-            from rdf import PreflightValidator
+            from src.rdf import PreflightValidator
             return PreflightValidator()
         except ImportError:
             raise ImportError("RDF modules not available")
@@ -82,7 +82,7 @@ class RDFPlugin(OntologyPlugin):
     def get_converter(self) -> Any:
         """Return RDF converter."""
         try:
-            from rdf import RDFToFabricConverter
+            from src.rdf import RDFToFabricConverter
             return RDFToFabricConverter()
         except ImportError:
             raise ImportError("RDF modules not available")
@@ -90,7 +90,7 @@ class RDFPlugin(OntologyPlugin):
     def get_type_mappings(self) -> Dict[str, str]:
         """Return XSD to Fabric type mappings."""
         try:
-            from rdf import XSD_TO_FABRIC_TYPE
+            from src.rdf import XSD_TO_FABRIC_TYPE
             return XSD_TO_FABRIC_TYPE
         except ImportError:
             return {}

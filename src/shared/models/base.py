@@ -17,7 +17,7 @@ from .conversion import ConversionResult
 
 # Import the canonical protocol definition from plugins
 # This ensures a single source of truth for the protocol interface
-from plugins.protocols import ConverterProtocol
+from src.plugins.protocols import ConverterProtocol
 
 # Re-export for backward compatibility
 __all__ = ['ConverterProtocol', 'BaseConverter']

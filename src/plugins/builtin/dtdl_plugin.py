@@ -50,7 +50,7 @@ class DTDLPlugin(OntologyPlugin):
     def get_parser(self) -> Any:
         """Return DTDL parser."""
         try:
-            from dtdl import DTDLParser
+            from src.dtdl import DTDLParser
             return DTDLParser()
         except ImportError:
             raise ImportError("DTDL modules not available")
@@ -58,7 +58,7 @@ class DTDLPlugin(OntologyPlugin):
     def get_validator(self) -> Any:
         """Return DTDL validator."""
         try:
-            from dtdl import DTDLValidator
+            from src.dtdl import DTDLValidator
             return DTDLValidator()
         except ImportError:
             raise ImportError("DTDL modules not available")
@@ -66,7 +66,7 @@ class DTDLPlugin(OntologyPlugin):
     def get_converter(self) -> Any:
         """Return DTDL converter."""
         try:
-            from dtdl import DTDLToFabricConverter
+            from src.dtdl import DTDLToFabricConverter
             return DTDLToFabricConverter()
         except ImportError:
             raise ImportError("DTDL modules not available")
@@ -74,7 +74,7 @@ class DTDLPlugin(OntologyPlugin):
     def get_type_mappings(self) -> Dict[str, str]:
         """Return DTDL to Fabric type mappings."""
         try:
-            from dtdl import PRIMITIVE_TYPE_MAP
+            from src.dtdl import PRIMITIVE_TYPE_MAP
             # Convert FabricValueType enum values to string
             return {k: v.value if hasattr(v, 'value') else str(v) 
                     for k, v in PRIMITIVE_TYPE_MAP.items()}

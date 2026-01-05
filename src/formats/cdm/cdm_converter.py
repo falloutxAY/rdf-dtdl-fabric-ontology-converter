@@ -30,14 +30,14 @@ Usage:
 import logging
 from typing import Any, Dict, List, Optional, Set
 
-from shared.models.conversion import ConversionResult, SkippedItem
-from shared.models.fabric_types import (
+from src.shared.models.conversion import ConversionResult, SkippedItem
+from src.shared.models.fabric_types import (
     EntityType,
     EntityTypeProperty,
     RelationshipEnd,
     RelationshipType,
 )
-from shared.utilities.id_generator import IDGenerator
+from src.shared.utilities.id_generator import IDGenerator
 
 from .cdm_models import CDMAttribute, CDMEntity, CDMManifest, CDMRelationship
 from .cdm_parser import CDMParser

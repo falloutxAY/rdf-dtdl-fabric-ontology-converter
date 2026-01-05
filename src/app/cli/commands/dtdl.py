@@ -13,13 +13,13 @@ import logging
 from pathlib import Path
 from typing import Any, Dict, Optional
 
-from core import (
+from src.core import (
     FabricConfig,
     FabricOntologyClient,
     StreamConfig,
     DTDLStreamAdapter,
 )
-from formats.dtdl import DTDLParser, DTDLToFabricConverter, DTDLValidator
+from src.formats.dtdl import DTDLParser, DTDLToFabricConverter, DTDLValidator
 from ..helpers import resolve_dtdl_converter_modes
 from .base import BaseCommand, print_conversion_summary
 

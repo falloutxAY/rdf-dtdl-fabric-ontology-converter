@@ -2,7 +2,7 @@
 
 ## Quick Setup
 
-1. Copy the sample config: `copy config.sample.json src\config.json`
+1. Copy the sample config: `copy config.sample.json config.json` (in project root)
 2. Edit with your Fabric workspace details
 3. Test: `python -m src.main test`
 

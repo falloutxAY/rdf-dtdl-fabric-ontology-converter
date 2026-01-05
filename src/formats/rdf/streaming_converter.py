@@ -12,7 +12,7 @@ from typing import Any, Callable, Dict, List, Optional
 
 from rdflib import URIRef
 
-from shared.models import (
+from src.shared.models import (
     EntityType,
     RelationshipType,
     ConversionResult,

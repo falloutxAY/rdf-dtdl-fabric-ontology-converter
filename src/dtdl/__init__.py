@@ -4,7 +4,7 @@ import sys
 from importlib import import_module
 
 from formats import dtdl as _formats_dtdl
-from formats.dtdl import *  # type: ignore[F403]
+from src.formats.dtdl import *  # type: ignore[F403]
 
 _BRIDGED_SUBMODULES = (
 	"dtdl_converter",

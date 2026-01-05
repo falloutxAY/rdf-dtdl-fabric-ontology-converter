@@ -2,7 +2,7 @@
 Property and Relationship Extractor Module
 
 This module handles extraction of classes, data properties, and object properties
-from RDF graphs. Extracted from rdf_converter.py for better maintainability.
+from src.rdf graphs. Extracted from rdf_converter.py for better maintainability.
 
 Components:
 - ClassExtractor: Extracts OWL/RDFS classes as entity types
@@ -23,7 +23,7 @@ from .uri_utils import URIUtils
 from .class_resolver import ClassResolver
 
 # Import models
-from shared.models import (
+from src.shared.models import (
     EntityType,
     EntityTypeProperty,
     RelationshipType,

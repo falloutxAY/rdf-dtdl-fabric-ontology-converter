@@ -28,8 +28,8 @@ class ExportCommand(BaseCommand):
     
     def execute(self, args: argparse.Namespace) -> int:
         """Execute the export command."""
-        from rdf import InputValidator, FabricToTTLConverter
-        from core import FabricConfig, FabricOntologyClient, FabricAPIError
+        from src.rdf import InputValidator, FabricToTTLConverter
+        from src.core import FabricConfig, FabricOntologyClient, FabricAPIError
         
         config_path = args.config or get_default_config_path()
         

@@ -945,7 +945,7 @@ class RDFStreamAdapter:
         try:
             from ..rdf import StreamingRDFConverter
         except ImportError:
-            from rdf import StreamingRDFConverter
+            from src.rdf import StreamingRDFConverter
         
         converter = StreamingRDFConverter(
             id_prefix=self.id_prefix,

@@ -20,7 +20,7 @@ python -m pytest tests/ -v    # Run test suite
 | **Invalid RDF/TTL syntax** | Parse error | Validate at [W3C Validator](https://www.w3.org/RDF/Validator/) |
 | **No RDF triples found** | Empty/invalid file | Check encoding (UTF-8), prefix declarations |
 | **MemoryError** | File too large | Use `--streaming` or split file |
-| **Config not found** | Missing file | Copy `config.sample.json` to `src/config.json` |
+| **Config not found** | Missing file | Copy `config.sample.json` to `config.json` (project root) or use `--config` flag |
 
 ## Authentication Issues
 

@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Optional
 
-from plugins.protocols import (
+from src.plugins.protocols import (
     ParserProtocol,
     ValidatorProtocol,
     ConverterProtocol,

@@ -30,7 +30,7 @@ python -m venv .venv && .venv\Scripts\activate
 pip install -e .
 
 # 2. Configure (edit with your Fabric workspace details)
-copy config.sample.json src\config.json
+copy config.sample.json config.json
 
 # 3. Validate & Upload
 python -m src.main validate --format rdf samples/rdf/sample_supply_chain_ontology.ttl

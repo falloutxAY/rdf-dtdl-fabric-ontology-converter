@@ -534,7 +534,7 @@ def round_trip_test(ttl_content: str, base_namespace: str = "http://example.org/
     Returns:
         Comparison results from compare_ontologies()
     """
-    from rdf import parse_ttl_content
+    from src.rdf import parse_ttl_content
     
     try:
         # Step 1: Parse TTL to Fabric definition

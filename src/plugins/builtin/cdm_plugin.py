@@ -24,7 +24,7 @@ Usage:
 import json
 from typing import Any, Dict, List, Optional, Set
 
-from plugins.base import OntologyPlugin
+from src.plugins.base import OntologyPlugin
 
 
 class CDMPlugin(OntologyPlugin):

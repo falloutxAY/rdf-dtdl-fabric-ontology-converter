@@ -66,13 +66,13 @@ class UploadCommand(BaseCommand):
         directory_extensions: Optional[List[str]] = None,
     ) -> int:
         """Delegate to RDF/JSON-LD upload logic."""
-        from rdf import (
+        from src.rdf import (
             InputValidator, parse_ttl_with_result, parse_ttl_streaming,
             StreamingRDFConverter, validate_ttl_content, IssueSeverity,
             RDFGraphParser,
         )
-        from core import FabricConfig, FabricOntologyClient, FabricAPIError
-        from core import setup_cancellation_handler, restore_default_handler, OperationCancelledException
+        from src.core import FabricConfig, FabricOntologyClient, FabricAPIError
+        from src.core import setup_cancellation_handler, restore_default_handler, OperationCancelledException
         
         cancellation_token = setup_cancellation_handler(message="\n⚠️  Cancellation requested...")
         
@@ -225,8 +225,8 @@ class UploadCommand(BaseCommand):
         extensions: Optional[List[str]] = None,
     ) -> int:
         """Upload all RDF/JSON-LD files in a directory."""
-        from rdf import InputValidator, parse_ttl_with_result, RDFGraphParser
-        from core import FabricOntologyClient
+        from src.rdf import InputValidator, parse_ttl_with_result, RDFGraphParser
+        from src.core import FabricOntologyClient
         
         ext_list = extensions or getattr(InputValidator, 'TTL_EXTENSIONS', ['.ttl'])
         files = set()
@@ -361,7 +361,7 @@ class UploadCommand(BaseCommand):
             print("\nStep 4: Uploading...")
             
             try:
-                from core import FabricOntologyClient, FabricConfig
+                from src.core import FabricOntologyClient, FabricConfig
             except ImportError:
                 print("  ✗ Could not import FabricOntologyClient")
                 return 1
@@ -455,7 +455,7 @@ class UploadCommand(BaseCommand):
         print("\nUploading to Fabric...")
 
         try:
-            from core import FabricOntologyClient, FabricConfig
+            from src.core import FabricOntologyClient, FabricConfig
         except ImportError:
             print("  ✗ Could not import FabricOntologyClient")
             return 1

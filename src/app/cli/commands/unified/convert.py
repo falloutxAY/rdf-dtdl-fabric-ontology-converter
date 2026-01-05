@@ -57,7 +57,7 @@ class ConvertCommand(BaseCommand):
         directory_extensions: Optional[List[str]] = None,
     ) -> int:
         """Delegate to RDF/JSON-LD conversion logic."""
-        from rdf import (
+        from src.rdf import (
             InputValidator,
             parse_ttl_with_result,
             parse_ttl_streaming,
@@ -158,7 +158,7 @@ class ConvertCommand(BaseCommand):
         extensions: Optional[List[str]] = None,
     ) -> int:
         """Convert all RDF/JSON-LD files in a directory."""
-        from rdf import InputValidator, parse_ttl_with_result, RDFGraphParser
+        from src.rdf import InputValidator, parse_ttl_with_result, RDFGraphParser
         
         ext_list = extensions or getattr(InputValidator, 'TTL_EXTENSIONS', ['.ttl'])
         files = set()

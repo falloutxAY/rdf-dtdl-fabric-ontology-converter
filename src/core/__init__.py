@@ -16,9 +16,9 @@ including:
 - Long-running operation handling (LROHandler)
 
 Usage:
-    from core import FabricConfig, FabricOntologyClient, FabricAPIError
-    from core import CircuitBreaker, CancellationToken, MemoryManager, InputValidator
-    from core import ExitCode, APIConfig
+    from src.core import FabricConfig, FabricOntologyClient, FabricAPIError
+    from src.core import CircuitBreaker, CancellationToken, MemoryManager, InputValidator
+    from src.core import ExitCode, APIConfig
     from core.rate_limiter import TokenBucketRateLimiter
     from core.cancellation import setup_cancellation_handler
     from core.validators import InputValidator

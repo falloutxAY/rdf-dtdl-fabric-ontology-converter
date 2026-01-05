@@ -19,9 +19,9 @@ from ..helpers import (
     print_footer,
     confirm_action,
 )
-from shared.models import ConversionResult
-from plugins.protocols import ConverterProtocol
-from constants import ExitCode
+from src.shared.models import ConversionResult
+from src.plugins.protocols import ConverterProtocol
+from src.constants import ExitCode
 
 
 logger = logging.getLogger(__name__)
@@ -132,14 +132,14 @@ class BaseCommand(ABC):
     def get_validator(self) -> IValidator:
         """Get or create validator instance."""
         if self._validator is None:
-            from rdf import PreflightValidator
+            from src.rdf import PreflightValidator
             self._validator = PreflightValidator()
         return self._validator
     
     def get_client(self) -> IFabricClient:
         """Get or create Fabric client instance."""
         if self._client is None:
-            from core import FabricConfig, FabricOntologyClient
+            from src.core import FabricConfig, FabricOntologyClient
             fabric_config = FabricConfig.from_dict(self.config)
             self._client = FabricOntologyClient(fabric_config)
         return self._client

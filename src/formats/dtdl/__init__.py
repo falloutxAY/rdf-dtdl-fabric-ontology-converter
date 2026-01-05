@@ -11,7 +11,7 @@ Key Components:
 - mode_converters: Specialized converters for Components, Commands, ScaledDecimal
 
 Usage:
-    from dtdl import DTDLParser, DTDLValidator, DTDLToFabricConverter
+    from src.dtdl import DTDLParser, DTDLValidator, DTDLToFabricConverter
     
     parser = DTDLParser()
     interfaces = parser.parse_file("model.json")

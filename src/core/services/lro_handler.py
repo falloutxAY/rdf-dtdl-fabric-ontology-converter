@@ -15,7 +15,7 @@ from typing import Dict, Any, Optional, Callable
 import requests
 from tqdm import tqdm
 
-from core.http_client import FabricAPIError, TransientAPIError
+from src.core.http_client import FabricAPIError, TransientAPIError
 
 # Try to import CancellationToken
 try:

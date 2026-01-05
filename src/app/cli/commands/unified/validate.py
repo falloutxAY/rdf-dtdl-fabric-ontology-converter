@@ -52,7 +52,7 @@ class ValidateCommand(BaseCommand):
         directory_extensions: Optional[List[str]] = None,
     ) -> int:
         """Delegate to RDF/JSON-LD validation logic."""
-        from rdf import InputValidator, PreflightValidator, RDFGraphParser
+        from src.rdf import InputValidator, PreflightValidator, RDFGraphParser
 
         self.setup_logging_from_config()
         label = format_label or "RDF"

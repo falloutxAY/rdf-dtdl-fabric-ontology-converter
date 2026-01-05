@@ -17,7 +17,7 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Dict, List, Optional, Tuple
 
-from shared.models import (
+from src.shared.models import (
     EntityType,
     EntityTypeProperty,
     RelationshipType,
