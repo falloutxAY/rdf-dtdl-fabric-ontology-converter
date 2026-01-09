@@ -3,6 +3,7 @@
         "workspace_id": "YOUR_WORKSPACE_ID",
         "ontology_id": "", 
         "api_base_url": "https://api.fabric.microsoft.com/v1",
+        "client_type": "rest",
         "tenant_id": "YOUR_TENANT_ID",
         "client_id": "YOUR_CLIENT_ID", 
         "client_secret": "",

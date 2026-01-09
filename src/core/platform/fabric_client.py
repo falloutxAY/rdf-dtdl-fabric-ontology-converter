@@ -165,9 +165,22 @@ class CircuitBreakerSettings:
 
 @dataclass
 class FabricConfig:
-    """Configuration for Fabric API access."""
+    """Configuration for Fabric API access.
+    
+    Attributes:
+        workspace_id: Fabric workspace GUID
+        api_base_url: Base URL for Fabric API
+        client_type: Client implementation to use ('rest' or 'sdk')
+        tenant_id: Azure AD tenant ID
+        client_id: Service principal client ID
+        client_secret: Service principal secret
+        use_interactive_auth: Enable interactive browser auth
+        rate_limit: Rate limiting configuration
+        circuit_breaker: Circuit breaker configuration
+    """
     workspace_id: str
     api_base_url: str = "https://api.fabric.microsoft.com/v1"
+    client_type: str = "rest"  # 'rest' or 'sdk'
     tenant_id: Optional[str] = None
     client_id: Optional[str] = None
     client_secret: Optional[str] = None
@@ -188,6 +201,7 @@ class FabricConfig:
         return cls(
             workspace_id=fabric_config.get('workspace_id', ''),
             api_base_url=fabric_config.get('api_base_url', 'https://api.fabric.microsoft.com/v1'),
+            client_type=fabric_config.get('client_type', 'rest'),
             tenant_id=fabric_config.get('tenant_id'),
             client_id=fabric_config.get('client_id'),
             client_secret=fabric_config.get('client_secret'),
@@ -243,9 +257,15 @@ class FabricConfig:
         return cls.from_dict(config_dict)
 
 
-class FabricOntologyClient:
+# Import interface for implementation
+from .ontology_client_interface import IOntologyClient
+
+
+class FabricOntologyClient(IOntologyClient):
     """
-    Client for interacting with Microsoft Fabric Ontology API.
+    REST API client for interacting with Microsoft Fabric Ontology API.
+    
+    Implements the IOntologyClient interface for ontology operations.
     
     This client handles authentication and provides methods for:
     - Creating ontologies
@@ -253,6 +273,13 @@ class FabricOntologyClient:
     - Listing ontologies
     - Getting ontology details
     - Deleting ontologies
+    
+    Features:
+    - Thread-safe token caching
+    - Rate limiting with token bucket algorithm
+    - Circuit breaker for fault tolerance
+    - Retry logic with exponential backoff
+    - Long-running operation (LRO) handling
     """
     
     FABRIC_SCOPE = "https://api.fabric.microsoft.com/.default"

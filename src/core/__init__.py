@@ -95,6 +95,27 @@ from .platform.fabric_client import (
     CircuitBreakerSettings,
 )
 
+# Ontology client interface and factory (Phase 1 refactor)
+from .platform.ontology_client_interface import (
+    IOntologyClient,
+    ClientType,
+    OntologyInfo,
+    OntologyDefinition,
+)
+from .platform.client_factory import (
+    create_ontology_client,
+    get_available_client_types,
+    is_client_available,
+    ClientNotAvailableError,
+)
+
+# SDK client utilities (Phase 2 refactor)
+from .platform.sdk_client import (
+    is_sdk_available,
+    get_sdk_import_error,
+    SdkNotAvailableError,
+)
+
 # Input validation and Fabric limits
 from .validators import (
     InputValidator,
@@ -213,6 +234,19 @@ __all__ = [
     "FabricTransientAPIError",
     "RateLimitConfig",
     "CircuitBreakerSettings",
+    # Ontology client interface and factory (Phase 1 refactor)
+    "IOntologyClient",
+    "ClientType",
+    "OntologyInfo",
+    "OntologyDefinition",
+    "create_ontology_client",
+    "get_available_client_types",
+    "is_client_available",
+    "ClientNotAvailableError",
+    # SDK client utilities (Phase 2 refactor)
+    "is_sdk_available",
+    "get_sdk_import_error",
+    "SdkNotAvailableError",
     # Input validation and Fabric limits
     "InputValidator",
     "URLValidator",
