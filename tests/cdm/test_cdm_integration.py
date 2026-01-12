@@ -10,21 +10,15 @@ import json
 import tempfile
 from pathlib import Path
 
-# Add src to path
-import sys
-src_dir = os.path.join(os.path.dirname(__file__), '..', '..', 'src')
-if src_dir not in sys.path:
-    sys.path.insert(0, src_dir)
-
-from formats.cdm import (
+from src.formats.cdm import (
     CDMParser,
     CDMValidator,
     CDMToFabricConverter,
     CDM_TYPE_MAPPINGS,
     CDM_SEMANTIC_TYPE_MAPPINGS,
 )
-from plugins.builtin.cdm_plugin import CDMPlugin
-from shared.models import EntityType, RelationshipType
+from src.plugins.builtin.cdm_plugin import CDMPlugin
+from src.shared.models import EntityType, RelationshipType
 
 
 # Sample directory

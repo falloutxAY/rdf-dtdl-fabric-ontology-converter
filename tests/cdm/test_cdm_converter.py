@@ -5,18 +5,11 @@ Tests for CDM to Fabric conversion functionality.
 """
 
 import pytest
-import sys
-import os
 
-# Add src to path
-src_dir = os.path.join(os.path.dirname(__file__), '..', '..', 'src')
-if src_dir not in sys.path:
-    sys.path.insert(0, src_dir)
-
-from formats.cdm.cdm_converter import CDMToFabricConverter
-from formats.cdm.cdm_models import CDMManifest, CDMEntity, CDMAttribute, CDMRelationship
-from shared.models.conversion import ConversionResult
-from shared.models.fabric_types import EntityType, RelationshipType
+from src.formats.cdm.cdm_converter import CDMToFabricConverter
+from src.formats.cdm.cdm_models import CDMManifest, CDMEntity, CDMAttribute, CDMRelationship
+from src.shared.models.conversion import ConversionResult
+from src.shared.models.fabric_types import EntityType, RelationshipType
 
 from . import (
     SIMPLE_ENTITY_SCHEMA,

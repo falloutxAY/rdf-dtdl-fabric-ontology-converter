@@ -5,17 +5,10 @@ Tests for CDM validation functionality.
 """
 
 import pytest
-import sys
-import os
 
-# Add src to path
-src_dir = os.path.join(os.path.dirname(__file__), '..', '..', 'src')
-if src_dir not in sys.path:
-    sys.path.insert(0, src_dir)
-
-from formats.cdm.cdm_validator import CDMValidator
-from formats.cdm.cdm_models import CDMManifest, CDMEntity, CDMAttribute, CDMRelationship
-from shared.utilities.validation import Severity, IssueCategory
+from src.formats.cdm.cdm_validator import CDMValidator
+from src.formats.cdm.cdm_models import CDMManifest, CDMEntity, CDMAttribute, CDMRelationship
+from src.shared.utilities.validation import Severity, IssueCategory
 
 from . import (
     SIMPLE_MANIFEST,

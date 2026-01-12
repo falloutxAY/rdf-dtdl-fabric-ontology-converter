@@ -30,15 +30,17 @@ from tenacity import (
 )
 from tqdm import tqdm
 
-# Import shared infrastructure from the parent core package
-from ..rate_limiter import TokenBucketRateLimiter, NoOpRateLimiter
-from ..cancellation import CancellationToken, OperationCancelledException
-from ..circuit_breaker import (
+# Import resilience utilities directly (avoid circular import through src.core)
+from .resilience.rate_limiter import TokenBucketRateLimiter, NoOpRateLimiter
+from .resilience.circuit_breaker import (
     CircuitBreaker,
     CircuitBreakerConfig,
     CircuitBreakerOpenError,
     CircuitState,
 )
+
+# Import cancellation from parent core package (no circular dependency)
+from ..cancellation import CancellationToken, OperationCancelledException
 
 logger = logging.getLogger(__name__)
 

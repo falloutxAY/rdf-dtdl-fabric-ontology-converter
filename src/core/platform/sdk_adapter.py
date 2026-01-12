@@ -42,11 +42,19 @@ try:
         ValidationError as SDKValidationError,
         ApiError as SDKApiError,
     )
+    from fabric_ontology.resilience import (
+        RateLimiter as SDKRateLimiter,
+        CircuitBreaker as SDKCircuitBreaker,
+        CircuitBreakerOpenError as SDKCircuitBreakerOpenError,
+    )
     SDK_AVAILABLE = True
 except ImportError:
     SDK_AVAILABLE = False
     FabricClient = None  # type: ignore
     OntologyBuilder = None  # type: ignore
+    SDKRateLimiter = None  # type: ignore
+    SDKCircuitBreaker = None  # type: ignore
+    SDKCircuitBreakerOpenError = None  # type: ignore
 
 # Local imports for legacy client compatibility
 from .fabric_client import FabricConfig, FabricOntologyClient, FabricAPIError
@@ -106,7 +114,7 @@ class SDKClientAdapter:
         if not SDK_AVAILABLE:
             raise ImportError(
                 "fabric-ontology-sdk is not installed. "
-                "Install with: pip install fabric-ontology-sdk @ git+https://github.com/falloutxAY/Unofficial-Fabric-Ontology-SDK.git@v0.3.0"
+                "Install with: pip install fabric-ontology-sdk @ git+https://github.com/falloutxAY/Unofficial-Fabric-Ontology-SDK.git@v0.4.0"
             )
         
         self.config = config
