@@ -71,7 +71,7 @@ class UploadCommand(BaseCommand):
             StreamingRDFConverter, validate_ttl_content, IssueSeverity,
             RDFGraphParser,
         )
-        from src.core import FabricConfig, FabricOntologyClient, FabricAPIError
+        from src.core import FabricConfig, create_client, FabricAPIError
         from src.core import setup_cancellation_handler, restore_default_handler, OperationCancelledException
         
         cancellation_token = setup_cancellation_handler(message="\n⚠️  Cancellation requested...")
@@ -188,7 +188,7 @@ class UploadCommand(BaseCommand):
             ontology_name = args.ontology_name or extracted_name
             description = args.description or f"Imported from {os.path.basename(str(path))}"
             
-            client = FabricOntologyClient(fabric_config)
+            client = create_client(fabric_config)
             
             try:
                 result = client.create_or_update_ontology(
@@ -226,7 +226,7 @@ class UploadCommand(BaseCommand):
     ) -> int:
         """Upload all RDF/JSON-LD files in a directory."""
         from src.rdf import InputValidator, parse_ttl_with_result, RDFGraphParser
-        from src.core import FabricOntologyClient
+        from src.core import create_client
         
         ext_list = extensions or getattr(InputValidator, 'TTL_EXTENSIONS', ['.ttl'])
         files = set()
@@ -248,7 +248,7 @@ class UploadCommand(BaseCommand):
         
         successes, failures = [], []
         id_prefix = config_data.get('ontology', {}).get('id_prefix', 1000000000000)
-        client = FabricOntologyClient(fabric_config)
+        client = create_client(fabric_config)
         
         for i, f in enumerate(files, 1):
             print(f"[{i}/{len(files)}] {f.name}")
@@ -361,9 +361,9 @@ class UploadCommand(BaseCommand):
             print("\nStep 4: Uploading...")
             
             try:
-                from src.core import FabricOntologyClient, FabricConfig
+                from src.core import create_client, FabricConfig
             except ImportError:
-                print("  ✗ Could not import FabricOntologyClient")
+                print("  ✗ Could not import create_client")
                 return 1
             
             config_path = args.config or get_default_config_path()
@@ -373,7 +373,7 @@ class UploadCommand(BaseCommand):
                 print(f"  ✗ Config error: {e}")
                 return 1
             
-            client = FabricOntologyClient(config)
+            client = create_client(config)
             
             try:
                 result = client.create_ontology(
@@ -455,9 +455,9 @@ class UploadCommand(BaseCommand):
         print("\nUploading to Fabric...")
 
         try:
-            from src.core import FabricOntologyClient, FabricConfig
+            from src.core import create_client, FabricConfig
         except ImportError:
-            print("  ✗ Could not import FabricOntologyClient")
+            print("  ✗ Could not import create_client")
             return 1
 
         config_path = args.config or get_default_config_path()
@@ -467,7 +467,7 @@ class UploadCommand(BaseCommand):
             print(f"  ✗ Config error: {exc}")
             return 1
 
-        client = FabricOntologyClient(config)
+        client = create_client(config)
 
         try:
             result = client.create_ontology(

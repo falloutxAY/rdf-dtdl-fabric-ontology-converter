@@ -35,7 +35,7 @@ class ListCommand(BaseCommand):
     
     def execute(self, args: argparse.Namespace) -> int:
         """Execute the list command."""
-        from src.core import FabricConfig, FabricOntologyClient, FabricAPIError
+        from src.core import FabricConfig, create_client, FabricAPIError
         
         config_path = args.config or get_default_config_path()
         config_data = load_config(config_path)
@@ -44,7 +44,7 @@ class ListCommand(BaseCommand):
         log_config = config_data.get('logging', {})
         setup_logging(config=log_config)
         
-        client = FabricOntologyClient(fabric_config)
+        client = create_client(fabric_config)
         
         try:
             ontologies = client.list_ontologies()
@@ -76,7 +76,7 @@ class GetCommand(BaseCommand):
     
     def execute(self, args: argparse.Namespace) -> int:
         """Execute the get command."""
-        from src.core import FabricConfig, FabricOntologyClient, FabricAPIError
+        from src.core import FabricConfig, create_client, FabricAPIError
         
         config_path = args.config or get_default_config_path()
         config_data = load_config(config_path)
@@ -85,7 +85,7 @@ class GetCommand(BaseCommand):
         log_config = config_data.get('logging', {})
         setup_logging(config=log_config)
         
-        client = FabricOntologyClient(fabric_config)
+        client = create_client(fabric_config)
         
         try:
             ontology = client.get_ontology(args.ontology_id)
@@ -110,7 +110,7 @@ class DeleteCommand(BaseCommand):
     
     def execute(self, args: argparse.Namespace) -> int:
         """Execute the delete command."""
-        from src.core import FabricConfig, FabricOntologyClient, FabricAPIError
+        from src.core import FabricConfig, create_client, FabricAPIError
         
         config_path = args.config or get_default_config_path()
         config_data = load_config(config_path)
@@ -119,7 +119,7 @@ class DeleteCommand(BaseCommand):
         log_config = config_data.get('logging', {})
         setup_logging(config=log_config)
         
-        client = FabricOntologyClient(fabric_config)
+        client = create_client(fabric_config)
         
         if not args.force:
             if not confirm_action(f"Are you sure you want to delete ontology {args.ontology_id}?"):
@@ -143,7 +143,7 @@ class TestCommand(BaseCommand):
     def execute(self, args: argparse.Namespace) -> int:
         """Execute the test command."""
         from src.rdf import InputValidator, parse_ttl_content
-        from src.core import FabricConfig, FabricOntologyClient, FabricAPIError
+        from src.core import FabricConfig, create_client, FabricAPIError
         
         config_path = args.config or get_default_config_path()
         if os.path.exists(config_path):
@@ -197,7 +197,7 @@ class TestCommand(BaseCommand):
             
             if fabric_config.workspace_id and fabric_config.workspace_id != "YOUR_WORKSPACE_ID":
                 print("\n--- Testing Fabric Connection ---\n")
-                client = FabricOntologyClient(fabric_config)
+                client = create_client(fabric_config)
                 
                 try:
                     ontologies = client.list_ontologies()

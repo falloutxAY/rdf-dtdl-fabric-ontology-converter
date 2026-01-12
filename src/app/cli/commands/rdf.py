@@ -299,7 +299,7 @@ class UploadCommand(BaseCommand):
             InputValidator, parse_ttl_with_result, parse_ttl_streaming,
             StreamingRDFConverter, validate_ttl_content, generate_import_log, IssueSeverity
         )
-        from src.core import FabricConfig, FabricOntologyClient, FabricAPIError
+        from src.core import FabricConfig, create_client, FabricAPIError
         from src.core import (
             setup_cancellation_handler, restore_default_handler,
             OperationCancelledException
@@ -323,7 +323,7 @@ class UploadCommand(BaseCommand):
             InputValidator, parse_ttl_with_result, parse_ttl_streaming,
             StreamingRDFConverter, validate_ttl_content, generate_import_log, IssueSeverity
         )
-        from src.core import FabricConfig, FabricOntologyClient, FabricAPIError
+        from src.core import FabricConfig, create_client, FabricAPIError
         from src.core import (
             setup_cancellation_handler, restore_default_handler,
             OperationCancelledException
@@ -484,7 +484,7 @@ class UploadCommand(BaseCommand):
             logger.info(f"Ontology name: {ontology_name}")
             logger.info(f"Definition has {len(definition['parts'])} parts")
             
-            client = FabricOntologyClient(fabric_config)
+            client = create_client(fabric_config)
             
             try:
                 result = client.create_or_update_ontology(
@@ -527,7 +527,7 @@ class UploadCommand(BaseCommand):
     def _execute_batch_upload(self, args: argparse.Namespace, directory: Path) -> int:
         """Execute upload for all TTL files in a directory."""
         from src.rdf import InputValidator, parse_ttl_with_result
-        from src.core import FabricConfig, FabricOntologyClient, FabricAPIError
+        from src.core import FabricConfig, create_client, FabricAPIError
         
         # Load configuration first
         config_path = args.config or get_default_config_path()
@@ -560,7 +560,7 @@ class UploadCommand(BaseCommand):
         successes: List[str] = []
         failures: List[Tuple[str, str]] = []
         id_prefix = config_data.get('ontology', {}).get('id_prefix', 1000000000000)
-        client = FabricOntologyClient(fabric_config)
+        client = create_client(fabric_config)
         
         for i, ttl_file in enumerate(ttl_files, 1):
             print_batch_progress(i, len(ttl_files), ttl_file.name)
@@ -915,7 +915,7 @@ class ExportCommand(BaseCommand):
     def execute(self, args: argparse.Namespace) -> int:
         """Execute the export command."""
         from src.rdf import InputValidator, FabricToTTLConverter
-        from src.core import FabricConfig, FabricOntologyClient, FabricAPIError
+        from src.core import FabricConfig, create_client, FabricAPIError
         
         config_path = args.config or get_default_config_path()
         
@@ -943,7 +943,7 @@ class ExportCommand(BaseCommand):
             print(f"✗ Failed to load configuration: {e}")
             return 1
         
-        client = FabricOntologyClient(fabric_config)
+        client = create_client(fabric_config)
         ontology_id = args.ontology_id
         
         print(f"✓ Exporting ontology {ontology_id} to TTL format...")

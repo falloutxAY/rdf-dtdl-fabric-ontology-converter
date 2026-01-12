@@ -15,7 +15,7 @@ from typing import Any, Dict, Optional
 
 from src.core import (
     FabricConfig,
-    FabricOntologyClient,
+    create_client,
     StreamConfig,
     DTDLStreamAdapter,
 )
@@ -463,8 +463,12 @@ class DTDLImportCommand(BaseCommand):
         print("\n=== Import complete ===")
         return 0
 
-    def _get_fabric_client(self, args: argparse.Namespace) -> Optional[FabricOntologyClient]:
-        """Resolve Fabric configuration and return a client instance."""
+    def _get_fabric_client(self, args: argparse.Namespace):
+        """Resolve Fabric configuration and return a client instance.
+        
+        Uses create_client() factory which respects FABRIC_USE_SDK environment
+        variable to select between SDK and legacy client.
+        """
         if getattr(args, 'config', None):
             self.config_path = args.config
 
@@ -486,4 +490,4 @@ class DTDLImportCommand(BaseCommand):
             print("  ✗ Configuration Error: Please configure your Fabric workspace_id in config.json")
             return None
 
-        return FabricOntologyClient(fabric_config)
+        return create_client(fabric_config)

@@ -137,11 +137,15 @@ class BaseCommand(ABC):
         return self._validator
     
     def get_client(self) -> IFabricClient:
-        """Get or create Fabric client instance."""
+        """Get or create Fabric client instance.
+        
+        Uses create_client() factory which respects FABRIC_USE_SDK environment
+        variable to select between SDK and legacy client.
+        """
         if self._client is None:
-            from src.core import FabricConfig, FabricOntologyClient
+            from src.core import FabricConfig, create_client
             fabric_config = FabricConfig.from_dict(self.config)
-            self._client = FabricOntologyClient(fabric_config)
+            self._client = create_client(fabric_config)
         return self._client
     
     def setup_logging_from_config(self, allow_missing: bool = True) -> None:

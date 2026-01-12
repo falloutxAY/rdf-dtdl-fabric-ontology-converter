@@ -29,7 +29,7 @@ class ExportCommand(BaseCommand):
     def execute(self, args: argparse.Namespace) -> int:
         """Execute the export command."""
         from src.rdf import InputValidator, FabricToTTLConverter
-        from src.core import FabricConfig, FabricOntologyClient, FabricAPIError
+        from src.core import FabricConfig, create_client, FabricAPIError
         
         config_path = args.config or get_default_config_path()
         
@@ -46,7 +46,7 @@ class ExportCommand(BaseCommand):
             print(f"✗ Configuration error: {e}")
             return 1
         
-        client = FabricOntologyClient(fabric_config)
+        client = create_client(fabric_config)
         ontology_id = args.ontology_id
         
         print(f"✓ Exporting ontology {ontology_id} to TTL...")

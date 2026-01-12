@@ -95,6 +95,16 @@ from .platform.fabric_client import (
     CircuitBreakerSettings,
 )
 
+# SDK adapter for migration to official SDK
+from .platform.sdk_adapter import (
+    SDKClientAdapter,
+    SDKConfig,
+    create_sdk_client,
+    create_client,
+    is_sdk_available,
+    USE_SDK,
+)
+
 # Input validation and Fabric limits
 from .validators import (
     InputValidator,
@@ -213,6 +223,13 @@ __all__ = [
     "FabricTransientAPIError",
     "RateLimitConfig",
     "CircuitBreakerSettings",
+    # SDK adapter
+    "SDKClientAdapter",
+    "SDKConfig",
+    "create_sdk_client",
+    "create_client",
+    "is_sdk_available",
+    "USE_SDK",
     # Input validation and Fabric limits
     "InputValidator",
     "URLValidator",

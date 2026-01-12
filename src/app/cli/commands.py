@@ -146,11 +146,15 @@ class BaseCommand(ABC):
         return self._validator
     
     def get_client(self) -> IFabricClient:
-        """Get or create Fabric client instance."""
+        """Get or create Fabric client instance.
+        
+        Uses create_client() factory which respects FABRIC_USE_SDK environment
+        variable to select between SDK and legacy client.
+        """
         if self._client is None:
-            from src.core import FabricConfig, FabricOntologyClient
+            from src.core import FabricConfig, create_client
             fabric_config = FabricConfig.from_dict(self.config)
-            self._client = FabricOntologyClient(fabric_config)
+            self._client = create_client(fabric_config)
         return self._client
     
     def setup_logging_from_config(self, allow_missing: bool = True) -> None:
@@ -315,7 +319,7 @@ class UploadCommand(BaseCommand):
             InputValidator, parse_ttl_with_result, parse_ttl_streaming,
             StreamingRDFConverter, validate_ttl_content, generate_import_log, IssueSeverity
         )
-        from src.core import FabricConfig, FabricOntologyClient, FabricAPIError
+        from src.core import FabricConfig, create_client, FabricAPIError
         from src.core import (
             setup_cancellation_handler, restore_default_handler,
             OperationCancelledException
@@ -476,7 +480,7 @@ class UploadCommand(BaseCommand):
             logger.info(f"Ontology name: {ontology_name}")
             logger.info(f"Definition has {len(definition['parts'])} parts")
             
-            client = FabricOntologyClient(fabric_config)
+            client = create_client(fabric_config)
             
             try:
                 result = client.create_or_update_ontology(
@@ -609,7 +613,7 @@ class ListCommand(BaseCommand):
     
     def execute(self, args: argparse.Namespace) -> int:
         """Execute the list command."""
-        from src.core import FabricConfig, FabricOntologyClient, FabricAPIError
+        from src.core import FabricConfig, create_client, FabricAPIError
         
         config_path = args.config or get_default_config_path()
         config_data = load_config(config_path)
@@ -618,7 +622,7 @@ class ListCommand(BaseCommand):
         log_config = config_data.get('logging', {})
         setup_logging(config=log_config)
         
-        client = FabricOntologyClient(fabric_config)
+        client = create_client(fabric_config)
         
         try:
             ontologies = client.list_ontologies()
@@ -650,7 +654,7 @@ class GetCommand(BaseCommand):
     
     def execute(self, args: argparse.Namespace) -> int:
         """Execute the get command."""
-        from src.core import FabricConfig, FabricOntologyClient, FabricAPIError
+        from src.core import FabricConfig, create_client, FabricAPIError
         
         config_path = args.config or get_default_config_path()
         config_data = load_config(config_path)
@@ -659,7 +663,7 @@ class GetCommand(BaseCommand):
         log_config = config_data.get('logging', {})
         setup_logging(config=log_config)
         
-        client = FabricOntologyClient(fabric_config)
+        client = create_client(fabric_config)
         
         try:
             ontology = client.get_ontology(args.ontology_id)
@@ -684,7 +688,7 @@ class DeleteCommand(BaseCommand):
     
     def execute(self, args: argparse.Namespace) -> int:
         """Execute the delete command."""
-        from src.core import FabricConfig, FabricOntologyClient, FabricAPIError
+        from src.core import FabricConfig, create_client, FabricAPIError
         
         config_path = args.config or get_default_config_path()
         config_data = load_config(config_path)
@@ -693,7 +697,7 @@ class DeleteCommand(BaseCommand):
         log_config = config_data.get('logging', {})
         setup_logging(config=log_config)
         
-        client = FabricOntologyClient(fabric_config)
+        client = create_client(fabric_config)
         
         if not args.force:
             if not confirm_action(f"Are you sure you want to delete ontology {args.ontology_id}?"):
@@ -717,7 +721,7 @@ class TestCommand(BaseCommand):
     def execute(self, args: argparse.Namespace) -> int:
         """Execute the test command."""
         from src.rdf import InputValidator, parse_ttl_content
-        from src.core import FabricConfig, FabricOntologyClient, FabricAPIError
+        from src.core import FabricConfig, create_client, FabricAPIError
         
         config_path = args.config or get_default_config_path()
         if os.path.exists(config_path):
@@ -771,7 +775,7 @@ class TestCommand(BaseCommand):
             
             if fabric_config.workspace_id and fabric_config.workspace_id != "YOUR_WORKSPACE_ID":
                 print("\n--- Testing Fabric Connection ---\n")
-                client = FabricOntologyClient(fabric_config)
+                client = create_client(fabric_config)
                 
                 try:
                     ontologies = client.list_ontologies()
@@ -954,7 +958,7 @@ class ExportCommand(BaseCommand):
     def execute(self, args: argparse.Namespace) -> int:
         """Execute the export command."""
         from src.rdf import InputValidator, FabricToTTLConverter
-        from src.core import FabricConfig, FabricOntologyClient, FabricAPIError
+        from src.core import FabricConfig, create_client, FabricAPIError
         
         config_path = args.config or get_default_config_path()
         
@@ -982,7 +986,7 @@ class ExportCommand(BaseCommand):
             print(f"✗ Failed to load configuration: {e}")
             return 1
         
-        client = FabricOntologyClient(fabric_config)
+        client = create_client(fabric_config)
         ontology_id = args.ontology_id
         
         print(f"✓ Exporting ontology {ontology_id} to TTL format...")
@@ -1360,9 +1364,9 @@ class DTDLImportCommand(BaseCommand):
             print("\nStep 4: Uploading to Fabric...")
             
             try:
-                from src.core import FabricOntologyClient, FabricConfig
+                from src.core import create_client, FabricConfig
             except ImportError:
-                print("  ✗ Could not import FabricOntologyClient")
+                print("  ✗ Could not import create_client")
                 return 1
             
             # Load config
@@ -1376,7 +1380,7 @@ class DTDLImportCommand(BaseCommand):
                 print(f"  ✗ Error loading config: {e}")
                 return 1
             
-            client = FabricOntologyClient(config)
+            client = create_client(config)
             
             try:
                 result = client.create_ontology(
