@@ -6,7 +6,7 @@
 
 Convert RDF/OWL, DTDL, and CDM ontologies to Microsoft Fabric Ontology format via the [Fabric Ontology REST API](https://learn.microsoft.com/rest/api/fabric/ontology/items).
 
-> ⚠️ **Disclaimer:** This is a personal project to learn about AI development and is not an official Microsoft product. It is **not** supported, endorsed, or maintained by Microsoft Corporation. Use at your own risk. See [LICENSE](LICENSE).
+> ⚠️ **Disclaimer:** This is a personal project to learn about AI development and is not an official Microsoft product. It is **not** supported, endorsed, or maintained by Microsoft Corporation. Use at your own risk and definitely only for testing. See [LICENSE](LICENSE).
 
 ## Features
 
