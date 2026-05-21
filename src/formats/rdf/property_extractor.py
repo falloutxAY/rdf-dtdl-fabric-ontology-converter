@@ -33,6 +33,68 @@ from src.shared.models import (
 
 logger = logging.getLogger(__name__)
 
+GEOSPATIAL_DATA_TYPE_VALUES = {
+    "latitude": "Latitude",
+    "longitude": "Longitude",
+    "geojson": "GeoJson",
+}
+GEOSPATIAL_DATA_TYPE_VALUE_TYPES = {
+    "Latitude": "Double",
+    "Longitude": "Double",
+    "GeoJson": "String",
+}
+GEOSPATIAL_DATA_TYPE_PREDICATES = {
+    "datatype",
+    "semanticdatatype",
+    "geospatialdatatype",
+    "fabricdatatype",
+}
+
+
+def _local_name(value: Any) -> str:
+    """Extract a case-insensitive local name from a URI or literal value."""
+    value_str = str(value).strip()
+    if "#" in value_str:
+        value_str = value_str.split("#")[-1]
+    elif "/" in value_str:
+        value_str = value_str.rstrip("/").split("/")[-1]
+    return value_str
+
+
+def _normalize_geospatial_data_type(value: Any) -> Optional[str]:
+    """Normalize explicit geospatial dataType annotation values."""
+    local = _local_name(value).replace("_", "").replace("-", "").lower()
+    return GEOSPATIAL_DATA_TYPE_VALUES.get(local)
+
+
+def _extract_geospatial_data_type(
+    graph: Graph,
+    prop_uri: URIRef,
+    value_type: str,
+) -> Optional[str]:
+    """Extract explicit Fabric geospatial dataType metadata from an RDF property."""
+    for predicate, obj in graph.predicate_objects(prop_uri):
+        predicate_name = _local_name(predicate).replace("_", "").replace("-", "").lower()
+        if predicate_name not in GEOSPATIAL_DATA_TYPE_PREDICATES:
+            continue
+
+        data_type = _normalize_geospatial_data_type(obj)
+        if not data_type:
+            logger.warning(f"Ignoring unsupported geospatial dataType annotation value: {obj}")
+            continue
+
+        expected_value_type = GEOSPATIAL_DATA_TYPE_VALUE_TYPES[data_type]
+        if value_type != expected_value_type:
+            logger.warning(
+                f"Ignoring geospatial dataType '{data_type}' for {prop_uri}: "
+                f"requires valueType '{expected_value_type}', found '{value_type}'"
+            )
+            continue
+
+        return data_type
+
+    return None
+
 
 class ClassExtractor:
     """
@@ -228,12 +290,15 @@ class DataPropertyExtractor:
                 if "(timeseries)" in comment_text:
                     is_timeseries = True
                     logger.debug(f"Property {name} marked as timeseries from rdfs:comment")
+
+            data_type = _extract_geospatial_data_type(graph, prop_uri, value_type)
             
             prop = EntityTypeProperty(
                 id=prop_id,
                 name=name,
                 valueType=value_type,
                 is_timeseries=is_timeseries,
+                dataType=data_type,
             )
             
             # Add property to all domain classes

@@ -308,6 +308,59 @@ class TestRDFConverter:
         assert prop_types["active"] == "Boolean"
         assert prop_types["birthDate"] == "DateTime"
 
+    def test_explicit_geospatial_data_type_annotation(self, converter):
+        """Explicit RDF geospatial annotations emit Fabric dataType."""
+        ttl = """
+        @prefix : <http://example.org/> .
+        @prefix owl: <http://www.w3.org/2002/07/owl#> .
+        @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+        @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+        @prefix fabric: <https://schemas.microsoft.com/fabric/ontology#> .
+
+        :Facility a owl:Class .
+
+        :latitude a owl:DatatypeProperty ;
+            rdfs:domain :Facility ;
+            rdfs:range xsd:double ;
+            fabric:dataType "Latitude" .
+
+        :boundary a owl:DatatypeProperty ;
+            rdfs:domain :Facility ;
+            rdfs:range xsd:string ;
+            fabric:geospatialDataType fabric:GeoJson .
+        """
+
+        entity_types, _ = converter.parse_ttl(ttl)
+        facility = next(et for et in entity_types if et.name == "Facility")
+        props_by_name = {p.name: p for p in facility.properties}
+
+        assert props_by_name["latitude"].valueType == "Double"
+        assert props_by_name["latitude"].dataType == "Latitude"
+        assert props_by_name["boundary"].valueType == "String"
+        assert props_by_name["boundary"].dataType == "GeoJson"
+
+    def test_geospatial_data_type_not_inferred_from_name(self, converter):
+        """RDF geospatial dataType is explicit, not name inferred."""
+        ttl = """
+        @prefix : <http://example.org/> .
+        @prefix owl: <http://www.w3.org/2002/07/owl#> .
+        @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+        @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+        :Facility a owl:Class .
+
+        :latitude a owl:DatatypeProperty ;
+            rdfs:domain :Facility ;
+            rdfs:range xsd:double .
+        """
+
+        entity_types, _ = converter.parse_ttl(ttl)
+        facility = next(et for et in entity_types if et.name == "Facility")
+        latitude = next(p for p in facility.properties if p.name == "latitude")
+
+        assert latitude.valueType == "Double"
+        assert latitude.dataType is None
+
 
 class TestEntityType:
     """Test EntityType dataclass"""
@@ -683,6 +736,25 @@ class TestDataclassToDict:
         assert entity_dict["namespace"] == "usertypes"
         assert len(entity_dict["properties"]) == 1
         assert entity_dict["properties"][0]["name"] == "testProp"
+
+    def test_property_to_dict_data_type(self):
+        """EntityTypeProperty serializes optional semantic dataType."""
+        prop = EntityTypeProperty(
+            id="1000000000002",
+            name="boundary",
+            valueType="String",
+            dataType="GeoJson"
+        )
+
+        assert prop.to_dict()["dataType"] == "GeoJson"
+
+        plain_prop = EntityTypeProperty(
+            id="1000000000003",
+            name="name",
+            valueType="String"
+        )
+
+        assert "dataType" not in plain_prop.to_dict()
     
     def test_relationship_type_to_dict(self):
         """Test RelationshipType.to_dict()"""

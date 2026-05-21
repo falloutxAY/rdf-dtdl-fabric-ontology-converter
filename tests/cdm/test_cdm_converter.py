@@ -117,6 +117,35 @@ class TestCDMConverter:
         assert props_by_name["urlAttr"].valueType == "String"
         assert props_by_name["currencyAttr"].valueType == "Decimal"
         assert props_by_name["yearAttr"].valueType == "BigInt"
+
+    def test_convert_geospatial_semantic_types(self):
+        """CDM latitude and longitude semantic types emit Fabric dataType."""
+        converter = CDMToFabricConverter()
+        manifest = CDMManifest(
+            name="GeoManifest",
+            entities=[
+                CDMEntity(
+                    name="Facility",
+                    attributes=[
+                        CDMAttribute(name="facilityId", data_type="string"),
+                        CDMAttribute(name="lat", data_type="latitude"),
+                        CDMAttribute(name="lon", data_type="longitude"),
+                    ],
+                )
+            ],
+        )
+
+        result = converter.convert_manifest(manifest)
+        entity = result.entity_types[0]
+        props_by_name = {p.name: p for p in entity.properties}
+
+        assert props_by_name["facilityId"].to_dict().get("dataType") is None
+        assert props_by_name["lat"].valueType == "Double"
+        assert props_by_name["lat"].dataType == "Latitude"
+        assert props_by_name["lon"].valueType == "Double"
+        assert props_by_name["lon"].dataType == "Longitude"
+        assert props_by_name["lat"].to_dict()["dataType"] == "Latitude"
+        assert props_by_name["lon"].to_dict()["dataType"] == "Longitude"
     
     def test_convert_primary_key(self, simple_entity_schema):
         """Primary key attribute is tracked in entityIdParts."""

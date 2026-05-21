@@ -35,6 +35,7 @@ from .dtdl_models import (
     DTDLMap,
     DTDLPrimitiveSchema,
     DTDLScaledDecimal,
+    GEOSPATIAL_SCHEMA_DTMIS,
 )
 
 # Import shared Fabric models
@@ -94,6 +95,12 @@ DTDL_TO_FABRIC_TYPE: Dict[str, str] = {
     "multiPolygon": "String",
     # DTDL v4 Scaled Decimal (stored as JSON object with scale and value)
     "scaledDecimal": "String",
+}
+
+GEOSPATIAL_SCHEMA_NAMES: Set[str] = set(GEOSPATIAL_SCHEMA_DTMIS.keys())
+GEOSPATIAL_DTMI_TO_SCHEMA_NAME: Dict[str, str] = {
+    dtmi: schema_name
+    for schema_name, dtmi in GEOSPATIAL_SCHEMA_DTMIS.items()
 }
 
 
@@ -672,6 +679,7 @@ class DTDLToFabricConverter:
             id=self._create_property_id(entity_id, resolved_name),
             name=self._sanitize_name(resolved_name),
             valueType=value_type,
+            dataType=self._schema_to_fabric_data_type(prop.schema),
         )
     
     def _convert_telemetry(
@@ -700,6 +708,7 @@ class DTDLToFabricConverter:
             id=self._create_property_id(entity_id, f"ts_{resolved_name}"),
             name=self._sanitize_name(resolved_name),
             valueType=value_type,
+            dataType=self._schema_to_fabric_data_type(telemetry.schema),
         )
     
     def _convert_relationship(
@@ -990,6 +999,7 @@ class DTDLToFabricConverter:
                     id=self._create_property_id(entity_id, f"{prefix}_{field.name}"),
                     name=self._sanitize_name(f"{prefix}_{field.name}"),
                     valueType=field_type,
+                    dataType=self._schema_to_fabric_data_type(field.schema),
                 )
                 properties.append(prop)
         elif isinstance(payload.schema, str):
@@ -999,6 +1009,7 @@ class DTDLToFabricConverter:
                 id=self._create_property_id(entity_id, f"{prefix}_{payload.name}"),
                 name=self._sanitize_name(f"{prefix}_{payload.name}"),
                 valueType=param_type,
+                dataType=self._schema_to_fabric_data_type(payload.schema),
             )
             properties.append(prop)
         
@@ -1036,6 +1047,7 @@ class DTDLToFabricConverter:
                 id=self._create_property_id(parent_entity_id, prefixed_name),
                 name=self._sanitize_name(prefixed_name),
                 valueType=self._schema_to_fabric_type(prop.schema),
+                dataType=self._schema_to_fabric_data_type(prop.schema),
             )
             properties.append(entity_prop)
         
@@ -1052,6 +1064,8 @@ class DTDLToFabricConverter:
             Fabric value type string
         """
         if isinstance(schema, str):
+            if self._schema_to_geospatial_name(schema):
+                return "String"
             # Handle scaledDecimal in CALCULATED mode
             if schema == "scaledDecimal" and self.scaled_decimal_mode == ScaledDecimalMode.CALCULATED:
                 return "Double"
@@ -1075,6 +1089,29 @@ class DTDLToFabricConverter:
             return "String"
         
         return "String"
+
+    def _schema_to_fabric_data_type(self, schema) -> Optional[str]:
+        """Return optional Fabric semantic dataType for a DTDL schema."""
+        if self._schema_to_geospatial_name(schema):
+            return "GeoJson"
+        return None
+
+    @staticmethod
+    def _schema_to_geospatial_name(schema) -> Optional[str]:
+        """Resolve DTDL geospatial schema names and DTMIs."""
+        if not isinstance(schema, str):
+            return None
+
+        if schema in GEOSPATIAL_SCHEMA_NAMES:
+            return schema
+        if schema in GEOSPATIAL_DTMI_TO_SCHEMA_NAME:
+            return GEOSPATIAL_DTMI_TO_SCHEMA_NAME[schema]
+
+        schema_lower = schema.lower()
+        for schema_name, dtmi in GEOSPATIAL_SCHEMA_DTMIS.items():
+            if schema_lower == dtmi.lower():
+                return schema_name
+        return None
     
     def _sanitize_name(self, name: str) -> str:
         """

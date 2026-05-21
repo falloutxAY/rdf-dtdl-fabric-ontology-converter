@@ -310,8 +310,28 @@ class CDMToFabricConverter:
         return EntityTypeProperty(
             id=prop_id,
             name=attribute.name,
-            valueType=type_result.fabric_type.value
+            valueType=type_result.fabric_type.value,
+            dataType=self._semantic_data_type_for_attribute(attribute, type_result),
         )
+
+    @staticmethod
+    def _semantic_data_type_for_attribute(attribute: CDMAttribute, type_result) -> Optional[str]:
+        """Return Fabric semantic dataType for explicit CDM geospatial types."""
+        semantic_type = type_result.original_type.lower()
+        trait_names = [trait.trait_reference.lower() for trait in attribute.applied_traits]
+
+        is_latitude = semantic_type == "latitude" or any("latitude" in trait for trait in trait_names)
+        is_longitude = semantic_type == "longitude" or any("longitude" in trait for trait in trait_names)
+
+        if is_latitude and type_result.fabric_type.value == "Double":
+            return "Latitude"
+        if is_longitude and type_result.fabric_type.value == "Double":
+            return "Longitude"
+
+        if semantic_type in {"geojson", "geometry", "geography"} and type_result.fabric_type.value == "String":
+            return "GeoJson"
+
+        return None
     
     def _convert_relationship(self, relationship: CDMRelationship) -> Optional[RelationshipType]:
         """

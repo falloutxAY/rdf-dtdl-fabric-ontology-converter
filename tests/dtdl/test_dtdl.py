@@ -320,6 +320,32 @@ class TestDTDLToFabricConverter:
         assert type_map["doubleProp"] == "Double"
         assert type_map["stringProp"] == "String"
         assert type_map["dateProp"] == "DateTime"
+
+    def test_convert_geospatial_schema_data_type(self, converter):
+        """DTDL geospatial schemas emit Fabric dataType GeoJson."""
+        interface = DTDLInterface(
+            dtmi="dtmi:com:example:Asset;1",
+            type="Interface"
+        )
+        interface.properties = [
+            DTDLProperty(name="boundary", schema="polygon"),
+        ]
+        interface.telemetries = [
+            DTDLTelemetry(name="currentLocation", schema=GEOSPATIAL_SCHEMA_DTMIS["point"])
+        ]
+
+        result = converter.convert([interface])
+        entity = result.entity_types[0]
+
+        prop = next(p for p in entity.properties if p.name == "boundary")
+        telemetry = next(p for p in entity.timeseriesProperties if p.name == "currentLocation")
+
+        assert prop.valueType == "String"
+        assert prop.dataType == "GeoJson"
+        assert telemetry.valueType == "String"
+        assert telemetry.dataType == "GeoJson"
+        assert prop.to_dict()["dataType"] == "GeoJson"
+        assert telemetry.to_dict()["dataType"] == "GeoJson"
     
     def test_to_fabric_definition(self, converter):
         """Test generating Fabric API definition format."""

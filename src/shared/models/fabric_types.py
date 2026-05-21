@@ -22,6 +22,7 @@ class EntityTypeProperty:
         id: Unique identifier for the property (numeric string).
         name: Display name of the property.
         valueType: Fabric data type (String, Boolean, DateTime, BigInt, Double, etc.).
+        dataType: Optional Fabric semantic type, currently used for geospatial properties.
         is_timeseries: Whether this is a timeseries property (from eventhouse).
         redefines: ID of parent property being redefined (for inheritance).
         baseTypeNamespaceType: Namespace type of the base property.
@@ -40,6 +41,7 @@ class EntityTypeProperty:
     name: str
     valueType: str
     is_timeseries: bool = False
+    dataType: Optional[str] = None
     redefines: Optional[str] = None
     baseTypeNamespaceType: Optional[str] = None
     
@@ -50,6 +52,8 @@ class EntityTypeProperty:
             "name": self.name,
             "valueType": self.valueType,
         }
+        if self.dataType:
+            result["dataType"] = self.dataType
         if self.redefines:
             result["redefines"] = self.redefines
         if self.baseTypeNamespaceType:
