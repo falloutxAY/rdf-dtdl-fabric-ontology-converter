@@ -49,6 +49,31 @@ python -m src.main upload --format dtdl models/ --ontology-name MyDigitalTwin
 | Complex types (Object, Array, Map) | JSON String |
 | Geospatial types | JSON String |
 
+### Geospatial Schemas
+
+DTDL v4 geospatial schemas emit Fabric `valueType: String` plus semantic `dataType: GeoJson`.
+
+| DTDL schema | Fabric output |
+|-------------|---------------|
+| `dtmi:dtdl:instance:Schema:point;4` | `valueType: String`, `dataType: GeoJson` |
+| `dtmi:dtdl:instance:Schema:lineString;4` | `valueType: String`, `dataType: GeoJson` |
+| `dtmi:dtdl:instance:Schema:polygon;4` | `valueType: String`, `dataType: GeoJson` |
+| `dtmi:dtdl:instance:Schema:multiPoint;4` | `valueType: String`, `dataType: GeoJson` |
+| `dtmi:dtdl:instance:Schema:multiLineString;4` | `valueType: String`, `dataType: GeoJson` |
+| `dtmi:dtdl:instance:Schema:multiPolygon;4` | `valueType: String`, `dataType: GeoJson` |
+
+Example:
+
+```json
+{
+  "@type": "Property",
+  "name": "zone_geo_area",
+  "schema": "dtmi:dtdl:instance:Schema:polygon;4"
+}
+```
+
+Latitude and longitude should be modeled as `double` properties or telemetries and annotated downstream if the target Fabric payload needs `dataType: Latitude` or `dataType: Longitude`.
+
 ### ⚠️ Configurable Features
 
 #### Component Handling (`component_mode`)

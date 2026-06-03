@@ -59,6 +59,57 @@ python -m src.main export <ontology-id> --output exported.ttl
 | `xsd:anyURI` | String |
 | Other types | String (with warning) |
 
+### Geospatial `dataType` Annotations
+
+Fabric Ontology uses two fields for geospatial properties:
+
+- `valueType` is the physical scalar type.
+- `dataType` is optional semantic metadata for geospatial fields.
+
+Supported geospatial `dataType` values are:
+
+| Semantic `dataType` | Required RDF range | Fabric output |
+|---------------------|--------------------|---------------|
+| `Latitude` | `xsd:double` | `valueType: Double`, `dataType: Latitude` |
+| `Longitude` | `xsd:double` | `valueType: Double`, `dataType: Longitude` |
+| `GeoJson` | `xsd:string` | `valueType: String`, `dataType: GeoJson` |
+
+Annotate RDF datatype properties with any of these predicate names. Matching is case-insensitive on the local name:
+
+- `fabricDataType`
+- `dataType`
+- `semanticDataType`
+- `geospatialDataType`
+
+Example:
+
+```turtle
+@prefix : <http://example.org/> .
+@prefix ex: <http://example.org/custom#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+:Site a owl:Class .
+
+:site_latitude a owl:DatatypeProperty ;
+    rdfs:domain :Site ;
+    rdfs:range xsd:double ;
+    ex:fabricDataType "Latitude" .
+
+:site_longitude a owl:DatatypeProperty ;
+    rdfs:domain :Site ;
+    rdfs:range xsd:double ;
+    ex:fabricDataType "Longitude" .
+
+:site_geo_area a owl:DatatypeProperty ;
+    rdfs:domain :Site ;
+    rdfs:range xsd:string ;
+    ex:fabricDataType "GeoJson" .
+```
+
+Do not infer geospatial metadata from property names alone. Add explicit annotations so the resulting Fabric payload includes `dataType`.
+
 ### ⚠️ Limited Support
 
 | Construct | Behavior |

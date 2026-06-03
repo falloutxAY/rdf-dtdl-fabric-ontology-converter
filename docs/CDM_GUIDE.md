@@ -81,6 +81,48 @@ CDM semantic types (from traits) are mapped to appropriate Fabric types:
 | `age`, `year` | BigInt | Temporal |
 | `image`, `photo` | String | Binary as base64 |
 
+### Geospatial Semantic Metadata
+
+Fabric Ontology uses physical `valueType` plus optional semantic `dataType` for geospatial fields.
+
+| CDM semantic input | Fabric output |
+|--------------------|---------------|
+| `latitude` | `valueType: Double`, `dataType: Latitude` |
+| `longitude` | `valueType: Double`, `dataType: Longitude` |
+| `geojson`, `geometry`, `geography` | `valueType: String`, `dataType: GeoJson` |
+
+Example attribute with semantic data type:
+
+```json
+{
+    "name": "site_latitude",
+    "dataType": "latitude"
+}
+```
+
+Example attribute with a semantic trait:
+
+```json
+{
+    "name": "site_longitude",
+    "dataType": "decimal",
+    "appliedTraits": [
+        { "traitReference": "is-longitude" }
+    ]
+}
+```
+
+Example GeoJSON attribute:
+
+```json
+{
+    "name": "zone_geo_area",
+    "dataType": "geography"
+}
+```
+
+The physical Fabric type remains `Double` for latitude/longitude and `String` for GeoJSON. The semantic `dataType` is emitted only when the converter can identify the geospatial meaning explicitly.
+
 ### Relationship Mapping
 
 | CDM Relationship | Fabric Mapping |
